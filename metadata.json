@@ -1,0 +1,8 @@
+{
+  "name": "Si-Pejantan",
+  "description": "Sistem Informasi Perbaikan Jalan dan Jembatan Dinas PUPR Kota Banjarmasin. Aplikasi terintegrasi untuk pelaporan warga dan manajemen operasional UPT.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation"
+  ]
+}
