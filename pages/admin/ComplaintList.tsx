@@ -1,9 +1,10 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
-import { MOCK_COMPLAINTS } from '../../constants';
 import { Complaint, ComplaintStatus } from '../../types';
 import StatusBadge from '../../components/StatusBadge';
+import { db } from '../../src/firebase';
+import { collection, onSnapshot, query, updateDoc, doc } from 'firebase/firestore';
 import { 
   Search, 
   Filter, 
@@ -24,7 +25,16 @@ import {
 
 const ComplaintList: React.FC = () => {
   // State for Data
-  const [complaints, setComplaints] = useState<Complaint[]>(MOCK_COMPLAINTS);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  
+  useEffect(() => {
+    const q = query(collection(db, 'complaints'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Complaint));
+      setComplaints(data);
+    });
+    return () => unsubscribe();
+  }, []);
   
   // Toast State
   const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
@@ -74,30 +84,28 @@ const ComplaintList: React.FC = () => {
     setIsProcessOpen(true);
   };
 
-  const handleProcessSubmit = (e: React.FormEvent) => {
+  const handleProcessSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedComplaint) return;
 
-    const updatedComplaints = complaints.map(c => {
-      if (c.id === selectedComplaint.id) {
-        return {
-          ...c,
-          status: processForm.status,
-          rejectionReason: processForm.status === ComplaintStatus.REJECTED ? processForm.rejectionReason : undefined,
-          surveyDate: processForm.status === ComplaintStatus.SURVEY ? processForm.surveyDate : c.surveyDate,
-          completionDate: processForm.status === ComplaintStatus.COMPLETED ? processForm.completionDate : c.completionDate,
-          notes: processForm.notes || undefined,
-          dateUpdated: new Date().toISOString()
-        };
-      }
-      return c;
-    });
-
-    setComplaints(updatedComplaints);
-    setIsProcessOpen(false);
-    setSelectedComplaint(null);
-    triggerToast('Aduan berhasil diproses dan diperbarui');
+    try {
+      await updateDoc(doc(db, 'complaints', selectedComplaint.id!), {
+        status: processForm.status,
+        rejectionReason: processForm.status === ComplaintStatus.REJECTED ? processForm.rejectionReason : undefined,
+        surveyDate: processForm.status === ComplaintStatus.SURVEY ? processForm.surveyDate : selectedComplaint.surveyDate,
+        completionDate: processForm.status === ComplaintStatus.COMPLETED ? processForm.completionDate : selectedComplaint.completionDate,
+        notes: processForm.notes || undefined,
+        dateUpdated: new Date().toISOString()
+      });
+      setIsProcessOpen(false);
+      setSelectedComplaint(null);
+      triggerToast('Aduan berhasil diproses dan diperbarui');
+    } catch (error) {
+      console.error('Error updating complaint:', error);
+      triggerToast('Gagal memperbarui aduan');
+    }
   };
+
 
   const handleSortByDate = () => {
     if (sortDirection === null) setSortDirection('desc');
@@ -186,6 +194,7 @@ const ComplaintList: React.FC = () => {
                   className="pl-9 pr-10 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-bold"
                >
                  <option value="ALL">Semua Status</option>
+                 <option value={ComplaintStatus.PENDING}>{ComplaintStatus.PENDING}</option>
                  <option value={ComplaintStatus.RECEIVED}>{ComplaintStatus.RECEIVED}</option>
                  <option value={ComplaintStatus.REJECTED}>{ComplaintStatus.REJECTED}</option>
                  <option value={ComplaintStatus.SURVEY}>{ComplaintStatus.SURVEY}</option>

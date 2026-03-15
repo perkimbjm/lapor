@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
-import { MOCK_MATERIALS } from '../../constants';
 import { Material } from '../../types';
+import { db } from '../../src/firebase';
+import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { 
   AlertTriangle, 
   AlertCircle, 
@@ -21,7 +22,17 @@ import {
 import { GoogleGenAI } from "@google/genai";
 
 const MaterialInventory: React.FC = () => {
-  const [materials, setMaterials] = useState<Material[]>(MOCK_MATERIALS);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  
+  useEffect(() => {
+    const q = query(collection(db, 'materials'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Material));
+      setMaterials(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -100,7 +111,7 @@ const MaterialInventory: React.FC = () => {
 
   const openEditModal = (item: Material) => {
     setIsEditing(true);
-    setCurrentId(item.id);
+    setCurrentId(item.id || null);
     setFormData({
       name: item.name,
       unit: item.unit,
@@ -110,31 +121,42 @@ const MaterialInventory: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const executeDelete = () => {
+  const executeDelete = async () => {
     if (!itemToDelete) return;
-    setMaterials(prev => prev.filter(m => m.id !== itemToDelete.id));
-    triggerToast(`Material berhasil dihapus`);
-    setItemToDelete(null);
+    try {
+      await deleteDoc(doc(db, 'materials', itemToDelete.id));
+      triggerToast(`Material berhasil dihapus`);
+      setItemToDelete(null);
+    } catch (error) {
+      console.error('Error deleting material:', error);
+      triggerToast('Gagal menghapus material');
+    }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newMaterial: Material = {
-      id: isEditing && currentId ? currentId : `m-${Date.now()}`,
+    const materialData = {
       name: formData.name,
       unit: formData.unit,
       currentStock: Number(formData.currentStock),
       minThreshold: Number(formData.minThreshold),
       lastUpdated: new Date().toISOString().split('T')[0]
     };
-    if (isEditing) {
-      setMaterials(prev => prev.map(m => m.id === currentId ? newMaterial : m));
-    } else {
-      setMaterials(prev => [...prev, newMaterial]);
+    
+    try {
+      if (isEditing && currentId) {
+        await updateDoc(doc(db, 'materials', currentId), materialData);
+      } else {
+        await addDoc(collection(db, 'materials'), materialData);
+      }
+      triggerToast(`Stok berhasil diperbarui`);
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving material:', error);
+      triggerToast('Gagal menyimpan material');
     }
-    triggerToast(`Stok berhasil diperbarui`);
-    setIsModalOpen(false);
   };
+
 
   return (
     <AdminLayout title="Manajemen Stok Material">

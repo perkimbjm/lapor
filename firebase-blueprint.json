@@ -1,0 +1,157 @@
+{
+  "entities": {
+    "HeroContent": {
+      "title": "HeroContent",
+      "description": "Content for the hero section of the landing page.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Main title text." },
+        "subtitle": { "type": "string", "description": "Subtitle text." },
+        "mediaUrl": { "type": "string", "description": "URL for image or video." },
+        "mediaType": { "type": "string", "enum": ["image", "video"], "description": "Type of media." }
+      },
+      "required": ["title", "subtitle", "mediaUrl", "mediaType"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Notification for admin.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "desc": { "type": "string" },
+        "time": { "type": "string" },
+        "type": { "type": "string", "enum": ["info", "warning", "success"] },
+        "read": { "type": "boolean" }
+      },
+      "required": ["title", "desc", "time", "type", "read"]
+    },
+    "Step": {
+      "title": "Step",
+      "description": "Step for the landing page.",
+      "type": "object",
+      "properties": {
+        "step": { "type": "string" },
+        "title": { "type": "string" },
+        "desc": { "type": "string" },
+        "color": { "type": "string" }
+      },
+      "required": ["step", "title", "desc", "color"]
+    },
+    "Complaint": {
+      "title": "Complaint",
+      "description": "Complaint from citizens.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "status": { "type": "string" },
+        "location": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["title", "status", "location", "date"]
+    },
+    "Material": {
+      "title": "Material",
+      "description": "Inventory material.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "stock": { "type": "number" },
+        "unit": { "type": "string" }
+      },
+      "required": ["name", "stock", "unit"]
+    },
+    "Equipment": {
+      "title": "Equipment",
+      "description": "Equipment and fleet.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["name", "status"]
+    },
+    "Workforce": {
+      "title": "Workforce",
+      "description": "Workforce member.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "role": { "type": "string" }
+      },
+      "required": ["name", "role"]
+    },
+    "Report": {
+      "title": "Report",
+      "description": "Administrative report.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "date": { "type": "string" }
+      },
+      "required": ["title", "date"]
+    },
+    "CostReport": {
+      "title": "CostReport",
+      "description": "Monthly cost report.",
+      "type": "object",
+      "properties": {
+        "month": { "type": "string" },
+        "estimasi": { "type": "number" },
+        "realisasi": { "type": "number" }
+      },
+      "required": ["month", "estimasi", "realisasi"]
+    },
+    "StaticText": {
+      "title": "StaticText",
+      "description": "Static text content for the landing page.",
+      "type": "object",
+      "properties": {
+        "key": { "type": "string", "description": "Unique key for the text element." },
+        "value": { "type": "string", "description": "The text content." }
+      },
+      "required": ["key", "value"]
+    }
+  },
+  "firestore": {
+    "/cms/hero": {
+      "schema": { "$ref": "HeroContent" },
+      "description": "Hero section content."
+    },
+    "/cms/staticText/{key}": {
+      "schema": { "$ref": "StaticText" },
+      "description": "Static text content."
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "Notification" },
+      "description": "Admin notifications."
+    },
+    "/cms/steps/{stepId}": {
+      "schema": { "$ref": "Step" },
+      "description": "Landing page steps."
+    },
+    "/complaints/{complaintId}": {
+      "schema": { "$ref": "Complaint" },
+      "description": "Citizen complaints."
+    },
+    "/materials/{materialId}": {
+      "schema": { "$ref": "Material" },
+      "description": "Inventory materials."
+    },
+    "/equipment/{equipmentId}": {
+      "schema": { "$ref": "Equipment" },
+      "description": "Equipment and fleet."
+    },
+    "/workforce/{workforceId}": {
+      "schema": { "$ref": "Workforce" },
+      "description": "Workforce members."
+    },
+    "/reports/{reportId}": {
+      "schema": { "$ref": "Report" },
+      "description": "Administrative reports."
+    },
+    "/costReports/{costReportId}": {
+      "schema": { "$ref": "CostReport" },
+      "description": "Monthly cost reports."
+    }
+  }
+}

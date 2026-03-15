@@ -17,6 +17,7 @@ import WorkforceManagement from './pages/admin/WorkforceManagement';
 import MapDistribution from './pages/admin/MapDistribution';
 import Reports from './pages/admin/Reports';
 import Settings from './pages/admin/Settings';
+import CMS from './pages/admin/CMS';
 
 const App: React.FC = () => {
   return (
@@ -37,6 +38,7 @@ const App: React.FC = () => {
           <Route path="/admin/map" element={<MapDistribution />} />
           <Route path="/admin/reports" element={<Reports />} />
           <Route path="/admin/settings" element={<Settings />} />
+          <Route path="/admin/cms" element={<CMS />} />
           
           {/* Fallback */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -2,12 +2,26 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ShieldCheck, Clock, ChevronRight, MousePointer2 } from 'lucide-react';
 import PublicNavbar from '../../components/PublicNavbar';
+import { db } from '../../src/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 // Placeholder Image URL
 const MASCOT_IMAGE_URL = "https://img.freepik.com/free-vector/yellow-road-roller-construction-machinery-vector-illustration_1284-74786.jpg?t=st=1710000000~exp=1710003600~hmac=xyz"; 
 
 const LandingPage: React.FC = () => {
   const [scrollY, setScrollY] = useState(0);
+  const [hero, setHero] = useState<any>(null);
+  
+  useEffect(() => {
+    const fetchHero = async () => {
+      const docRef = doc(db, 'cms', 'hero');
+      const docSnap = await getDoc(docRef);
+      if (docSnap.exists()) {
+        setHero(docSnap.data());
+      }
+    };
+    fetchHero();
+  }, []);
   
   // Optimized Scroll Listener
   useEffect(() => {
@@ -80,13 +94,13 @@ const LandingPage: React.FC = () => {
             <div className="space-y-8" style={{ transform: `translateY(${scrollY * -0.1}px)` }}>
               <div className="inline-flex items-center space-x-2 bg-blue-900/50 border border-blue-500/30 rounded-full px-3 py-1 text-blue-300 text-sm font-medium backdrop-blur-md">
                 <span className="flex h-2 w-2 rounded-full bg-blue-400 animate-pulse"></span>
-                <span>Si-Pejantan (Sistem Informasi Perbaikan Jalan dan Jembatan)</span>
+                <span>Bepadah</span>
               </div>
 
               <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight text-white leading-tight drop-shadow-lg">
-                Jalan Mantap, <br/>
+                {hero?.title || "Jalan Mantap,"} <br/>
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-300 text-glow">
-                Banjarmasin Maju Sejahtera
+                {hero?.subtitle || "Banjarmasin Maju Sejahtera"}
                 </span>
               </h1>
               
@@ -121,7 +135,7 @@ const LandingPage: React.FC = () => {
               >
                  <img 
                   src={MASCOT_IMAGE_URL} 
-                  alt="Ilustrasi Si-Pejantan" 
+                  alt="Ilustrasi Bepadah" 
                   className="relative z-10 w-auto max-h-[500px] object-contain drop-shadow-2xl"
                   onError={(e) => {
                     e.currentTarget.src = "https://cdn-icons-png.flaticon.com/512/2555/2555013.png"; 
@@ -231,7 +245,7 @@ const LandingPage: React.FC = () => {
               <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center">
                  <ShieldCheck className="text-white h-5 w-5" />
               </div>
-              <span className="font-bold text-lg text-slate-800 dark:text-white">Si-Pejantan</span>
+              <span className="font-bold text-lg text-slate-800 dark:text-white">Bepadah</span>
            </div>
            <p className="text-slate-500 dark:text-slate-400 text-sm text-center md:text-right">
             &copy; {new Date().getFullYear()} Dinas PUPR Kota Banjarmasin. Banjarmasin Maju Sejahtera.<br/>

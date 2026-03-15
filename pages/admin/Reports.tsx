@@ -1,6 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
+import { db } from '../../src/firebase';
+import { collection, onSnapshot, query } from 'firebase/firestore';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell
@@ -24,57 +26,8 @@ import {
   Eye,
   X
 } from 'lucide-react';
-import { MOCK_COST_REPORTS, COST_BY_CATEGORY } from '../../constants';
+import { COST_BY_CATEGORY } from '../../constants';
 import { GoogleGenAI } from "@google/genai";
-
-const COMMITMENT_DATA = [
-  { id: 'PKT-001', name: 'Pemeliharaan Rutin Jl. A. Yani', pagu: 200000000, commitment: 185000000, vendor: 'CV. Banjar Aspal' },
-  { id: 'PKT-002', name: 'Perbaikan Jembatan Dewi', pagu: 150000000, commitment: 45000000, vendor: 'PT. Konstruksi Utama' },
-  { id: 'PKT-003', name: 'Pengadaan Material Cold Mix (Triwulan I)', pagu: 100000000, commitment: 98500000, vendor: 'CV. Indo Bitumen' },
-];
-
-const EPURCHASING_DATA = [
-  { 
-    id: 'EP-2024-001', 
-    noKontrak: 'SPK/PL/PJJ/01/2024', 
-    namaPekerjaan: 'Pengadaan Aspal Cold Mix Kemasan (Bitumen)', 
-    nilai: 125000000, 
-    waktuPelaksanaan: '30 Hari Kalender', 
-    tglKontrak: '2024-03-01', 
-    tglBerakhir: '2024-03-31', 
-    status: 'Selesai' 
-  },
-  { 
-    id: 'EP-2024-002', 
-    noKontrak: 'SPK/PL/PJJ/02/2024', 
-    namaPekerjaan: 'Pekerjaan Drainase Lingkungan Kayu Tangi', 
-    nilai: 45000000, 
-    waktuPelaksanaan: '14 Hari Kalender', 
-    tglKontrak: '2024-03-05', 
-    tglBerakhir: '2024-03-19', 
-    status: 'Proses' 
-  },
-  { 
-    id: 'EP-2024-003', 
-    noKontrak: 'DRAFT/2024/003/UPT', 
-    namaPekerjaan: 'Sewa Alat Berat Vibro Roller & Baby Roller', 
-    nilai: 15000000, 
-    waktuPelaksanaan: '7 Hari Kalender', 
-    tglKontrak: '2024-03-15', 
-    tglBerakhir: '2024-03-22', 
-    status: 'Draft' 
-  },
-  { 
-    id: 'EP-2024-004', 
-    noKontrak: 'SPK/PL/PJJ/04/2024', 
-    namaPekerjaan: 'Rehabilitasi Pagar Jembatan Mawar', 
-    nilai: 78500000, 
-    waktuPelaksanaan: '21 Hari Kalender', 
-    tglKontrak: '2024-03-10', 
-    tglBerakhir: '2024-03-31', 
-    status: 'Proses' 
-  },
-];
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
 
@@ -93,10 +46,37 @@ const Reports: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showApiKeyPrompt, setShowApiKeyPrompt] = useState(false);
   const [selectedEPDetail, setSelectedEPDetail] = useState<any>(null);
+  const [commitments, setCommitments] = useState<any[]>([]);
+  const [epurchasing, setEpurchasing] = useState<any[]>([]);
+  const [costReports, setCostReports] = useState<any[]>([]);
 
-  const totalPagu = COMMITMENT_DATA.reduce((acc, curr) => acc + curr.pagu, 0);
-  const totalKomitmen = COMMITMENT_DATA.reduce((acc, curr) => acc + curr.commitment, 0);
+  useEffect(() => {
+    const qCommitments = query(collection(db, 'commitments'));
+    const unsubscribeCommitments = onSnapshot(qCommitments, (snapshot) => {
+      setCommitments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const qEpurchasing = query(collection(db, 'epurchasing'));
+    const unsubscribeEpurchasing = onSnapshot(qEpurchasing, (snapshot) => {
+      setEpurchasing(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    const qCostReports = query(collection(db, 'costReports'));
+    const unsubscribeCostReports = onSnapshot(qCostReports, (snapshot) => {
+      setCostReports(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    });
+
+    return () => {
+      unsubscribeCommitments();
+      unsubscribeEpurchasing();
+      unsubscribeCostReports();
+    };
+  }, []);
+
+  const totalPagu = commitments.reduce((acc, curr) => acc + (curr.pagu || 0), 0);
+  const totalKomitmen = commitments.reduce((acc, curr) => acc + (curr.commitment || 0), 0);
   const sisaTotal = totalPagu - totalKomitmen;
+
 
   const handleSelectApiKey = async () => {
     await window.aistudio?.openSelectKey();
@@ -117,7 +97,7 @@ const Reports: React.FC = () => {
       }
 
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const financialContext = COMMITMENT_DATA.map(d => `${d.name}: Pagu ${d.pagu}, Terkontrak ${d.commitment}`).join('; ');
+      const financialContext = commitments.map(d => `${d.name}: Pagu ${d.pagu}, Terkontrak ${d.commitment}`).join('; ');
       
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
@@ -249,7 +229,7 @@ const Reports: React.FC = () => {
                       </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                      {COMMITMENT_DATA.map(item => (
+                       {commitments.map(item => (
                         <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                            <td className="px-6 py-4 text-xs font-bold text-slate-400 dark:text-slate-300">{item.id}</td>
                            <td className="px-6 py-4">
@@ -286,11 +266,11 @@ const Reports: React.FC = () => {
                  <div className="mt-6 flex flex-wrap gap-4">
                     <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/20">
                        <p className="text-[9px] font-black uppercase text-indigo-200 mb-1">Total Transaksi</p>
-                       <p className="text-lg font-black">{EPURCHASING_DATA.length} Paket</p>
+                       <p className="text-lg font-black">{epurchasing.length} Paket</p>
                     </div>
                     <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/20">
                        <p className="text-[9px] font-black uppercase text-indigo-200 mb-1">Akumulasi Nilai</p>
-                       <p className="text-lg font-black">{formatRupiah(EPURCHASING_DATA.reduce((acc, c) => acc + c.nilai, 0))}</p>
+                       <p className="text-lg font-black">{formatRupiah(epurchasing.reduce((acc, c) => acc + (c.nilai || 0), 0))}</p>
                     </div>
                  </div>
               </div>
@@ -321,7 +301,7 @@ const Reports: React.FC = () => {
                        </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                       {EPURCHASING_DATA.map((item) => (
+                       {epurchasing.map((item) => (
                           <tr key={item.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
                              <td className="px-6 py-5 text-xs font-bold text-slate-400">{item.id}</td>
                              <td className="px-6 py-5">
@@ -395,7 +375,7 @@ const Reports: React.FC = () => {
               <h3 className="text-lg font-black text-slate-900 dark:text-white mb-6 uppercase tracking-tight">Realisasi vs Anggaran Bulanan</h3>
               <div className="h-72">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={MOCK_COST_REPORTS}>
+                  <BarChart data={costReports}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} />
                     <XAxis dataKey="month" tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 900}} axisLine={false} />
                     <YAxis hide />

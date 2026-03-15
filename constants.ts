@@ -60,12 +60,6 @@ export const MOCK_ATTENDANCE: AttendanceRecord[] = [
   },
 ];
 
-export const MOCK_COST_REPORTS = [
-  { month: 'Jan', estimasi: 40000000, realisasi: 38500000 },
-  { month: 'Feb', estimasi: 35000000, realisasi: 32000000 },
-  { month: 'Mar', estimasi: 50000000, realisasi: 48000000 },
-];
-
 export const COST_BY_CATEGORY = [
   { name: 'Material', value: 120000000 },
   { name: 'Upah Kerja', value: 80000000 },

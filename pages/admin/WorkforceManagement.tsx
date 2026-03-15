@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
-import { MOCK_WORKERS, MOCK_ATTENDANCE } from '../../constants';
 import { Worker, AttendanceRecord, RoadType } from '../../types';
+import { db } from '../../src/firebase';
+import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { 
   Users, 
   Calendar, 
@@ -36,8 +37,8 @@ const WorkforceManagement: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
   const [selectedWeek, setSelectedWeek] = useState<number | 'all'>(1);
-  const [workers, setWorkers] = useState<Worker[]>(MOCK_WORKERS);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>(MOCK_ATTENDANCE);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedWorkerId, setSelectedWorkerId] = useState<string | null>(null);
@@ -47,8 +48,28 @@ const WorkforceManagement: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    const qWorkers = query(collection(db, 'workers'));
+    const unsubscribeWorkers = onSnapshot(qWorkers, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worker));
+      setWorkers(data);
+    });
+
+    const qAttendance = query(collection(db, 'attendance'));
+    const unsubscribeAttendance = onSnapshot(qAttendance, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      setAttendance(data);
+    });
+
+    return () => {
+      unsubscribeWorkers();
+      unsubscribeAttendance();
+    };
+  }, []);
+
+  useEffect(() => {
     setCurrentPage(1);
   }, [activeTab, selectedYear, selectedMonth, selectedWeek]);
+
 
   const [formData, setFormData] = useState({
     name: '',
@@ -78,8 +99,15 @@ const WorkforceManagement: React.FC = () => {
     const presence = record.presence;
     const days = Object.values(presence);
     const standardDays = days.filter(d => d === 1).length;
-    const overtimeDays = days.filter(d => d === 2).length;
-    return (standardDays * worker.dailyRate) + (overtimeDays * (worker.dailyRate + worker.otRate));
+    const overtime1Days = days.filter(d => d === 2).length;
+    const overtime2Days = days.filter(d => d === 3).length;
+    const overtime3Days = days.filter(d => d === 4).length;
+    
+    const overtimeWage = (overtime1Days * (worker.dailyRate + worker.otRate)) + 
+                         (overtime2Days * (worker.dailyRate + worker.otRate * 1.5)) + 
+                         (overtime3Days * (worker.dailyRate + worker.otRate * 2));
+    
+    return (standardDays * worker.dailyRate) + overtimeWage;
   };
 
   const getAttendanceRecordsForWorker = (workerId: string) => {
@@ -122,7 +150,10 @@ const WorkforceManagement: React.FC = () => {
     const dataToExport = filteredWorkers.map((worker, index) => {
       const records = getAttendanceRecordsForWorker(worker.id);
       const totalPresence = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 1).length, 0);
-      const totalOT = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 2).length, 0);
+      const totalOT1 = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 2).length, 0);
+      const totalOT2 = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 3).length, 0);
+      const totalOT3 = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 4).length, 0);
+      const totalOT = totalOT1 + totalOT2 + totalOT3;
       
       return {
         'Tahun': selectedYear,
@@ -152,7 +183,10 @@ const WorkforceManagement: React.FC = () => {
 
     const wage = calculateTotalWage(records, worker);
     const totalPresence = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 1).length, 0);
-    const totalOT = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 2).length, 0);
+    const totalOT1 = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 2).length, 0);
+    const totalOT2 = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 3).length, 0);
+    const totalOT3 = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 4).length, 0);
+    const totalOT = totalOT1 + totalOT2 + totalOT3;
 
     const data = [
       { 
@@ -304,26 +338,33 @@ const WorkforceManagement: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Hapus data pekerja ini?')) {
-      setWorkers(workers.filter(w => w.id !== id));
-      setAttendance(attendance.filter(a => a.workerId !== id));
+      try {
+        await deleteDoc(doc(db, 'workers', id));
+        // Also delete attendance records for this worker
+        const workerAttendance = attendance.filter(a => a.workerId === id);
+        for (const record of workerAttendance) {
+          await deleteDoc(doc(db, 'attendance', record.id));
+        }
+      } catch (error) {
+        console.error('Error deleting worker:', error);
+        alert('Gagal menghapus data pekerja');
+      }
     }
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const workerId = selectedWorkerId || `w-${Date.now()}`;
-    const newWorker: Worker = {
-      id: workerId,
+    const workerData = {
       name: formData.name,
       category: formData.category,
       dailyRate: Number(formData.dailyRate),
       otRate: Number(formData.otRate)
     };
 
-    const newRecord: AttendanceRecord = {
-      id: `a-${Date.now()}`,
+    const attendanceData = {
       workerId: workerId,
       month: `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`,
       week: selectedWeek === 'all' ? 1 : selectedWeek,
@@ -338,24 +379,33 @@ const WorkforceManagement: React.FC = () => {
       }
     };
 
-    if (isEditing) {
-      setWorkers(workers.map(w => w.id === workerId ? newWorker : w));
-      setAttendance(prev => {
-        const monthStr = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
-        const weekVal = selectedWeek === 'all' ? 1 : selectedWeek;
-        const others = prev.filter(a => !(a.workerId === workerId && a.month === monthStr && a.week === weekVal));
-        return [...others, newRecord];
-      });
-    } else {
-      setWorkers([...workers, newWorker]);
-      setAttendance([...attendance, newRecord]);
+    try {
+      if (isEditing && selectedWorkerId) {
+        await updateDoc(doc(db, 'workers', selectedWorkerId), workerData);
+        // Update attendance record if exists
+        const existingRecord = attendance.find(a => a.workerId === selectedWorkerId && a.month === attendanceData.month && a.week === attendanceData.week);
+        if (existingRecord) {
+          await updateDoc(doc(db, 'attendance', existingRecord.id), attendanceData);
+        } else {
+          await addDoc(collection(db, 'attendance'), attendanceData);
+        }
+      } else {
+        await addDoc(collection(db, 'workers'), { id: workerId, ...workerData });
+        await addDoc(collection(db, 'attendance'), attendanceData);
+      }
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving worker:', error);
+      alert('Gagal menyimpan data pekerja');
     }
-    setIsModalOpen(false);
   };
+
 
   const renderCell = (val: number) => {
     if (val === 1) return <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/40 flex items-center justify-center text-green-700 dark:text-green-400 font-black text-xs">1</div>;
     if (val === 2) return <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-black text-xs">2</div>;
+    if (val === 3) return <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-900/40 flex items-center justify-center text-purple-700 dark:text-purple-400 font-black text-xs">3</div>;
+    if (val === 4) return <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/40 flex items-center justify-center text-indigo-700 dark:text-indigo-400 font-black text-xs">4</div>;
     return <div className="w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-300 dark:text-slate-600 font-black text-xs">-</div>;
   };
 
@@ -665,7 +715,9 @@ const WorkforceManagement: React.FC = () => {
            <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-300">
               <div className="flex gap-6">
                  <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-sm bg-green-500"></div> 1 = Hadir</div>
-                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-sm bg-blue-500"></div> 2 = Lembur</div>
+                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-sm bg-blue-500"></div> 2 = Lembur 1</div>
+                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-sm bg-purple-500"></div> 3 = Lembur 2</div>
+                 <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 rounded-sm bg-indigo-500"></div> 4 = Lembur 3</div>
               </div>
               <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-3 py-1 rounded-full border border-blue-100 dark:border-blue-800">
                 <AlertTriangle size={10} /> 
@@ -709,7 +761,7 @@ const WorkforceManagement: React.FC = () => {
                </div>
 
                <div>
-                 <label className="text-[10px] font-black text-slate-500 dark:text-slate-200 uppercase tracking-widest mb-4 block">Presensi Harian (Kode: 0=Absen, 1=Hadir, 2=Lembur)</label>
+                 <label className="text-[10px] font-black text-slate-500 dark:text-slate-200 uppercase tracking-widest mb-4 block">Presensi Harian (Kode: 0=Absen, 1=Hadir, 2=Lembur 1, 3=Lembur 2, 4=Lembur 3)</label>
                  <div className="grid grid-cols-7 gap-2">
                     {['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(day => (
                       <div key={day} className="text-center">
@@ -722,6 +774,8 @@ const WorkforceManagement: React.FC = () => {
                             <option value={0}>0</option>
                             <option value={1}>1</option>
                             <option value={2}>2</option>
+                            <option value={3}>3</option>
+                            <option value={4}>4</option>
                          </select>
                       </div>
                     ))}

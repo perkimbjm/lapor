@@ -36,6 +36,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
     { name: 'Armada & Peralatan', path: '/admin/equipment', icon: <Truck size={20} /> },
     { name: 'Tenaga Kerja', path: '/admin/workforce', icon: <Users size={20} /> },
     { name: 'Laporan & Biaya', path: '/admin/reports', icon: <BarChart3 size={20} /> },
+    { name: 'CMS Landing Page', path: '/admin/cms', icon: <Settings size={20} /> },
   ];
 
   const isActive = (path: string) => {
@@ -50,7 +51,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
       <div className="flex items-center justify-between h-16 flex-shrink-0 bg-blue-600 dark:bg-slate-950 px-4 border-b border-blue-500 dark:border-slate-800 shadow-sm">
         {!isCollapsed && (
           <h1 className="text-sm font-black tracking-widest text-white uppercase animate-in fade-in duration-300">
-            UPT PJJ ADMIN
+            Bepadah
           </h1>
         )}
         {isCollapsed && (

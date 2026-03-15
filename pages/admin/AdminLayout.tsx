@@ -13,56 +13,32 @@ import {
   Info
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { db } from '../../src/firebase';
+import { collection, onSnapshot, query, orderBy, updateDoc, doc } from 'firebase/firestore';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
   title: string;
 }
 
-const MOCK_NOTIFICATIONS = [
-  {
-    id: 1,
-    title: 'Laporan Baru Masuk',
-    desc: 'Warga melaporkan jalan berlubang di Jl. Pramuka.',
-    time: '2 menit yang lalu',
-    type: 'info',
-    read: false
-  },
-  {
-    id: 2,
-    title: 'Stok Material Menipis',
-    desc: 'Stok Aspal Cold Mix tersisa 5 sak. Segera lakukan pengadaan.',
-    time: '1 jam yang lalu',
-    type: 'warning',
-    read: false
-  },
-  {
-    id: 3,
-    title: 'Pekerjaan Selesai',
-    desc: 'Tim URC 1 telah menyelesaikan perbaikan di Jembatan Merdeka.',
-    time: '3 jam yang lalu',
-    type: 'success',
-    read: true
-  },
-  {
-    id: 4,
-    title: 'Jadwal Pemeliharaan',
-    desc: 'Pengingat: Servis rutin Baby Roller dijadwalkan besok.',
-    time: '5 jam yang lalu',
-    type: 'info',
-    read: true
-  }
-];
-
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  const [notifications, setNotifications] = useState<any[]>([]);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const q = query(collection(db, 'notifications'), orderBy('time', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const notifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setNotifications(notifs);
+    });
+    return () => unsubscribe();
+  }, []);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -80,8 +56,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const markAllRead = () => {
-    setNotifications(notifications.map(n => ({ ...n, read: true })));
+  const markAllRead = async () => {
+    notifications.filter(n => !n.read).forEach(async (n) => {
+      await updateDoc(doc(db, 'notifications', n.id), { read: true });
+    });
   };
 
   return (

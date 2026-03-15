@@ -25,7 +25,7 @@ const PublicNavbar: React.FC = () => {
               <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center mr-2 shadow-lg shadow-blue-600/30">
                  <Activity className="text-white" size={20} />
               </div>
-              <span className="font-bold text-xl text-slate-800 dark:text-white">Si-<span className="text-blue-600">Pejantan</span></span>
+              <span className="font-bold text-xl text-slate-800 dark:text-white">Bepadah</span>
             </Link>
           </div>
           

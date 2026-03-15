@@ -1,8 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
-import { MOCK_EQUIPMENT } from '../../constants';
 import { Equipment } from '../../types';
+import { db } from '../../src/firebase';
+import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
 import { 
   Plus, 
   Pencil, 
@@ -18,7 +19,17 @@ import {
 
 const EquipmentInventory: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'Heavy' | 'Tool'>('Heavy');
-  const [equipment, setEquipment] = useState<Equipment[]>(MOCK_EQUIPMENT);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  
+  useEffect(() => {
+    const q = query(collection(db, 'equipment'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Equipment));
+      setEquipment(data);
+    });
+    return () => unsubscribe();
+  }, []);
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentId, setCurrentId] = useState<string | null>(null);
@@ -38,24 +49,29 @@ const EquipmentInventory: React.FC = () => {
 
   const filteredItems = equipment.filter(item => item.category === activeTab);
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newItem: Equipment = {
-      id: isEditing && currentId ? currentId : `e-${Date.now()}`,
+    const itemData = {
       ...formData
     };
-    if (isEditing) {
-      setEquipment(prev => prev.map(e => e.id === currentId ? newItem : e));
-    } else {
-      setEquipment(prev => [...prev, newItem]);
+    
+    try {
+      if (isEditing && currentId) {
+        await updateDoc(doc(db, 'equipment', currentId), itemData);
+      } else {
+        await addDoc(collection(db, 'equipment'), itemData);
+      }
+      triggerToast('Data alat berhasil disimpan');
+      setIsModalOpen(false);
+    } catch (error) {
+      console.error('Error saving equipment:', error);
+      triggerToast('Gagal menyimpan data alat');
     }
-    triggerToast('Data alat berhasil disimpan');
-    setIsModalOpen(false);
   };
 
   const openEditModal = (item: Equipment) => {
     setIsEditing(true);
-    setCurrentId(item.id);
+    setCurrentId(item.id || null);
     setFormData({
       name: item.name,
       type: item.type,
@@ -65,11 +81,17 @@ const EquipmentInventory: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const executeDelete = (id: string) => {
+  const executeDelete = async (id: string) => {
     if (!confirm('Hapus data alat ini?')) return;
-    setEquipment(prev => prev.filter(e => e.id !== id));
-    triggerToast('Data alat dihapus');
+    try {
+      await deleteDoc(doc(db, 'equipment', id));
+      triggerToast('Data alat dihapus');
+    } catch (error) {
+      console.error('Error deleting equipment:', error);
+      triggerToast('Gagal menghapus data alat');
+    }
   };
+
 
   return (
     <AdminLayout title="Armada & Peralatan">
