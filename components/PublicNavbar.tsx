@@ -1,105 +1,162 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Activity, Home, Search, Sun, Moon } from 'lucide-react';
+import { Menu, X, Activity, Home, Search, Sun, Moon, LayoutDashboard } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import { db, auth } from '../src/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { onAuthStateChanged, User } from 'firebase/auth';
 
 const PublicNavbar: React.FC = () => {
   const [isOpen, setIsOpen] = React.useState(false);
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const [user, setUser] = React.useState<User | null>(null);
+  const [config, setConfig] = React.useState({
+    navbarBrand: 'Bepadah',
+    navbarLogoUrl: '',
+    menuBeranda: 'Beranda',
+    menuLapor: 'Lapor Sekarang',
+    menuCekStatus: 'Cek Status',
+    loginButtonText: 'Login Petugas'
+  });
+
+  React.useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    const fetchConfig = async () => {
+      try {
+        const docRef = doc(db, 'cms', 'site_config');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setConfig(prev => ({ ...prev, ...docSnap.data() }));
+        }
+      } catch (error) {
+        console.error("Error fetching navbar config:", error);
+      }
+    };
+    fetchConfig();
+
+    return () => unsubscribe();
+  }, []);
 
   const navLinks = [
-    { name: 'Beranda', path: '/', icon: <Home size={18} /> },
-    { name: 'Lapor Sekarang', path: '/report', icon: <Activity size={18} /> },
-    { name: 'Cek Status', path: '/track', icon: <Search size={18} /> },
+    { name: config.menuBeranda, path: '/', icon: <Home size={18} /> },
+    { name: config.menuLapor, path: '/report', icon: <Activity size={18} /> },
+    { name: config.menuCekStatus, path: '/track', icon: <Search size={18} /> },
   ];
 
   const isActive = (path: string) => location.pathname === path;
 
   return (
-    <nav className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex items-center">
-            <Link to="/" className="flex items-center">
-              <div className="h-8 w-8 bg-blue-600 rounded-lg flex items-center justify-center mr-2 shadow-lg shadow-blue-600/30">
-                 <Activity className="text-white" size={20} />
-              </div>
-              <span className="font-bold text-xl text-slate-800 dark:text-white">Bepadah</span>
-            </Link>
-          </div>
-          
-          <div className="hidden md:flex space-x-6 items-center">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                  isActive(link.path) 
-                    ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400' 
-                    : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <span className="mr-2">{link.icon}</span>
-                {link.name}
+    <nav className="fixed top-0 left-0 right-0 z-50 transition-all duration-300">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
+        <div className="bg-white/10 dark:bg-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-800/50 rounded-2xl shadow-2xl overflow-hidden">
+          <div className="flex justify-between items-center h-16 px-6">
+            <div className="flex items-center">
+              <Link to="/" className="flex items-center group">
+                <div className="h-10 w-10 bg-blue-600 rounded-xl flex items-center justify-center mr-3 shadow-lg shadow-blue-600/40 group-hover:scale-110 transition-transform duration-300 overflow-hidden">
+                   {config.navbarLogoUrl ? (
+                     <img src={config.navbarLogoUrl} alt="Logo" className="w-full h-full object-cover" />
+                   ) : (
+                     <Activity className="text-white" size={24} />
+                   )}
+                </div>
+                <span className="font-bold text-2xl text-slate-900 dark:text-white tracking-tight">{config.navbarBrand}</span>
               </Link>
-            ))}
+            </div>
+            
+            <div className="hidden md:flex items-center space-x-1">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`flex items-center px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-300 ${
+                    isActive(link.path) 
+                      ? 'text-blue-600 bg-blue-50/80 dark:bg-blue-900/40 dark:text-blue-400' 
+                      : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-white/50 dark:hover:bg-slate-800/50'
+                  }`}
+                >
+                  <span className="mr-2 opacity-70">{link.icon}</span>
+                  {link.name}
+                </Link>
+              ))}
 
-            {/* Dark Mode Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors focus:outline-none"
-              aria-label="Toggle Dark Mode"
-            >
-              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-            </button>
+              <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-4" />
 
-            <Link to="/admin" className="ml-2 px-5 py-2 rounded-full text-sm font-semibold text-white bg-slate-900 hover:bg-slate-800 dark:bg-blue-600 dark:hover:bg-blue-700 transition-all shadow-md hover:shadow-lg">
-              Login Petugas
-            </Link>
-          </div>
+              {/* Dark Mode Toggle */}
+              <button
+                onClick={toggleTheme}
+                className="p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-all focus:outline-none mr-2"
+                aria-label="Toggle Dark Mode"
+              >
+                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+              </button>
 
-          <div className="flex items-center md:hidden gap-2">
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-full text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
-            >
-              {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-            </button>
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="inline-flex items-center justify-center p-2 rounded-md text-slate-400 hover:text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 focus:outline-none"
-            >
-              {isOpen ? <X size={24} /> : <Menu size={24} />}
-            </button>
+              <Link to="/admin" className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/30 hover:shadow-blue-600/40 hover:-translate-y-0.5 active:translate-y-0 flex items-center gap-2">
+                {user ? (
+                  <>
+                    <LayoutDashboard size={18} />
+                    Dashboard
+                  </>
+                ) : (
+                  config.loginButtonText
+                )}
+              </Link>
+            </div>
+
+            <div className="flex items-center md:hidden gap-3">
+              <button
+                onClick={toggleTheme}
+                className="p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors"
+              >
+                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+              </button>
+              <button
+                onClick={() => setIsOpen(!isOpen)}
+                className="inline-flex items-center justify-center p-2.5 rounded-xl text-slate-500 hover:text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 focus:outline-none transition-all"
+              >
+                {isOpen ? <X size={24} /> : <Menu size={24} />}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Mobile menu */}
       {isOpen && (
-        <div className="md:hidden bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-5 duration-200">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
-            {navLinks.map((link) => (
-              <Link
-                key={link.path}
-                to={link.path}
-                onClick={() => setIsOpen(false)}
-                className={`block px-3 py-2 rounded-md text-base font-medium ${
-                  isActive(link.path)
-                    ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/30 dark:text-blue-400'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-800'
-                }`}
-              >
-                <div className="flex items-center">
-                  <span className="mr-3">{link.icon}</span>
+        <div className="md:hidden mx-4 mt-2">
+          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-top-5 duration-300">
+            <div className="px-4 pt-4 pb-6 space-y-2">
+              {navLinks.map((link) => (
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  onClick={() => setIsOpen(false)}
+                  className={`flex items-center px-4 py-3 rounded-xl text-base font-bold transition-all ${
+                    isActive(link.path)
+                      ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/40 dark:text-blue-400'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span className="mr-4 opacity-70">{link.icon}</span>
                   {link.name}
-                </div>
-              </Link>
-            ))}
-            <Link to="/admin" onClick={() => setIsOpen(false)} className="block w-full text-center mt-4 px-4 py-3 rounded-md font-bold text-white bg-slate-900 dark:bg-blue-600">
-              Login Petugas
-            </Link>
+                </Link>
+              ))}
+              <div className="pt-4">
+                <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center justify-center w-full px-4 py-4 rounded-xl font-black text-white bg-blue-600 shadow-lg shadow-blue-600/30 gap-2">
+                  {user ? (
+                    <>
+                      <LayoutDashboard size={18} />
+                      Dashboard
+                    </>
+                  ) : (
+                    config.loginButtonText
+                  )}
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       )}

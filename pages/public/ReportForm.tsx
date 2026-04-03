@@ -265,7 +265,7 @@ const ReportForm: React.FC = () => {
       
       {ticketNumber && <SuccessModal ticketNumber={ticketNumber} onClose={() => navigate('/track')} />}
 
-      <div className="max-w-4xl mx-auto py-10 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-4xl mx-auto pt-32 pb-10 px-4 sm:px-6 lg:px-8">
         
         <div className="text-center mb-10">
           <h1 className="text-3xl md:text-4xl font-extrabold text-slate-900 dark:text-white tracking-tight mb-4">
