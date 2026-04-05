@@ -6,6 +6,7 @@ import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErro
 import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
 import { Save, Loader2, Image as ImageIcon, Video, CheckCircle2, AlertCircle } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
+import { toast } from 'sonner';
 
 const CMS: React.FC = () => {
   const [config, setConfig] = useState({
@@ -55,7 +56,7 @@ const CMS: React.FC = () => {
     setSaving(true);
     try {
       await setDoc(doc(db, 'cms', 'site_config'), config);
-      alert('Content saved successfully!');
+      toast.success('Content saved successfully!');
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, 'cms/site_config');
     }

@@ -12,6 +12,7 @@ export const MOCK_COMPLAINTS: Complaint[] = [
     lng: 114.5928,
     status: ComplaintStatus.PENDING,
     reporterName: 'Budi Santoso',
+    reporterPhone: '081234567890',
     dateSubmitted: '2023-10-25T08:30:00',
     dateUpdated: '2023-10-25T08:30:00',
     imageUrl: 'https://picsum.photos/800/600?random=1',

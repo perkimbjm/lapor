@@ -21,6 +21,7 @@ import { db, auth } from '../../src/firebase';
 import { collection, onSnapshot, query, orderBy, updateDoc, doc, getDoc, setDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { toast } from 'sonner';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -77,7 +78,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
           await signOut(auth);
           setUser(null);
           setIsAdmin(false);
-          alert('Akun Anda telah diblokir. Silakan hubungi administrator.');
+          toast.error('Akun Anda telah diblokir. Silakan hubungi administrator.');
           setLoading(false);
           return;
         }
@@ -182,16 +183,17 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
     );
   }
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(notif => !notif.read).length;
 
   const markAllRead = async () => {
-    notifications.filter(n => !n.read).forEach(async (n) => {
+    const unreadNotifications = notifications.filter(notif => !notif.read);
+    for (const notif of unreadNotifications) {
       try {
-        await updateDoc(doc(db, 'notifications', n.id), { read: true });
+        await updateDoc(doc(db, 'notifications', notif.id), { read: true });
       } catch (error) {
-        handleFirestoreError(error, OperationType.UPDATE, `notifications/${n.id}`);
+        handleFirestoreError(error, OperationType.UPDATE, `notifications/${notif.id}`);
       }
-    });
+    }
   };
 
   return (

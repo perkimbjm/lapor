@@ -4,6 +4,8 @@ import AdminLayout from './AdminLayout';
 import { db } from '../../src/firebase';
 import { collection, onSnapshot, query } from 'firebase/firestore';
 import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { ComplaintStatus, RoadType } from '../../types';
+import { parseFirestoreDate } from '../../src/lib/dateUtils';
 import { 
   BarChart, 
   Bar, 
@@ -29,18 +31,8 @@ import {
   Map as MapIcon
 } from 'lucide-react';
 
-// Mock data for the weekly trend chart
-const dataTrend = [
-  { name: 'Sen', value: 4 },
-  { name: 'Sel', value: 7 },
-  { name: 'Rab', value: 5 },
-  { name: 'Kam', value: 10 },
-  { name: 'Jum', value: 6 },
-  { name: 'Sab', value: 3 },
-  { name: 'Min', value: 2 },
-];
-
-const COLORS_STATUS = ['#3b82f6', '#8b5cf6', '#10b981', '#ef4444'];
+// Mock data removed, now dynamic from useMemo
+const COLORS_STATUS = ['#3b82f6', '#8b5cf6', '#10b981', '#ef4444', '#f59e0b'];
 const COLORS_CATEGORY = ['#0ea5e9', '#6366f1'];
 
 const StatCard = ({ title, value, icon, color, darkColor, textColor, darkTextColor }: any) => (
@@ -112,6 +104,44 @@ const Dashboard: React.FC = () => {
     };
   }, []);
 
+  const trendData = useMemo(() => {
+    const last7Days = [...Array(7)].map((_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d;
+    });
+
+    const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+
+    return last7Days.map(date => {
+      const count = complaints.filter(c => {
+        const cDate = parseFirestoreDate(c.dateSubmitted || c.dateCreated || c.createdAt);
+        if (!cDate) return false;
+        return cDate.toDateString() === date.toDateString();
+      }).length;
+
+      return {
+        name: dayNames[date.getDay()],
+        value: count
+      };
+    });
+  }, [complaints]);
+
+  const combinedActivities = useMemo(() => {
+    const complaintActivities = complaints.map(c => ({
+      id: c.id,
+      title: `Aduan Baru: ${c.ticketNumber || c.id.substring(0, 8)}`,
+      message: `${c.reporterName} melaporkan kerusakan ${c.category} di ${c.landmark || c.location}`,
+      type: c.status === ComplaintStatus.REJECTED ? 'warning' : 'info',
+      timestamp: c.dateSubmitted || c.dateCreated || c.createdAt,
+    }));
+
+    const all = [...notifications, ...complaintActivities];
+    return all
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      .slice(0, 15);
+  }, [notifications, complaints]);
+
   const months = [
     { value: 'all', label: 'Sepanjang Tahun' },
     { value: '1', label: 'Januari' },
@@ -143,22 +173,31 @@ const Dashboard: React.FC = () => {
   }, [selectedMonth, selectedYear]);
 
   const stats = useMemo(() => {
+    const isStatusMatch = (cStatus: any, targetStatus: ComplaintStatus) => {
+      if (cStatus === targetStatus) return true;
+      // Fallback for legacy keys
+      const statusKey = Object.keys(ComplaintStatus).find(key => (ComplaintStatus as any)[key] === targetStatus);
+      return cStatus === statusKey;
+    };
+
     const filteredComplaints = complaints.filter(c => {
-      if (!c.dateCreated) return false;
-      const date = new Date(c.dateCreated);
+      const date = parseFirestoreDate(c.dateSubmitted || c.dateCreated || c.createdAt);
+      if (!date) return false;
       const yearMatch = date.getFullYear().toString() === selectedYear;
       const monthMatch = selectedMonth === 'all' || (date.getMonth() + 1).toString() === selectedMonth;
       return yearMatch && monthMatch;
     });
 
     return {
+      grandTotal: complaints.length,
       total: filteredComplaints.length,
-      diterima: filteredComplaints.filter(c => c.status === 'RECEIVED').length,
-      tidakDiterima: filteredComplaints.filter(c => c.status === 'REJECTED').length,
-      disurvey: filteredComplaints.filter(c => c.status === 'SURVEY').length,
-      selesai: filteredComplaints.filter(c => c.status === 'COMPLETED').length,
-      categoryJalan: filteredComplaints.filter(c => c.category === 'Jalan').length,
-      categoryJembatan: filteredComplaints.filter(c => c.category === 'Jembatan').length,
+      diterima: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.RECEIVED)).length,
+      tidakDiterima: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.REJECTED)).length,
+      disurvey: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.SURVEY)).length,
+      selesai: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.COMPLETED)).length,
+      pending: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.PENDING)).length,
+      categoryJalan: filteredComplaints.filter(c => c.category === RoadType.JALAN).length,
+      categoryJembatan: filteredComplaints.filter(c => c.category === RoadType.JEMBATAN).length,
     };
   }, [complaints, selectedYear, selectedMonth]);
 
@@ -167,6 +206,7 @@ const Dashboard: React.FC = () => {
     { name: 'Disurvey', value: stats.disurvey },
     { name: 'Selesai', value: stats.selesai },
     { name: 'Tidak diterima', value: stats.tidakDiterima },
+    { name: 'Pending', value: stats.pending },
   ], [stats]);
 
   const categoryDoughnutData = useMemo(() => [
@@ -230,11 +270,13 @@ const Dashboard: React.FC = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5 mb-8 sm:mb-10">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5 mb-8 sm:mb-10">
+        <StatCard title="Total Semua Aduan" value={stats.grandTotal} icon={<TrendingUp />} color="bg-slate-100" textColor="text-slate-600" darkColor="bg-slate-700/50" darkTextColor="text-slate-300" />
         <StatCard title={`Aduan ${dynamicLabel}`} value={stats.total} icon={<FileText />} color="bg-blue-50" textColor="text-blue-600" darkColor="bg-blue-900/30" darkTextColor="text-blue-400" />
+        <StatCard title="Belum Dikerjakan" value={stats.pending} icon={<Clock />} color="bg-orange-50" textColor="text-orange-600" darkColor="bg-orange-900/30" darkTextColor="text-orange-400" />
         <StatCard title="Diterima" value={stats.diterima} icon={<CheckSquare />} color="bg-emerald-50" textColor="text-emerald-600" darkColor="bg-emerald-900/30" darkTextColor="text-emerald-400" />
         <StatCard title="Tidak diterima" value={stats.tidakDiterima} icon={<XCircle />} color="bg-slate-100" textColor="text-slate-600" darkColor="bg-slate-700/50" darkTextColor="text-slate-300" />
-        <StatCard title="Disurvey" value={stats.disurvey} icon={<Clock />} color="bg-amber-50" textColor="text-amber-600" darkColor="bg-amber-900/30" darkTextColor="text-amber-400" />
+        <StatCard title="Disurvey" value={stats.disurvey} icon={<MapIcon />} color="bg-amber-50" textColor="text-amber-600" darkColor="bg-amber-900/30" darkTextColor="text-amber-400" />
         <StatCard title="Selesai" value={stats.selesai} icon={<CheckCircle />} color="bg-indigo-50" textColor="text-indigo-600" darkColor="bg-indigo-900/30" darkTextColor="text-indigo-400" />
       </div>
 
@@ -253,7 +295,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="h-64 sm:h-72 w-full relative">
             <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <BarChart data={dataTrend}>
+              <BarChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} vertical={false} />
                 <XAxis dataKey="name" tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} axisLine={false} />
                 <YAxis tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} axisLine={false} />
@@ -369,7 +411,7 @@ const Dashboard: React.FC = () => {
               <button className="text-[9px] sm:text-[10px] text-blue-600 font-black uppercase tracking-widest hover:underline">Semua</button>
            </div>
            <div className="divide-y divide-slate-100 dark:divide-slate-700 h-[320px] overflow-y-auto">
-              {notifications.slice(0, 10).map((notif, i) => (
+              {combinedActivities.map((notif, i) => (
                  <div key={i} className="px-6 py-4 hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
                     <div className="flex items-center justify-between mb-1">
                        <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[150px]">{notif.title}</h4>
@@ -389,7 +431,7 @@ const Dashboard: React.FC = () => {
                     </div>
                  </div>
               ))}
-              {notifications.length === 0 && (
+              {combinedActivities.length === 0 && (
                 <div className="p-10 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">
                   Tidak ada aktivitas
                 </div>

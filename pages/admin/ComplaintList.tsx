@@ -2,6 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import AdminLayout from './AdminLayout';
 import { Complaint, ComplaintStatus } from '../../types';
+import { parseFirestoreDate, formatIndonesianDate } from '../../src/lib/dateUtils';
 import StatusBadge from '../../components/StatusBadge';
 import { db } from '../../src/firebase';
 import { collection, onSnapshot, query, updateDoc, doc } from 'firebase/firestore';
@@ -13,6 +14,7 @@ import {
   MapPin, 
   Calendar, 
   User, 
+  Phone,
   Image as ImageIcon, 
   Save, 
   CheckCircle2,
@@ -145,6 +147,14 @@ const ComplaintList: React.FC = () => {
 
   // --- Filtering & Sorting Logic ---
   const filteredComplaints = useMemo(() => {
+    const isStatusMatch = (cStatus: any, targetStatus: string) => {
+      if (targetStatus === 'ALL') return true;
+      if (cStatus === targetStatus) return true;
+      // Fallback for legacy keys if targetStatus is an enum value
+      const statusKey = Object.keys(ComplaintStatus).find(key => (ComplaintStatus as any)[key] === targetStatus);
+      return cStatus === statusKey;
+    };
+
     let result = complaints.filter(item => {
       const term = searchTerm.toLowerCase();
       
@@ -153,15 +163,15 @@ const ComplaintList: React.FC = () => {
         (item.location?.toLowerCase().includes(term) ?? false) ||
         (item.reporterName?.toLowerCase().includes(term) ?? false);
 
-      const matchesFilter = statusFilter === 'ALL' || item.status === statusFilter;
+      const matchesFilter = isStatusMatch(item.status, statusFilter);
 
       return matchesSearch && matchesFilter;
     });
 
     if (sortDirection) {
       result = [...result].sort((a, b) => {
-        const dateA = new Date(a.dateSubmitted).getTime();
-        const dateB = new Date(b.dateSubmitted).getTime();
+        const dateA = parseFirestoreDate(a.dateSubmitted || a.dateCreated || a.createdAt)?.getTime() || 0;
+        const dateB = parseFirestoreDate(b.dateSubmitted || b.dateCreated || b.createdAt)?.getTime() || 0;
         return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
       });
     }
@@ -287,7 +297,7 @@ const ComplaintList: React.FC = () => {
                       <div className="text-sm font-bold text-blue-600 dark:text-blue-400 font-mono">{complaint.ticketNumber}</div>
                       <div className="text-xs text-slate-500 dark:text-slate-300 mt-1 flex items-center">
                          <Calendar className="w-3 h-3 mr-1" />
-                         {new Date(complaint.dateSubmitted).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' })}
+                         {formatIndonesianDate(complaint.dateSubmitted || complaint.dateCreated || complaint.createdAt)}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -349,7 +359,7 @@ const ComplaintList: React.FC = () => {
                  <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                    Detail Aduan <span className="text-blue-600 dark:text-blue-400 font-mono text-base bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-100 dark:border-blue-800">{selectedComplaint.ticketNumber}</span>
                  </h3>
-                 <p className="text-xs text-slate-500 dark:text-slate-300 mt-1">Dikirim: {new Date(selectedComplaint.dateSubmitted).toLocaleString('id-ID')}</p>
+                 <p className="text-xs text-slate-500 dark:text-slate-300 mt-1">Dikirim: {formatIndonesianDate(selectedComplaint.dateSubmitted || selectedComplaint.dateCreated || selectedComplaint.createdAt, true)}</p>
               </div>
               <button onClick={() => setIsDetailOpen(false)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors">
                 <X className="w-5 h-5" />
@@ -360,13 +370,20 @@ const ComplaintList: React.FC = () => {
             <div className="p-6 overflow-y-auto space-y-6">
               
               {/* Image Section */}
-              <div className="relative w-full h-64 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 group border border-slate-200 dark:border-slate-700">
-                 <img src={selectedComplaint.imageUrl} alt="Bukti Laporan" className="w-full h-full object-cover" />
-                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
-                 <a href={selectedComplaint.imageUrl} target="_blank" rel="noreferrer" className="absolute bottom-3 right-3 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full flex items-center hover:bg-blue-600 transition-colors">
-                    <ImageIcon className="w-3 h-3 mr-1" /> Lihat Full
-                 </a>
-              </div>
+              {selectedComplaint.imageUrl ? (
+                <div className="relative w-full h-64 rounded-xl overflow-hidden bg-slate-100 dark:bg-slate-900 group border border-slate-200 dark:border-slate-700">
+                   <img src={selectedComplaint.imageUrl} alt="Bukti Laporan" className="w-full h-full object-cover" />
+                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors"></div>
+                   <a href={selectedComplaint.imageUrl} target="_blank" rel="noreferrer" className="absolute bottom-3 right-3 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full flex items-center hover:bg-blue-600 transition-colors">
+                      <ImageIcon className="w-3 h-3 mr-1" /> Lihat Full
+                   </a>
+                </div>
+              ) : (
+                <div className="w-full h-64 rounded-xl flex flex-col items-center justify-center bg-slate-100 dark:bg-slate-900 border border-dashed border-slate-300 dark:border-slate-700 text-slate-400">
+                   <ImageIcon className="w-12 h-12 mb-2 opacity-20" />
+                   <p className="text-sm font-medium">Tidak ada foto bukti</p>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                  <div className="space-y-4">

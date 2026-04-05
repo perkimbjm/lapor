@@ -2,6 +2,7 @@
 import React from 'react';
 import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './components/ThemeContext';
+import { Toaster } from 'sonner';
 
 // Public Pages
 import LandingPage from './pages/public/LandingPage';
@@ -25,6 +26,7 @@ import PermissionManagement from './pages/admin/PermissionManagement';
 const App: React.FC = () => {
   return (
     <ThemeProvider>
+      <Toaster position="top-center" richColors />
       <Router>
         <Routes>
           {/* Public Routes */}

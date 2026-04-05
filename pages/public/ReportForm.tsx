@@ -16,13 +16,16 @@ import {
   X,
   Image as ImageIcon,
   Loader2,
-  LocateFixed
+  LocateFixed,
+  Copy,
+  Download
 } from 'lucide-react';
 import PublicNavbar from '../../components/PublicNavbar';
 import { db, storage } from '../../src/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { RoadType } from '../../types';
+import { RoadType, ComplaintStatus } from '../../types';
+import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
 import imageCompression from 'browser-image-compression';
 // @ts-ignore
 import EXIF from 'exif-js';
@@ -33,33 +36,70 @@ const SuccessModal = ({
 }: { 
   ticketNumber: string, 
   onClose: () => void 
-}) => (
-  <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 animate-in fade-in duration-300">
-    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
-    <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 text-center scale-100 animate-in zoom-in-95 duration-300 border border-slate-200 dark:border-slate-700">
-      <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-green-100 dark:bg-green-900/30 mb-6">
-        <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
-      </div>
-      <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Laporan Diterima!</h3>
-      <p className="text-slate-500 dark:text-slate-400 mb-6">
-        Terima kasih telah peduli dengan kotamu. Tim kami akan segera memverifikasi laporan ini.
-      </p>
-      
-      <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 mb-6 border border-dashed border-slate-300 dark:border-slate-700">
-        <p className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-1">Nomor Tiket Anda</p>
-        <p className="text-3xl font-mono font-bold text-blue-600 dark:text-blue-400 tracking-widest selection:bg-blue-200">{ticketNumber}</p>
-        <p className="text-xs text-slate-400 mt-1">(Simpan untuk cek status)</p>
-      </div>
+}) => {
+  const [copied, setCopied] = useState(false);
 
-      <button 
-        onClick={onClose}
-        className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-blue-600/30"
-      >
-        Pantau Status Laporan
-      </button>
+  const handleCopy = () => {
+    navigator.clipboard.writeText(ticketNumber);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleDownload = () => {
+    const element = document.createElement("a");
+    const file = new Blob([`Nomor Tiket Aduan Anda: ${ticketNumber}\n\nTerima kasih telah melaporkan kerusakan infrastruktur.`], {type: 'text/plain'});
+    element.href = URL.createObjectURL(file);
+    element.download = `tiket-${ticketNumber}.txt`;
+    document.body.appendChild(element);
+    element.click();
+    document.body.removeChild(element);
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 animate-in fade-in duration-300">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose}></div>
+      <div className="relative bg-white dark:bg-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 text-center scale-100 animate-in zoom-in-95 duration-300 border border-slate-200 dark:border-slate-700">
+        <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-green-100 dark:bg-green-900/30 mb-6">
+          <CheckCircle2 className="h-10 w-10 text-green-600 dark:text-green-400" />
+        </div>
+        <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Laporan Diterima!</h3>
+        <p className="text-slate-500 dark:text-slate-400 mb-6">
+          Terima kasih telah peduli dengan kotamu. Tim kami akan segera memverifikasi laporan ini.
+        </p>
+        
+        <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 mb-6 border border-dashed border-slate-300 dark:border-slate-700">
+          <p className="text-xs uppercase tracking-wider text-slate-500 font-semibold mb-1">Nomor Tiket Anda</p>
+          <p className="text-3xl font-mono font-bold text-blue-600 dark:text-blue-400 tracking-widest selection:bg-blue-200">{ticketNumber}</p>
+          <p className="text-xs text-slate-400 mt-1">(Simpan untuk cek status)</p>
+          
+          <div className="flex justify-center gap-2 mt-4">
+            <button 
+              onClick={handleCopy}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase tracking-tight text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              {copied ? <CheckCircle2 size={12} className="text-green-500" /> : <Copy size={12} />}
+              {copied ? 'Tersalin!' : 'Salin Tiket'}
+            </button>
+            <button 
+              onClick={handleDownload}
+              className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase tracking-tight text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+            >
+              <Download size={12} />
+              Unduh .TXT
+            </button>
+          </div>
+        </div>
+
+        <button 
+          onClick={onClose}
+          className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl transition-colors shadow-lg shadow-blue-600/30"
+        >
+          Pantau Status Laporan
+        </button>
+      </div>
     </div>
-  </div>
-);
+  );
+};
 
 const CategoryCard = ({ 
   type, 
@@ -111,8 +151,8 @@ const ReportForm: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [location, setLocation] = useState<{lat: number, lng: number} | null>(null);
   const [isExifLocation, setIsExifLocation] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [locLoading, setLocLoading] = useState(false);
-
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -139,7 +179,7 @@ const ReportForm: React.FC = () => {
     if (!selectedFile) return;
 
     if (!selectedFile.type.startsWith('image/')) {
-      alert('Mohon upload file gambar.');
+      setUploadError('Mohon upload file gambar.');
       return;
     }
     
@@ -217,6 +257,7 @@ const ReportForm: React.FC = () => {
 
   const handleGetLocation = () => {
     setLocLoading(true);
+    setSubmitError(null);
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition((position) => {
         setLocation({
@@ -226,11 +267,11 @@ const ReportForm: React.FC = () => {
         setIsExifLocation(false);
         setLocLoading(false);
       }, (error) => {
-        alert('Gagal mendapatkan lokasi. Pastikan izin lokasi aktif.');
+        setSubmitError('Gagal mendapatkan lokasi. Pastikan izin lokasi aktif.');
         setLocLoading(false);
       }, { enableHighAccuracy: true });
     } else {
-      alert('Browser tidak mendukung geolokasi.');
+      setSubmitError('Browser tidak mendukung geolokasi.');
       setLocLoading(false);
     }
   };
@@ -241,8 +282,7 @@ const ReportForm: React.FC = () => {
     if (!formData.phone.trim()) newErrors.phone = 'Nomor HP wajib diisi';
     if (!formData.locationDesc.trim()) newErrors.locationDesc = 'Patokan lokasi wajib diisi';
     if (!formData.description.trim()) newErrors.description = 'Deskripsi kerusakan wajib diisi';
-    if (!file || !uploadedUrl) newErrors.file = 'Foto bukti wajib diunggah dan selesai diproses';
-    if (!location) newErrors.location = 'Titik lokasi GPS diperlukan';
+    if (!formData.category) newErrors.category = 'Kategori wajib dipilih';
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -250,6 +290,7 @@ const ReportForm: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitError(null);
     if (!validate()) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -257,29 +298,28 @@ const ReportForm: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      const newTicketId = `PJJ-2024-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+      const newTicketId = `PJJ-2026-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
       
-      // In a real app, we would upload the file to Firebase Storage first
-      // For now, we'll store the file name or a placeholder
       await addDoc(collection(db, 'complaints'), {
         ticketNumber: newTicketId,
         reporterName: formData.name,
         reporterPhone: formData.phone,
         location: formData.locationDesc,
-        lat: location?.lat,
-        lng: location?.lng,
+        lat: location?.lat || null,
+        lng: location?.lng || null,
         description: formData.description,
-        roadType: formData.category,
-        status: 'Menunggu',
+        category: formData.category,
+        status: ComplaintStatus.PENDING,
         dateSubmitted: new Date().toISOString(),
+        dateUpdated: new Date().toISOString(),
         createdAt: serverTimestamp(),
-        photoUrl: uploadedUrl
+        imageUrl: uploadedUrl || null
       });
 
       setTicketNumber(newTicketId);
     } catch (error) {
-      console.error("Error submitting report:", error);
-      alert("Gagal mengirim laporan. Silakan coba lagi.");
+      handleFirestoreError(error, OperationType.WRITE, 'complaints');
+      setSubmitError("Gagal mengirim laporan. Silakan coba lagi.");
     } finally {
       setIsSubmitting(false);
     }
@@ -313,6 +353,16 @@ const ReportForm: React.FC = () => {
 
           <form onSubmit={handleSubmit} noValidate className="p-6 md:p-10 space-y-8">
             
+            {submitError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl p-4 flex items-center gap-3 text-red-600 dark:text-red-400 animate-in fade-in slide-in-from-top-2">
+                <AlertCircle size={20} className="shrink-0" />
+                <p className="text-sm font-bold uppercase tracking-tight">{submitError}</p>
+                <button onClick={() => setSubmitError(null)} className="ml-auto p-1 hover:bg-red-100 dark:hover:bg-red-800 rounded-full">
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
             <section>
               <h3 className="text-lg font-black text-slate-800 dark:text-white flex items-center mb-6 uppercase tracking-tight">
                 <span className="flex items-center justify-center w-8 h-8 rounded-xl bg-blue-600 text-white text-sm font-black mr-3 shadow-lg shadow-blue-600/30">1</span>
@@ -388,9 +438,9 @@ const ReportForm: React.FC = () => {
               </div>
 
               <div className="mb-8">
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Foto Bukti Kerusakan (Wajib)</label>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Foto Bukti Kerusakan (Opsional)</label>
                 {!preview ? (
-                  <div className={`relative border-2 border-dashed rounded-3xl p-10 text-center transition-all group cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/10 ${errors.file ? 'border-red-400 bg-red-50/30' : 'border-slate-300 dark:border-slate-700'}`}>
+                  <div className={`relative border-2 border-dashed rounded-3xl p-10 text-center transition-all group cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/10 ${uploadError ? 'border-red-400 bg-red-50/30' : 'border-slate-300 dark:border-slate-700'}`}>
                     <input 
                       type="file" 
                       id="file-upload" 
@@ -448,11 +498,11 @@ const ReportForm: React.FC = () => {
                     )}
                   </div>
                 )}
-                {errors.file && <p className="mt-2 text-xs text-red-500 font-bold flex items-center uppercase tracking-tight"><AlertCircle size={12} className="mr-1" />{errors.file}</p>}
+                {uploadError && <p className="mt-2 text-xs text-red-500 font-bold flex items-center uppercase tracking-tight"><AlertCircle size={12} className="mr-1" />{uploadError}</p>}
               </div>
 
               <div className="mb-8">
-                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Titik Koordinat Lokasi</label>
+                <label className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-3">Titik Koordinat Lokasi (Opsional)</label>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <div className="relative flex-grow">
                     <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">

@@ -33,6 +33,7 @@ import {
   ResponsiveContainer 
 } from 'recharts';
 import * as XLSX from 'xlsx';
+import { toast } from 'sonner';
 
 const WorkforceManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<RoadType>(RoadType.JALAN);
@@ -260,7 +261,7 @@ const WorkforceManagement: React.FC = () => {
   const handleExportIndividualSlip = (worker: Worker) => {
     const records = getAttendanceRecordsForWorker(worker.id);
     if (records.length === 0) {
-      alert(`Data presensi untuk ${worker.name} tidak ditemukan.`);
+      toast.error(`Data presensi untuk ${worker.name} tidak ditemukan.`);
       return;
     }
 
@@ -381,10 +382,10 @@ const WorkforceManagement: React.FC = () => {
           return existing;
         });
 
-        alert(`Berhasil mengimpor data dari file.`);
+        toast.success(`Berhasil mengimpor data dari file.`);
       } catch (err) {
         console.error(err);
-        alert('Gagal membaca file Excel.');
+        toast.error('Gagal membaca file Excel.');
       } finally {
         setIsProcessing(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -450,7 +451,7 @@ const WorkforceManagement: React.FC = () => {
         }
       } catch (error) {
         console.error('Error deleting worker:', error);
-        alert('Gagal menghapus data pekerja');
+        toast.error('Gagal menghapus data pekerja');
       }
     }
   };
@@ -519,7 +520,7 @@ const WorkforceManagement: React.FC = () => {
       setIsModalOpen(false);
     } catch (error) {
       console.error('Error saving worker:', error);
-      alert('Gagal menyimpan data pekerja');
+      toast.error('Gagal menyimpan data pekerja');
     }
   };
 

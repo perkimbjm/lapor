@@ -2,17 +2,35 @@
 import React, { useEffect, useRef, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import AdminLayout from './AdminLayout';
-import { MOCK_COMPLAINTS } from '../../constants';
-import { ComplaintStatus } from '../../types';
-import { AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
+import { db } from '../../src/firebase';
+import { collection, onSnapshot, query } from 'firebase/firestore';
+import { Complaint, ComplaintStatus } from '../../types';
+import { AlertCircle, RefreshCw, Loader2 } from 'lucide-react';
+import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
 
 const MapDistribution: React.FC = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<maplibregl.Map | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
+  const markersRef = useRef<maplibregl.Marker[]>([]);
 
   useEffect(() => {
-    if (map.current || !mapContainer.current) return;
+    const q = query(collection(db, 'complaints'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Complaint));
+      setComplaints(data);
+      setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'complaints');
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (map.current || !mapContainer.current || loading) return;
 
     // CRITICAL FIX for Sandboxed Environments:
     // Explicitly set the worker URL to an absolute CDN path.
@@ -63,43 +81,7 @@ const MapDistribution: React.FC = () => {
 
       // Wait for map to load before adding markers
       mapInstance.on('load', () => {
-        MOCK_COMPLAINTS.forEach((complaint) => {
-          let color = '#3b82f6';
-          if (complaint.status === ComplaintStatus.RECEIVED) color = '#ef4444';
-          else if (complaint.status === ComplaintStatus.REJECTED) color = '#f97316';
-          else if (complaint.status === ComplaintStatus.COMPLETED) color = '#22c55e';
-
-          // Create marker element
-          const el = document.createElement('div');
-          el.className = 'marker';
-          el.style.width = '24px';
-          el.style.height = '24px';
-          el.style.backgroundColor = color;
-          el.style.borderRadius = '50%';
-          el.style.border = '2px solid white';
-          el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-          el.style.cursor = 'pointer';
-
-          new maplibregl.Marker({ element: el })
-            .setLngLat([complaint.lng, complaint.lat])
-            .setPopup(
-              new maplibregl.Popup({ offset: 25, closeButton: false }).setHTML(`
-                <div style="font-family: 'Inter', sans-serif; padding: 8px; color: #1e293b; min-width: 180px;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                     <span style="font-weight: 700; font-size: 14px; color: #0f172a;">${complaint.ticketNumber}</span>
-                  </div>
-                  <p style="margin-bottom: 4px; font-size: 12px; color: #475569; font-weight: 500;">${complaint.category}</p>
-                  <p style="margin-bottom: 0; font-size: 11px; color: #64748b;">${complaint.location}</p>
-                  <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0;">
-                    <span style="font-size: 11px; font-weight: 600; color: #334155;">
-                      Status: ${complaint.status}
-                    </span>
-                  </div>
-                </div>
-              `)
-            )
-            .addTo(mapInstance);
-        });
+        updateMarkers(complaints, mapInstance);
       });
       
       // Handle load errors
@@ -124,6 +106,60 @@ const MapDistribution: React.FC = () => {
 
   }, []);
 
+  useEffect(() => {
+    if (map.current && !loading) {
+      updateMarkers(complaints, map.current);
+    }
+  }, [complaints, loading]);
+
+  const updateMarkers = (data: Complaint[], mapInstance: maplibregl.Map) => {
+    // Clear existing markers
+    markersRef.current.forEach(marker => marker.remove());
+    markersRef.current = [];
+
+    data.forEach((complaint) => {
+      if (!complaint.lat || !complaint.lng) return;
+
+      let color = '#3b82f6'; // Default blue (RECEIVED/SURVEY)
+      if (complaint.status === ComplaintStatus.PENDING) color = '#f97316'; // orange
+      else if (complaint.status === ComplaintStatus.REJECTED) color = '#ef4444'; // red
+      else if (complaint.status === ComplaintStatus.COMPLETED) color = '#22c55e'; // green
+
+      // Create marker element
+      const el = document.createElement('div');
+      el.className = 'marker';
+      el.style.width = '20px';
+      el.style.height = '20px';
+      el.style.backgroundColor = color;
+      el.style.borderRadius = '50%';
+      el.style.border = '2px solid white';
+      el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+      el.style.cursor = 'pointer';
+
+      const marker = new maplibregl.Marker({ element: el })
+        .setLngLat([complaint.lng, complaint.lat])
+        .setPopup(
+          new maplibregl.Popup({ offset: 25, closeButton: false }).setHTML(`
+            <div style="font-family: 'Inter', sans-serif; padding: 8px; color: #1e293b; min-width: 180px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                 <span style="font-weight: 700; font-size: 14px; color: #0f172a;">${complaint.ticketNumber}</span>
+              </div>
+              <p style="margin-bottom: 4px; font-size: 12px; color: #475569; font-weight: 500;">${complaint.category}</p>
+              <p style="margin-bottom: 0; font-size: 11px; color: #64748b;">${complaint.location}</p>
+              <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #e2e8f0;">
+                <span style="font-size: 11px; font-weight: 600; color: #334155;">
+                  Status: ${complaint.status}
+                </span>
+              </div>
+            </div>
+          `)
+        )
+        .addTo(mapInstance);
+      
+      markersRef.current.push(marker);
+    });
+  };
+
   return (
     <AdminLayout title="Peta Sebaran Kerusakan">
       <div className="bg-white dark:bg-slate-800 shadow-sm rounded-2xl border border-slate-100 dark:border-slate-700 p-4 h-[calc(100vh-180px)] flex flex-col relative">
@@ -142,6 +178,11 @@ const MapDistribution: React.FC = () => {
 
         {/* Map Container */}
         <div className="flex-1 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden relative bg-slate-100 dark:bg-slate-900">
+            {loading && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 dark:bg-slate-800/50 backdrop-blur-[1px]">
+                <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+              </div>
+            )}
             {error ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6">
                     <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-full mb-4">
