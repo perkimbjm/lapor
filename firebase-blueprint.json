@@ -136,11 +136,11 @@
         "username": { "type": "string" },
         "phone": { "type": "string" },
         "displayName": { "type": "string" },
-        "roleIds": { "type": "array", "items": { "type": "string" } },
+        "roleId": { "type": "string" },
         "isBanned": { "type": "boolean" },
         "createdAt": { "type": "string" }
       },
-      "required": ["uid", "email", "roleIds"]
+      "required": ["uid", "email", "roleId"]
     },
     "Role": {
       "title": "Role",

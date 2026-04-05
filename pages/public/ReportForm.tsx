@@ -19,9 +19,11 @@ import {
   LocateFixed
 } from 'lucide-react';
 import PublicNavbar from '../../components/PublicNavbar';
-import { db } from '../../src/firebase';
+import { db, storage } from '../../src/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { RoadType } from '../../types';
+import imageCompression from 'browser-image-compression';
 // @ts-ignore
 import EXIF from 'exif-js';
 
@@ -115,6 +117,8 @@ const ReportForm: React.FC = () => {
   const [preview, setPreview] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     return () => {
@@ -130,7 +134,7 @@ const ReportForm: React.FC = () => {
     return dd;
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
@@ -143,23 +147,49 @@ const ReportForm: React.FC = () => {
     setIsUploadingPhoto(true);
     setUploadProgress(0);
     setIsExifLocation(false);
+    setUploadError(null);
+    setUploadedUrl(null);
 
     const objectUrl = URL.createObjectURL(selectedFile);
     setPreview(objectUrl);
 
-    // Simulate Upload Progress
-    const interval = setInterval(() => {
-      setUploadProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsUploadingPhoto(false);
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 150);
+    try {
+      // Image Compression
+      const options = {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+        useWebWorker: true
+      };
+      
+      const compressedFile = await imageCompression(selectedFile, options);
+      
+      // Actual Upload to Firebase Storage
+      const storageRef = ref(storage, `reports/${Date.now()}_${selectedFile.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, compressedFile);
 
-    // Extract EXIF Metadata
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(Math.round(progress));
+        }, 
+        (error) => {
+          console.error("Upload error:", error);
+          setUploadError("Gagal mengunggah foto. Periksa koneksi internet Anda.");
+          setIsUploadingPhoto(false);
+        }, 
+        async () => {
+          const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+          setUploadedUrl(downloadURL);
+          setIsUploadingPhoto(false);
+        }
+      );
+    } catch (error) {
+      console.error("Compression error:", error);
+      setUploadError("Gagal memproses gambar.");
+      setIsUploadingPhoto(false);
+    }
+
+    // Extract EXIF Metadata from original file
     // @ts-ignore
     EXIF.getData(selectedFile, function(this: any) {
       const latData = EXIF.getTag(this, "GPSLatitude");
@@ -181,6 +211,8 @@ const ReportForm: React.FC = () => {
     setPreview(null);
     setUploadProgress(0);
     setIsExifLocation(false);
+    setUploadedUrl(null);
+    setUploadError(null);
   };
 
   const handleGetLocation = () => {
@@ -209,7 +241,7 @@ const ReportForm: React.FC = () => {
     if (!formData.phone.trim()) newErrors.phone = 'Nomor HP wajib diisi';
     if (!formData.locationDesc.trim()) newErrors.locationDesc = 'Patokan lokasi wajib diisi';
     if (!formData.description.trim()) newErrors.description = 'Deskripsi kerusakan wajib diisi';
-    if (!file) newErrors.file = 'Foto bukti wajib diunggah';
+    if (!file || !uploadedUrl) newErrors.file = 'Foto bukti wajib diunggah dan selesai diproses';
     if (!location) newErrors.location = 'Titik lokasi GPS diperlukan';
 
     setErrors(newErrors);
@@ -241,7 +273,7 @@ const ReportForm: React.FC = () => {
         status: 'Menunggu',
         dateSubmitted: new Date().toISOString(),
         createdAt: serverTimestamp(),
-        photoUrl: 'https://picsum.photos/seed/report/800/600' // Placeholder
+        photoUrl: uploadedUrl
       });
 
       setTicketNumber(newTicketId);
@@ -298,7 +330,7 @@ const ReportForm: React.FC = () => {
                       name="name" 
                       value={formData.name} 
                       onChange={handleChange} 
-                      className={`block w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border ${errors.name ? 'border-red-400 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'} text-slate-900 dark:text-white placeholder-slate-400 transition-all font-medium`} 
+                      className={`block w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border ${errors.name ? 'border-red-400 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'} text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all font-medium`} 
                       placeholder="Masukkan nama asli Anda" 
                     />
                   </div>
@@ -316,7 +348,7 @@ const ReportForm: React.FC = () => {
                       name="phone" 
                       value={formData.phone} 
                       onChange={handleChange} 
-                      className={`block w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border ${errors.phone ? 'border-red-400 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'} text-slate-900 dark:text-white placeholder-slate-400 transition-all font-medium`} 
+                      className={`block w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border ${errors.phone ? 'border-red-400 ring-2 ring-red-500/10' : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'} text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all font-medium`} 
                       placeholder="Contoh: 081234567890" 
                     />
                   </div>
@@ -430,7 +462,7 @@ const ReportForm: React.FC = () => {
                       type="text" 
                       readOnly 
                       value={location ? `${location.lat.toFixed(7)}, ${location.lng.toFixed(7)}` : ''} 
-                      className={`block w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-100 dark:bg-slate-800 border ${errors.location ? 'border-red-400' : 'border-slate-200 dark:border-slate-700'} text-slate-700 dark:text-slate-200 font-mono text-xs`}
+                      className={`block w-full pl-11 pr-4 py-3.5 rounded-2xl bg-slate-100 dark:bg-slate-900 border ${errors.location ? 'border-red-400' : 'border-slate-200 dark:border-slate-700'} text-slate-700 dark:text-slate-200 font-mono text-xs`}
                       placeholder="Koordinat akan terisi dari Foto atau Tombol GPS"
                     />
                   </div>
@@ -455,7 +487,7 @@ const ReportForm: React.FC = () => {
                     name="locationDesc" 
                     value={formData.locationDesc} 
                     onChange={handleChange} 
-                    className={`block w-full px-5 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border ${errors.locationDesc ? 'border-red-400' : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'} text-slate-900 dark:text-white placeholder-slate-400 transition-all font-medium`} 
+                    className={`block w-full px-5 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border ${errors.locationDesc ? 'border-red-400' : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'} text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all font-medium`} 
                     placeholder="Contoh: Depan Toko Beras Jaya, Jl. Veteran No. 10" 
                   />
                   {errors.locationDesc && <p className="mt-2 text-xs text-red-500 font-bold uppercase tracking-tight">{errors.locationDesc}</p>}
@@ -468,7 +500,7 @@ const ReportForm: React.FC = () => {
                     rows={4} 
                     value={formData.description} 
                     onChange={handleChange} 
-                    className={`block w-full px-5 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-800 border ${errors.description ? 'border-red-400' : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'} text-slate-900 dark:text-white placeholder-slate-400 transition-all font-medium resize-none`} 
+                    className={`block w-full px-5 py-3.5 rounded-2xl bg-slate-50 dark:bg-slate-900 border ${errors.description ? 'border-red-400' : 'border-slate-200 dark:border-slate-700 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10'} text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 transition-all font-medium resize-none`} 
                     placeholder="Jelaskan kondisi kerusakan secara detail..." 
                   />
                   {errors.description && <p className="mt-2 text-xs text-red-500 font-bold uppercase tracking-tight">{errors.description}</p>}

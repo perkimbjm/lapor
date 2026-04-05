@@ -120,7 +120,7 @@ export interface AppUser {
   username?: string;
   phone?: string;
   displayName?: string;
-  roleIds: string[];
+  roleId: string;
   isBanned?: boolean;
   createdAt: string;
 }

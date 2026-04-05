@@ -43,7 +43,7 @@ const UserManagement: React.FC = () => {
     displayName: '',
     username: '',
     phone: '',
-    roleIds: [] as string[]
+    roleId: ''
   });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -69,22 +69,20 @@ const UserManagement: React.FC = () => {
         }
         if (userDoc.exists()) {
           const userData = userDoc.data() as AppUser;
-          const roleIds = userData.roleIds || [];
+          const roleId = userData.roleId || '';
           
-          if (roleIds.length > 0) {
-            // Fetch permissions for these roles
+          if (roleId) {
+            // Fetch permissions for this role
             const perms: string[] = [];
-            for (const rId of roleIds) {
-              const roleDoc = await getDoc(doc(db, 'roles', rId));
-              if (roleDoc.exists()) {
-                const roleData = roleDoc.data() as Role;
-                const pIds = roleData.permissionIds || [];
-                
-                for (const pId of pIds) {
-                  const pDoc = await getDoc(doc(db, 'permissions', pId));
-                  if (pDoc.exists()) {
-                    perms.push(pDoc.data().code);
-                  }
+            const roleDoc = await getDoc(doc(db, 'roles', roleId));
+            if (roleDoc.exists()) {
+              const roleData = roleDoc.data() as Role;
+              const pIds = roleData.permissionIds || [];
+              
+              for (const pId of pIds) {
+                const pDoc = await getDoc(doc(db, 'permissions', pId));
+                if (pDoc.exists()) {
+                  perms.push(pDoc.data().code);
                 }
               }
             }
@@ -105,7 +103,7 @@ const UserManagement: React.FC = () => {
       'Nama': u.displayName || '-',
       'Username': u.username || '-',
       'Telepon': u.phone || '-',
-      'Role IDs': u.roleIds.join(', '),
+      'Role ID': u.roleId || '-',
       'Status': u.isBanned ? 'Banned' : 'Aktif',
       'Terdaftar': new Date(u.createdAt).toLocaleDateString('id-ID')
     }));
@@ -206,7 +204,7 @@ const UserManagement: React.FC = () => {
             displayName: formData.displayName,
             username: usernameLower,
             phone: formData.phone,
-            roleIds: formData.roleIds
+            roleId: formData.roleId
           });
         } catch (error) {
           handleFirestoreError(error, OperationType.UPDATE, `users/${currentId}`);
@@ -219,7 +217,7 @@ const UserManagement: React.FC = () => {
             username: usernameLower,
             phone: formData.phone,
             displayName: formData.displayName,
-            roleIds: formData.roleIds,
+            roleId: formData.roleId,
             isBanned: false,
             createdAt: new Date().toISOString()
           });
@@ -229,7 +227,7 @@ const UserManagement: React.FC = () => {
         triggerToast('Pengguna berhasil ditambahkan');
       }
       setIsModalOpen(false);
-      setFormData({ email: '', displayName: '', username: '', phone: '', roleIds: [] });
+      setFormData({ email: '', displayName: '', username: '', phone: '', roleId: '' });
     } catch (error) {
       console.error('Error saving user:', error);
       triggerToast('Gagal menyimpan pengguna', 'error');
@@ -278,15 +276,6 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const toggleRole = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      roleIds: prev.roleIds.includes(id)
-        ? prev.roleIds.filter(rId => rId !== id)
-        : [...prev.roleIds, id]
-    }));
-  };
-
   const openEditModal = (user: AppUser) => {
     setIsEditing(true);
     setCurrentId(user.id);
@@ -295,7 +284,7 @@ const UserManagement: React.FC = () => {
       displayName: user.displayName || '',
       username: user.username || '',
       phone: user.phone || '',
-      roleIds: user.roleIds || []
+      roleId: user.roleId || ''
     });
     setIsModalOpen(true);
   };
@@ -351,7 +340,7 @@ const UserManagement: React.FC = () => {
           <button 
             onClick={() => {
               setIsEditing(false);
-              setFormData({ email: '', displayName: '', username: '', phone: '', roleIds: [] });
+              setFormData({ email: '', displayName: '', username: '', phone: '', roleId: '' });
               setIsModalOpen(true);
             }}
             className="flex-1 sm:flex-none px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -410,17 +399,17 @@ const UserManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex flex-wrap gap-1">
-                        {(user.roleIds || []).length === 0 ? (
+                        {!user.roleId ? (
                           <span className="px-2 py-1 bg-slate-100 dark:bg-slate-900 text-slate-400 rounded-lg text-[9px] font-bold uppercase tracking-tight">Tanpa Peran</span>
                         ) : (
-                          user.roleIds.map(rId => {
-                            const r = roles.find(role => role.id === rId);
+                          (() => {
+                            const r = roles.find(role => role.id === user.roleId);
                             return r ? (
-                              <span key={rId} className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[9px] font-black uppercase tracking-tight">
+                              <span key={user.roleId} className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[9px] font-black uppercase tracking-tight">
                                 {r.name}
                               </span>
                             ) : null;
-                          })
+                          })()
                         )}
                       </div>
                     </td>
@@ -560,28 +549,20 @@ const UserManagement: React.FC = () => {
                 <div className="space-y-4">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex justify-between">
-                      Peran (Roles)
-                      <span className="text-blue-600">{formData.roleIds.length} Terpilih</span>
+                      Peran (Role)
+                      <span className="text-blue-600">{formData.roleId ? '1' : '0'} Terpilih</span>
                     </label>
                     <div className="relative">
                       <select 
-                        multiple
-                        value={formData.roleIds}
-                        onChange={e => {
-                          const options = e.target.options;
-                          const values = [];
-                          for (let i = 0; i < options.length; i++) {
-                            if (options[i].selected) values.push(options[i].value);
-                          }
-                          setFormData({...formData, roleIds: values});
-                        }}
-                        className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all min-h-[150px]"
+                        value={formData.roleId}
+                        onChange={e => setFormData({...formData, roleId: e.target.value})}
+                        className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                       >
+                        <option value="">Pilih Peran</option>
                         {roles.map(r => (
-                          <option key={r.id} value={r.id} className="py-2">{r.name}</option>
+                          <option key={r.id} value={r.id}>{r.name}</option>
                         ))}
                       </select>
-                      <p className="mt-2 text-[10px] text-slate-400 font-bold italic">* Tahan Ctrl (Windows) atau Command (Mac) untuk memilih lebih dari satu</p>
                     </div>
                   </div>
                 </div>

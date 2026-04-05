@@ -4,7 +4,7 @@
   "apiKey": "AIzaSyCtzaezkbmNrTdFhFz6o1IMyOKPA3p6ekc",
   "authDomain": "pejantan.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-0c65f5b9-7353-4690-b16d-c46853122b8a",
-  "storageBucket": "pejantan.firebasestorage.app",
+  "storageBucket": "pejantan.appspot.com",
   "messagingSenderId": "461113744614",
   "measurementId": ""
 }

@@ -71,7 +71,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
         const userData = userDoc.exists() ? userDoc.data() : null;
         
         const isEmailAdmin = currentUser.email === 'denip23147@gmail.com';
-        const isRoleAdmin = userData?.role === 'admin' || (userData?.roleIds && userData.roleIds.length > 0);
+        const isRoleAdmin = userData?.role === 'admin' || !!userData?.roleId;
         
         if (userData?.isBanned) {
           await signOut(auth);
@@ -90,7 +90,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title }) => {
             await setDoc(doc(db, 'users', currentUser.uid), {
               displayName: currentUser.displayName,
               email: currentUser.email,
-              roleIds: isEmailAdmin ? ['admin'] : [], // Default admin role for super user
+              roleId: isEmailAdmin ? 'admin' : '', // Default admin role for super user
               createdAt: new Date().toISOString()
             });
           } catch (error) {
