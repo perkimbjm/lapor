@@ -66,19 +66,19 @@ const WorkforceManagement: React.FC = () => {
 
     const qWorkers = query(collection(db, 'workers'));
     const unsubscribeWorkers = onSnapshot(qWorkers, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Worker));
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Worker));
       setWorkers(data);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'workers'));
 
     const qAttendance = query(collection(db, 'attendance'));
     const unsubscribeAttendance = onSnapshot(qAttendance, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AttendanceRecord));
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AttendanceRecord));
       setAttendance(data);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'attendance'));
 
     const qHolidays = query(collection(db, 'holidays'));
     const unsubscribeHolidays = onSnapshot(qHolidays, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Holiday));
+      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Holiday));
       setHolidays(data);
     }, (error) => handleFirestoreError(error, OperationType.LIST, 'holidays'));
 
@@ -665,8 +665,8 @@ const WorkforceManagement: React.FC = () => {
                  <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-600"></span><span className="text-[9px] font-black uppercase text-slate-400 dark:text-slate-300">Pekerja Hadir</span></div>
               </div>
            </div>
-            <div className="h-28 w-full">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-28 w-full min-w-0 min-h-0">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <BarChart data={chartData}>
                   <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                   <XAxis dataKey="name" hide />

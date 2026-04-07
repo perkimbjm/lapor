@@ -299,7 +299,7 @@ const Dashboard: React.FC = () => {
              </div>
           </div>
           <div className="h-64 sm:h-72 w-full relative">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} vertical={false} />
                 <XAxis dataKey="name" tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} axisLine={false} />
@@ -318,7 +318,7 @@ const Dashboard: React.FC = () => {
              <p className="text-[10px] text-slate-500 dark:text-slate-300 font-bold uppercase tracking-widest mt-1">Periode {dynamicLabel}</p>
           </div>
           <div className="flex-1 w-full h-64 relative mb-4">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <PieChart>
                 <Pie
                   data={statusPieData}
@@ -363,7 +363,7 @@ const Dashboard: React.FC = () => {
           </div>
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-8">
             <div className="h-48 w-48 sm:h-56 sm:w-56 shrink-0 relative">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                 <PieChart>
                   <Pie
                     data={categoryDoughnutData}
