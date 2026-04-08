@@ -666,7 +666,7 @@ const WorkforceManagement: React.FC = () => {
               </div>
            </div>
             <div className="h-28 w-full min-w-0 min-h-0">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+              <ResponsiveContainer width="99%" height="100%">
                 <BarChart data={chartData}>
                   <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
                   <XAxis dataKey="name" hide />

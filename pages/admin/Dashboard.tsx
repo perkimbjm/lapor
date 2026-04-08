@@ -28,7 +28,9 @@ import {
   ChevronDown,
   Filter,
   TrendingUp,
-  Map as MapIcon
+  Map as MapIcon,
+  PieChart as PieChartIcon,
+  Inbox
 } from 'lucide-react';
 
 // Mock data removed, now dynamic from useMemo
@@ -299,7 +301,7 @@ const Dashboard: React.FC = () => {
              </div>
           </div>
           <div className="h-64 sm:h-72 w-full relative">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
+            <ResponsiveContainer width="99%" height="100%">
               <BarChart data={trendData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} vertical={false} />
                 <XAxis dataKey="name" tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 700}} axisLine={false} />
@@ -317,35 +319,47 @@ const Dashboard: React.FC = () => {
              <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">Sebaran Status</h3>
              <p className="text-[10px] text-slate-500 dark:text-slate-300 font-bold uppercase tracking-widest mt-1">Periode {dynamicLabel}</p>
           </div>
-          <div className="flex-1 w-full h-64 relative mb-4">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-              <PieChart>
-                <Pie
-                  data={statusPieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius="60%"
-                  outerRadius="85%"
-                  paddingAngle={5}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {statusPieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS_STATUS[index % COLORS_STATUS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={tooltipStyle} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="grid grid-cols-2 gap-2 mt-auto">
-             {statusPieData.map((entry, index) => (
-                <div key={index} className="flex items-center gap-2">
-                   <span className="block w-2 h-2 rounded-full shrink-0" style={{backgroundColor: COLORS_STATUS[index % COLORS_STATUS.length]}}></span>
-                   <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tight truncate">{entry.name}</span>
-                </div>
-             ))}
-          </div>
+          {stats.total === 0 ? (
+            <div className="flex-1 w-full h-64 flex flex-col items-center justify-center text-center bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 mb-4">
+              <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm mb-4">
+                <PieChartIcon className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+              </div>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Belum Ada Data</p>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 max-w-[200px]">Tidak ada aduan yang masuk pada periode ini.</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex-1 w-full h-64 relative mb-4">
+                <ResponsiveContainer width="99%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={statusPieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="60%"
+                      outerRadius="85%"
+                      paddingAngle={5}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {statusPieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS_STATUS[index % COLORS_STATUS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={tooltipStyle} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-2 gap-2 mt-auto">
+                 {statusPieData.map((entry, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                       <span className="block w-2 h-2 rounded-full shrink-0" style={{backgroundColor: COLORS_STATUS[index % COLORS_STATUS.length]}}></span>
+                       <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tight truncate">{entry.name}</span>
+                    </div>
+                 ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -361,52 +375,62 @@ const Dashboard: React.FC = () => {
                 <p className="text-[10px] text-slate-500 dark:text-slate-300 font-bold uppercase tracking-widest mt-1">Jalan vs Jembatan</p>
              </div>
           </div>
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-8">
-            <div className="h-48 w-48 sm:h-56 sm:w-56 shrink-0 relative">
-              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                <PieChart>
-                  <Pie
-                    data={categoryDoughnutData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius="65%"
-                    outerRadius="95%"
-                    paddingAngle={2}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {categoryDoughnutData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS_CATEGORY[index % COLORS_CATEGORY.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip contentStyle={tooltipStyle} />
-                </PieChart>
-              </ResponsiveContainer>
+          {stats.total === 0 ? (
+            <div className="h-48 sm:h-56 w-full flex flex-col items-center justify-center text-center bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+              <div className="p-4 bg-white dark:bg-slate-800 rounded-2xl shadow-sm mb-4">
+                <Inbox className="w-8 h-8 text-slate-400 dark:text-slate-500" />
+              </div>
+              <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Belum Ada Data</p>
+              <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mt-1 max-w-[200px]">Tidak ada aduan yang masuk pada periode ini.</p>
             </div>
-            
-            <div className="w-full space-y-3">
-               {categoryDoughnutData.map((entry, index) => {
-                  const percentage = ((entry.value / stats.total) * 100).toFixed(1);
-                  return (
-                    <div key={index} className="bg-slate-50 dark:bg-slate-900/50 p-3 sm:p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
-                       <div className="flex justify-between items-center mb-1.5">
-                          <div className="flex items-center">
-                             <span className="block w-2.5 h-2.5 rounded-full mr-2.5" style={{backgroundColor: COLORS_CATEGORY[index % COLORS_CATEGORY.length]}}></span>
-                             <span className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">{entry.name}</span>
-                          </div>
-                          <span className="text-xs font-black text-blue-600 dark:text-blue-400">{percentage}%</span>
-                       </div>
-                       <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                          <div 
-                            className="h-full rounded-full transition-all duration-1000" 
-                            style={{ width: `${percentage}%`, backgroundColor: COLORS_CATEGORY[index % COLORS_CATEGORY.length] }}
-                          ></div>
-                       </div>
-                    </div>
-                  );
-               })}
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-6 sm:gap-8">
+              <div className="h-48 w-48 sm:h-56 sm:w-56 shrink-0 relative">
+                <ResponsiveContainer width="99%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={categoryDoughnutData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius="65%"
+                      outerRadius="95%"
+                      paddingAngle={2}
+                      dataKey="value"
+                      stroke="none"
+                    >
+                      {categoryDoughnutData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS_CATEGORY[index % COLORS_CATEGORY.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip contentStyle={tooltipStyle} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              
+              <div className="w-full space-y-3">
+                 {categoryDoughnutData.map((entry, index) => {
+                    const percentage = ((entry.value / stats.total) * 100).toFixed(1);
+                    return (
+                      <div key={index} className="bg-slate-50 dark:bg-slate-900/50 p-3 sm:p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
+                         <div className="flex justify-between items-center mb-1.5">
+                            <div className="flex items-center">
+                               <span className="block w-2.5 h-2.5 rounded-full mr-2.5" style={{backgroundColor: COLORS_CATEGORY[index % COLORS_CATEGORY.length]}}></span>
+                               <span className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-tight">{entry.name}</span>
+                            </div>
+                            <span className="text-xs font-black text-blue-600 dark:text-blue-400">{percentage}%</span>
+                         </div>
+                         <div className="w-full bg-slate-200 dark:bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full rounded-full transition-all duration-1000" 
+                              style={{ width: `${percentage}%`, backgroundColor: COLORS_CATEGORY[index % COLORS_CATEGORY.length] }}
+                            ></div>
+                         </div>
+                      </div>
+                    );
+                 })}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Activity Feed */}
