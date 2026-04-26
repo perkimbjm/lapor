@@ -173,7 +173,10 @@ const RoleManagement: React.FC = () => {
 
       triggerToast(isEditing ? 'Peran berhasil diperbarui' : 'Peran berhasil ditambahkan');
       setIsModalOpen(false);
+      setIsEditing(false);
+      setCurrentId(null);
       setFormData({ name: '', description: '', selectedPermissionIds: [] });
+      await fetchData();
     } catch (error) {
       console.error('Error saving role:', error);
       triggerToast('Gagal menyimpan peran', 'error');
@@ -225,6 +228,7 @@ const RoleManagement: React.FC = () => {
       if (roleError) throw roleError;
 
       triggerToast('Peran berhasil dihapus');
+      await fetchData();
     } catch (error) {
       console.error('Error deleting role:', error);
       triggerToast('Gagal menghapus peran', 'error');
