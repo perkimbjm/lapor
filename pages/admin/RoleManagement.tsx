@@ -30,6 +30,7 @@ const FEATURES = [
   { id: 'USERS', name: 'Manajemen User' },
   { id: 'ROLES', name: 'Manajemen Role' },
   { id: 'PERMISSIONS', name: 'Manajemen Izin' },
+  { id: 'AUDIT_LOG', name: 'Audit Log' },
 ];
 
 const ACTIONS = [
@@ -56,41 +57,58 @@ const RoleManagement: React.FC = () => {
     description: '',
     selectedPermissionIds: [] as string[]
   });
+  const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   
   const fetchRoles = async () => {
-    const { data } = await supabase.from('roles').select('*');
+    const { data, error } = await supabase.from('roles').select('*');
+    if (error) {
+      console.error('Error fetching roles:', error);
+      return;
+    }
     if (data) setRoles(data as Role[]);
   };
 
   const fetchPermissions = async () => {
-    const { data } = await supabase.from('permissions').select('*');
+    const { data, error } = await supabase.from('permissions').select('*');
+    if (error) {
+      console.error('Error fetching permissions:', error);
+      return;
+    }
     if (data) setPermissions(data as Permission[]);
   };
 
   const fetchRolePermissions = async () => {
-    const { data } = await supabase.from('role_permissions').select('*');
+    const { data, error } = await supabase.from('role_permissions').select('*');
+    if (error) {
+      console.error('Error fetching role_permissions:', error);
+      throw error;
+    }
     if (data) setRolePermissions(data as RolePermission[]);
   };
 
   const fetchData = async () => {
     setLoading(true);
-    await Promise.all([fetchRoles(), fetchPermissions(), fetchRolePermissions()]);
-    setLoading(false);
+    try {
+      await Promise.all([fetchRoles(), fetchPermissions(), fetchRolePermissions()]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     fetchData();
 
-    // Poll setiap 30 detik sebagai pengganti realtime
-    const interval = setInterval(() => {
-      fetchData();
-    }, 6000);
+    // Realtime: sync when roles, permissions, or role_permissions change from any page
+    const channel = supabase
+      .channel('role-management-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'roles' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'permissions' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'role_permissions' }, fetchData)
+      .subscribe();
 
-    return () => {
-      clearInterval(interval);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const triggerToast = (message: string, type: 'success' | 'error' = 'success') => {
@@ -119,55 +137,54 @@ const RoleManagement: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSaving(true);
     try {
       let roleId = currentId;
 
       if (isEditing && currentId) {
         const { error } = await supabase
           .from('roles')
-          .update({
-            name: formData.name,
-            description: formData.description
-          })
+          .update({ name: formData.name, description: formData.description })
           .eq('id', currentId);
-        
         if (error) throw error;
       } else {
         const { data: newRole, error: roleError } = await supabase
           .from('roles')
-          .insert([{
-            name: formData.name,
-            description: formData.description
-          }])
+          .insert([{ name: formData.name, description: formData.description }])
           .select()
           .single();
-        
         if (roleError) throw roleError;
         roleId = newRole.id;
       }
 
-      // Sync role_permissions
+      // Sync role_permissions using diff — avoids duplicate-key errors if RLS
+      // blocks the DELETE (Supabase returns no error but deletes 0 rows)
       if (roleId) {
-        // 1. Delete existing
-        const { error: deleteError } = await supabase
+        const { data: currentRPs, error: fetchErr } = await supabase
           .from('role_permissions')
-          .delete()
+          .select('permission_id')
           .eq('role_id', roleId);
-        
-        if (deleteError) throw deleteError;
+        if (fetchErr) throw fetchErr;
 
-        // 2. Insert new ones
-        if (formData.selectedPermissionIds.length > 0) {
-          const { error: insertError } = await supabase
+        const currentIds = (currentRPs ?? []).map((r: any) => r.permission_id as string);
+        const nextIds    = formData.selectedPermissionIds;
+        const toRemove   = currentIds.filter(id => !nextIds.includes(id));
+        const toAdd      = nextIds.filter(id => !currentIds.includes(id));
+
+        if (toRemove.length > 0) {
+          const { error: delErr } = await supabase
             .from('role_permissions')
-            .insert(
-              formData.selectedPermissionIds.map(pId => ({
-                role_id: roleId as string,
-                permission_id: pId
-              }))
-            );
-          
-          if (insertError) throw insertError;
+            .delete()
+            .eq('role_id', roleId)
+            .in('permission_id', toRemove);
+          if (delErr) throw delErr;
+        }
+
+        if (toAdd.length > 0) {
+          const { error: addErr } = await supabase
+            .from('role_permissions')
+            .insert(toAdd.map(pId => ({ role_id: roleId as string, permission_id: pId })));
+          if (addErr) throw addErr;
         }
       }
 
@@ -177,9 +194,11 @@ const RoleManagement: React.FC = () => {
       setCurrentId(null);
       setFormData({ name: '', description: '', selectedPermissionIds: [] });
       await fetchData();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving role:', error);
-      triggerToast('Gagal menyimpan peran', 'error');
+      triggerToast(`Gagal menyimpan: ${error?.message ?? 'Terjadi kesalahan'}`, 'error');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -395,10 +414,12 @@ const RoleManagement: React.FC = () => {
                     >
                       Batal
                     </button>
-                    <button 
+                    <button
                       type="submit"
-                      className="flex-1 px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all"
+                      disabled={isSaving}
+                      className="flex-1 px-6 py-4 bg-blue-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-70 flex items-center justify-center gap-2"
                     >
+                      {isSaving && <Loader2 size={14} className="animate-spin" />}
                       {isEditing ? 'Simpan' : 'Tambah'}
                     </button>
                   </div>

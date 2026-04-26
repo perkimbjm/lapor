@@ -4,10 +4,10 @@ import React, { useState, useEffect } from 'react';
 
 import { Permission, Role, RolePermission } from '../../types';
 import { supabase } from '../../src/supabase';
-import { 
-  Shield, 
-  Plus, 
-  Trash2, 
+import {
+  Shield,
+  Plus,
+  Trash2,
   Search,
   CheckCircle2,
   XCircle,
@@ -26,7 +26,8 @@ import {
   Truck,
   BarChart3,
   Settings,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Activity
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
 
@@ -42,6 +43,7 @@ const FEATURES = [
   { id: 'USERS', name: 'Manajemen User', icon: <Users size={16} /> },
   { id: 'ROLES', name: 'Manajemen Role', icon: <Shield size={16} /> },
   { id: 'PERMISSIONS', name: 'Manajemen Izin', icon: <Key size={16} /> },
+  { id: 'AUDIT_LOG', name: 'Audit Log', icon: <Activity size={16} /> },
 ];
 
 const ACTIONS = [
