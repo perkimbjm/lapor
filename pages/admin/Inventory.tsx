@@ -1,10 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
-import AdminLayout from './AdminLayout';
-import { db } from '../../src/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
+
+import { supabase } from '../../src/supabase';
 import { Material, Equipment } from '../../types';
 import { 
   AlertTriangle, 
@@ -26,6 +24,12 @@ import {
 import { GoogleGenAI } from "@google/genai";
 
 const Inventory: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+
+  useEffect(() => {
+    setPageTitle("Manajemen Stok & Peralatan");
+  }, [setPageTitle]);
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -40,20 +44,35 @@ const Inventory: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const qMaterials = query(collection(db, 'materials'));
-    const unsubscribeMaterials = onSnapshot(qMaterials, (snapshot) => {
-      setMaterials(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Material)));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'materials'));
+    const fetchMaterials = async () => {
+      const { data, error } = await supabase.from('materials').select('*');
+      if (error) {
+        console.error("Error fetching materials:", error);
+      } else if (data) {
+        setMaterials(data as Material[]);
+      }
+    };
 
-    const qEquipment = query(collection(db, 'equipment'));
-    const unsubscribeEquipment = onSnapshot(qEquipment, (snapshot) => {
-      setEquipment(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Equipment)));
+    const fetchEquipment = async () => {
+      const { data, error } = await supabase.from('equipment').select('*');
+      if (error) {
+        console.error("Error fetching equipment:", error);
+      } else if (data) {
+        setEquipment(data as Equipment[]);
+      }
       setLoading(false);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'equipment'));
+    };
+
+    fetchMaterials();
+    fetchEquipment();
+
+    const interval = setInterval(() => {
+      fetchMaterials();
+      fetchEquipment();
+    }, 6000);
 
     return () => {
-      unsubscribeMaterials();
-      unsubscribeEquipment();
+      clearInterval(interval);
     };
   }, []);
 
@@ -69,8 +88,8 @@ const Inventory: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     unit: '',
-    currentStock: 0,
-    minThreshold: 0,
+    current_stock: 0,
+    min_threshold: 0,
     type: '',
     status: 'Tersedia',
     category: 'Heavy' as 'Heavy' | 'Tool'
@@ -112,7 +131,7 @@ const Inventory: React.FC = () => {
       }
       
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const inventoryData = materials.map(m => `${m.name}: ${m.currentStock} ${m.unit} (Min: ${m.minThreshold})`).join(', ');
+      const inventoryData = materials.map(m => `${m.name}: ${m.current_stock} ${m.unit} (Min: ${m.min_threshold})`).join(', ');
       
       // Fixed: simplified contents string and using correct model name
       const response = await ai.models.generateContent({
@@ -150,8 +169,8 @@ const Inventory: React.FC = () => {
     setFormData({
       name: '',
       unit: 'Sak',
-      currentStock: 0,
-      minThreshold: 0,
+      current_stock: 0,
+      min_threshold: 0,
       type: 'Alat Berat',
       status: 'Tersedia',
       category: 'Heavy'
@@ -167,8 +186,8 @@ const Inventory: React.FC = () => {
       setFormData({
         name: item.name,
         unit: item.unit,
-        currentStock: item.currentStock,
-        minThreshold: item.minThreshold,
+        current_stock: item.current_stock,
+        min_threshold: item.min_threshold,
         type: '',
         status: '',
         category: 'Heavy'
@@ -177,8 +196,8 @@ const Inventory: React.FC = () => {
       setFormData({
         name: item.name,
         unit: '',
-        currentStock: 0,
-        minThreshold: 0,
+        current_stock: 0,
+        min_threshold: 0,
         type: item.type,
         status: item.status,
         category: item.category || 'Heavy'
@@ -191,16 +210,18 @@ const Inventory: React.FC = () => {
     setItemToDelete({ id: item.id, name: item.name });
   };
 
-  const executeDelete = async () => {
+  const handleDelete = async () => {
     if (!itemToDelete) return;
-    const typeLabel = activeTab === 'material' ? 'Material' : 'Peralatan';
     const collectionName = activeTab === 'material' ? 'materials' : 'equipment';
-    
+    const typeLabel = activeTab === 'material' ? 'Material' : 'Peralatan';
+
     try {
-      await deleteDoc(doc(db, collectionName, itemToDelete.id));
+      const { error } = await supabase.from(collectionName).delete().eq('id', itemToDelete.id);
+      if (error) throw error;
       triggerToast(`${typeLabel} berhasil dihapus`);
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, `${collectionName}/${itemToDelete.id}`);
+      console.error('Error deleting item:', error);
+      triggerToast('Gagal menghapus item');
     }
     setItemToDelete(null);
   };
@@ -208,23 +229,24 @@ const Inventory: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const typeLabel = activeTab === 'material' ? 'Material' : 'Peralatan';
-    const collectionName = activeTab === 'material' ? 'materials' : 'equipment';
 
     try {
       if (activeTab === 'material') {
         const materialData = {
           name: formData.name,
           unit: formData.unit,
-          currentStock: Number(formData.currentStock),
-          minThreshold: Number(formData.minThreshold),
-          lastUpdated: new Date().toISOString().split('T')[0]
+          current_stock: Number(formData.current_stock),
+          min_threshold: Number(formData.min_threshold),
+          last_updated: new Date().toISOString().split('T')[0]
         };
 
         if (isEditing && currentId) {
-          await updateDoc(doc(db, 'materials', currentId), materialData);
+          const { error } = await supabase.from('materials').update(materialData).eq('id', currentId);
+          if (error) throw error;
           triggerToast(`${typeLabel} berhasil diperbarui`);
         } else {
-          await addDoc(collection(db, 'materials'), materialData);
+          const { error } = await supabase.from('materials').insert([materialData]);
+          if (error) throw error;
           triggerToast(`${typeLabel} berhasil ditambahkan`);
         }
       } else {
@@ -236,16 +258,19 @@ const Inventory: React.FC = () => {
         };
 
         if (isEditing && currentId) {
-          await updateDoc(doc(db, 'equipment', currentId), equipmentData);
+          const { error } = await supabase.from('equipment').update(equipmentData).eq('id', currentId);
+          if (error) throw error;
           triggerToast(`${typeLabel} berhasil diperbarui`);
         } else {
-          await addDoc(collection(db, 'equipment'), equipmentData);
+          const { error } = await supabase.from('equipment').insert([equipmentData]);
+          if (error) throw error;
           triggerToast(`${typeLabel} berhasil ditambahkan`);
         }
       }
       setIsModalOpen(false);
     } catch (error) {
-      handleFirestoreError(error, isEditing ? OperationType.UPDATE : OperationType.CREATE, collectionName);
+      console.error('Error saving item:', error);
+      triggerToast('Gagal menyimpan item');
     }
   };
 
@@ -270,7 +295,7 @@ const Inventory: React.FC = () => {
   };
 
   return (
-    <AdminLayout title="Manajemen Stok & Peralatan">
+    <>
       
       {/* Toast Notification */}
       {toast?.visible && (
@@ -390,8 +415,8 @@ const Inventory: React.FC = () => {
           </div>
           <ul className="divide-y divide-slate-100 dark:divide-slate-700">
             {materials.length > 0 ? materials.map((item) => {
-              const status = getStockStatus(item.currentStock, item.minThreshold);
-              const isCritical = item.currentStock <= item.minThreshold;
+              const status = getStockStatus(item.current_stock, item.min_threshold);
+              const isCritical = item.current_stock <= item.min_threshold;
               
               return (
               <li key={item.id} className={`px-6 py-5 transition-all group border-l-4 ${
@@ -406,13 +431,13 @@ const Inventory: React.FC = () => {
                         {isCritical && <span className="ml-2 inline-flex items-center text-[10px] font-black uppercase text-red-600 dark:text-red-500">⚠️ PERLU PENGADAAN</span>}
                      </p>
                      <p className="text-sm text-slate-500 dark:text-slate-300 mt-1">
-                        Satuan: <span className="font-semibold">{item.unit}</span> | Batas Minimum: <span className="font-bold text-slate-700 dark:text-slate-300">{item.minThreshold}</span>
+                        Satuan: <span className="font-semibold">{item.unit}</span> | Batas Minimum: <span className="font-bold text-slate-700 dark:text-slate-300">{item.min_threshold}</span>
                      </p>
                   </div>
                   <div className="flex items-center gap-6">
                      <div className="text-right">
-                        <p className={`text-3xl font-black tabular-nums ${item.currentStock === 0 ? 'text-red-600 animate-pulse' : isCritical ? 'text-orange-600' : 'text-slate-900 dark:text-white'}`}>
-                          {item.currentStock}
+                        <p className={`text-3xl font-black tabular-nums ${item.current_stock === 0 ? 'text-red-600 animate-pulse' : isCritical ? 'text-orange-600' : 'text-slate-900 dark:text-white'}`}>
+                          {item.current_stock}
                         </p>
                         <p className="text-[10px] text-slate-500 dark:text-slate-300 font-black uppercase tracking-widest">Sisa Stok</p>
                      </div>
@@ -525,13 +550,13 @@ const Inventory: React.FC = () => {
                     <input 
                       type="number" 
                       required
-                      value={formData.currentStock}
+                      value={formData.current_stock}
                       onChange={(e) => {
                         const val = Number(e.target.value);
                         setFormData({
                           ...formData, 
-                          currentStock: val,
-                          minThreshold: Math.ceil(val * 0.2)
+                          current_stock: val,
+                          min_threshold: Math.ceil(val * 0.2)
                         });
                       }}
                       className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-bold text-lg"
@@ -554,8 +579,8 @@ const Inventory: React.FC = () => {
                       <input 
                         type="number" 
                         required
-                        value={formData.minThreshold}
-                        onChange={(e) => setFormData({...formData, minThreshold: Number(e.target.value)})}
+                        value={formData.min_threshold}
+                        onChange={(e) => setFormData({...formData, min_threshold: Number(e.target.value)})}
                         className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                       />
                     </div>
@@ -621,12 +646,12 @@ const Inventory: React.FC = () => {
              </div>
              <div className="p-4 bg-slate-50 dark:bg-slate-900/50 flex gap-3">
                 <button onClick={() => setItemToDelete(null)} className="flex-1 py-3 px-4 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Batal</button>
-                <button onClick={executeDelete} className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-600/30 transition-colors flex items-center justify-center"><Trash2 className="w-4 h-4 mr-2" /> Ya, Hapus</button>
+                <button onClick={handleDelete} className="flex-1 py-3 px-4 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-600/30 transition-colors flex items-center justify-center"><Trash2 className="w-4 h-4 mr-2" /> Ya, Hapus</button>
              </div>
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 };
 

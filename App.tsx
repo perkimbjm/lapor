@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './components/ThemeContext';
 import { Toaster } from 'sonner';
 
@@ -25,39 +25,55 @@ import PermissionManagement from './pages/admin/PermissionManagement';
 import ActivityLog from './pages/admin/ActivityLog';
 import AuditLog from './pages/admin/AuditLog';
 
+import { AuthProvider } from './components/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import AdminLayout from './pages/admin/AdminLayout';
+
 const App: React.FC = () => {
   return (
-    <ThemeProvider>
-      <Toaster position="top-center" richColors />
-      <Router>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/report" element={<ReportForm />} />
-          <Route path="/track" element={<TrackComplaint />} />
+    <AuthProvider>
+      <ThemeProvider>
+        <Toaster position="top-center" richColors />
+        <Router>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/report" element={<ReportForm />} />
+            <Route path="/track" element={<TrackComplaint />} />
 
-          {/* Admin Routes (Simulated Auth) */}
-          <Route path="/admin" element={<Dashboard />} />
-          <Route path="/admin/complaints" element={<ComplaintList />} />
-          <Route path="/admin/inventory" element={<MaterialInventory />} />
-          <Route path="/admin/equipment" element={<EquipmentInventory />} />
-          <Route path="/admin/workforce" element={<WorkforceManagement />} />
-          <Route path="/admin/map" element={<MapDistribution />} />
-          <Route path="/admin/reports" element={<Reports />} />
-          <Route path="/admin/settings" element={<Settings />} />
-          <Route path="/admin/cms" element={<CMS />} />
-          <Route path="/admin/users" element={<UserManagement />} />
-          <Route path="/admin/roles" element={<RoleManagement />} />
-          <Route path="/admin/permissions" element={<PermissionManagement />} />
-          <Route path="/admin/activities" element={<ActivityLog />} />
-          <Route path="/admin/audit-logs" element={<AuditLog />} />
-          
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </Router>
-    </ThemeProvider>
+            {/* Admin Routes (Protected & Nested) */}
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <AdminLayout title="Sistem Manajemen Pemeliharaan Jalan dan Jembatan" />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<Dashboard />} />
+              <Route path="complaints" element={<ComplaintList />} />
+              <Route path="inventory" element={<MaterialInventory />} />
+              <Route path="equipment" element={<EquipmentInventory />} />
+              <Route path="workforce" element={<WorkforceManagement />} />
+              <Route path="map" element={<MapDistribution />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="cms" element={<CMS />} />
+              <Route path="users" element={<UserManagement />} />
+              <Route path="roles" element={<RoleManagement />} />
+              <Route path="permissions" element={<PermissionManagement />} />
+              <Route path="activities" element={<ActivityLog />} />
+              <Route path="audit-logs" element={<AuditLog />} />
+            </Route>
+            
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
+    </AuthProvider>
   );
 };
+
 
 export default App;

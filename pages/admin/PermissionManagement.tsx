@@ -1,10 +1,9 @@
+import { useOutletContext } from 'react-router-dom';
 
 import React, { useState, useEffect } from 'react';
-import AdminLayout from './AdminLayout';
-import { Permission, Role } from '../../types';
-import { db } from '../../src/firebase';
-import { collection, onSnapshot, query, addDoc, deleteDoc, doc, writeBatch, getDoc, updateDoc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+
+import { Permission, Role, RolePermission } from '../../types';
+import { supabase } from '../../src/supabase';
 import { 
   Shield, 
   Plus, 
@@ -55,8 +54,15 @@ const ACTIONS = [
 ];
 
 const PermissionManagement: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+
+  useEffect(() => {
+    setPageTitle("Manajemen Izin (CRUD Based)");
+  }, [setPageTitle]);
+
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -73,27 +79,37 @@ const PermissionManagement: React.FC = () => {
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
-    const qPerms = query(collection(db, 'permissions'));
-    const unsubscribePerms = onSnapshot(qPerms, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Permission));
-      setPermissions(data);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'permissions');
-      setLoading(false);
-    });
+    const fetchPermissions = async () => {
+      const { data } = await supabase.from('permissions').select('*');
+      if (data) setPermissions(data as Permission[]);
+    };
 
-    const qRoles = query(collection(db, 'roles'));
-    const unsubscribeRoles = onSnapshot(qRoles, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Role));
-      setRoles(data);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'roles');
-    });
+    const fetchRoles = async () => {
+      const { data } = await supabase.from('roles').select('*');
+      if (data) setRoles(data as Role[]);
+    };
+
+    const fetchRolePermissions = async () => {
+      const { data } = await supabase.from('role_permissions').select('*');
+      if (data) setRolePermissions(data as RolePermission[]);
+    };
+
+    const fetchData = async () => {
+      setLoading(true);
+      await Promise.all([fetchPermissions(), fetchRoles(), fetchRolePermissions()]);
+      setLoading(false);
+    };
+
+    fetchData();
+
+    const interval = setInterval(() => {
+      fetchPermissions();
+      fetchRoles();
+      fetchRolePermissions();
+    }, 15000);
 
     return () => {
-      unsubscribePerms();
-      unsubscribeRoles();
+      clearInterval(interval);
     };
   }, []);
 
@@ -130,36 +146,45 @@ const PermissionManagement: React.FC = () => {
 
     if (isEditing && currentId) {
       try {
-        const batch = writeBatch(db);
-        
         // 1. Update permission details
-        batch.update(doc(db, 'permissions', currentId), {
-          name: editData.name,
-          description: editData.description
-        });
+        const { error: permError } = await supabase
+          .from('permissions')
+          .update({
+            name: editData.name,
+            description: editData.description
+          })
+          .eq('id', currentId);
 
-        // 2. Update roles (remove from roles not selected, add to roles selected)
-        for (const role of roles) {
-          const roleRef = doc(db, 'roles', role.id);
-          const hasPerm = role.permissionIds?.includes(currentId);
-          const shouldHavePerm = selectedRoleIds.includes(role.id);
+        if (permError) throw permError;
 
-          if (hasPerm && !shouldHavePerm) {
-            // Remove
-            const updated = role.permissionIds.filter(pId => pId !== currentId);
-            batch.update(roleRef, { permissionIds: updated });
-          } else if (!hasPerm && shouldHavePerm) {
-            // Add
-            const updated = [...(role.permissionIds || []), currentId];
-            batch.update(roleRef, { permissionIds: updated });
-          }
+        // 2. Update role_permissions (the pivot table)
+        // First, get currently assigned roles for this permission
+        const currentlyAssignedRoleIds = rolePermissions
+          .filter(rp => rp.permission_id === currentId)
+          .map(rp => rp.role_id);
+
+        // Roles to add
+        const toAdd = selectedRoleIds.filter(id => !currentlyAssignedRoleIds.includes(id));
+        // Roles to remove
+        const toRemove = currentlyAssignedRoleIds.filter(id => !selectedRoleIds.includes(id));
+
+        if (toRemove.length > 0) {
+          await supabase
+            .from('role_permissions')
+            .delete()
+            .eq('permission_id', currentId)
+            .in('role_id', toRemove);
         }
 
-        try {
-          await batch.commit();
-        } catch (error) {
-          handleFirestoreError(error, OperationType.WRITE, 'batch');
+        if (toAdd.length > 0) {
+          await supabase
+            .from('role_permissions')
+            .insert(toAdd.map(roleId => ({
+              role_id: roleId,
+              permission_id: currentId
+            })));
         }
+
         triggerToast('Izin dan Peran berhasil diperbarui');
         setIsModalOpen(false);
         setIsEditing(false);
@@ -179,7 +204,6 @@ const PermissionManagement: React.FC = () => {
 
     try {
       const featureObj = FEATURES.find(f => f.id === selectedFeature);
-      const batch = writeBatch(db);
       const newPermIds: string[] = [];
       let alreadyExistsCount = 0;
       
@@ -188,7 +212,6 @@ const PermissionManagement: React.FC = () => {
         const actionObj = ACTIONS.find(a => a.id === actionId);
         const code = `${selectedFeature}_${actionId.toUpperCase()}`;
         
-        // Check if already exists
         const existing = permissions.find(p => p.code === code);
         if (existing) {
           newPermIds.push(existing.id);
@@ -196,17 +219,20 @@ const PermissionManagement: React.FC = () => {
           continue;
         }
 
-        const newPermRef = doc(collection(db, 'permissions'));
-        const permId = newPermRef.id;
-        newPermIds.push(permId);
+        const { data: newPerm, error: permError } = await supabase
+          .from('permissions')
+          .insert([{
+            feature: selectedFeature,
+            action: actionId,
+            code: code,
+            name: `${actionObj?.label} - ${featureObj?.name}`,
+            description: `Izin untuk ${actionObj?.label.toLowerCase()} pada fitur ${featureObj?.name}`
+          }])
+          .select()
+          .single();
 
-        batch.set(newPermRef, {
-          feature: selectedFeature,
-          action: actionId,
-          code: code,
-          name: `${actionObj?.label} - ${featureObj?.name}`,
-          description: `Izin untuk ${actionObj?.label.toLowerCase()} pada fitur ${featureObj?.name}`
-        });
+        if (permError) throw permError;
+        if (newPerm) newPermIds.push(newPerm.id);
       }
 
       if (alreadyExistsCount === selectedActions.length) {
@@ -214,30 +240,26 @@ const PermissionManagement: React.FC = () => {
         return;
       }
 
-      // 2. Assign to selected roles
-      if (selectedRoleIds.length > 0) {
-        for (const roleId of selectedRoleIds) {
-          const roleRef = doc(db, 'roles', roleId);
-          let roleSnap;
-          try {
-            roleSnap = await getDoc(roleRef);
-          } catch (error) {
-            handleFirestoreError(error, OperationType.GET, `roles/${roleId}`);
-            continue;
+      // 2. Assign to selected roles (pivot insert)
+      if (selectedRoleIds.length > 0 && newPermIds.length > 0) {
+        const pivotInserts = [];
+        for (const permId of newPermIds) {
+          for (const roleId of selectedRoleIds) {
+            pivotInserts.push({
+              role_id: roleId,
+              permission_id: permId
+            });
           }
-          if (roleSnap.exists()) {
-            const currentPerms = roleSnap.data().permissionIds || [];
-            const updatedPerms = Array.from(new Set([...currentPerms, ...newPermIds]));
-            batch.update(roleRef, { permissionIds: updatedPerms });
-          }
+        }
+        
+        if (pivotInserts.length > 0) {
+          const { error: pivotError } = await supabase
+            .from('role_permissions')
+            .insert(pivotInserts);
+          if (pivotError) throw pivotError;
         }
       }
 
-      try {
-        await batch.commit();
-      } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, 'batch');
-      }
       triggerToast('Izin berhasil ditambahkan dan diberikan ke peran terpilih');
       setIsModalOpen(false);
       setSelectedActions(['read']);
@@ -256,10 +278,10 @@ const PermissionManagement: React.FC = () => {
       description: perm.description || ''
     });
     
-    // Find roles that have this permission
-    const roleIdsWithPerm = roles
-      .filter(r => r.permissionIds?.includes(perm.id))
-      .map(r => r.id);
+    // Find roles that have this permission via rolePermissions state
+    const roleIdsWithPerm = rolePermissions
+      .filter(rp => rp.permission_id === perm.id)
+      .map(rp => rp.role_id);
     setSelectedRoleIds(roleIdsWithPerm);
     
     setIsModalOpen(true);
@@ -269,24 +291,18 @@ const PermissionManagement: React.FC = () => {
     if (!deleteConfirm) return;
     const { id } = deleteConfirm;
     try {
-      const batch = writeBatch(db);
+      // 1. Delete matching role_permissions entries (pivot cleanup)
+      const { error: rpError } = await supabase
+        .from('role_permissions')
+        .delete()
+        .eq('permission_id', id);
       
-      // 1. Delete the permission document
-      batch.delete(doc(db, 'permissions', id));
-      
-      // 2. Remove this permission ID from all roles that have it
-      roles.forEach(role => {
-        if (role.permissionIds?.includes(id)) {
-          const updatedPerms = role.permissionIds.filter(pId => pId !== id);
-          batch.update(doc(db, 'roles', role.id), { permissionIds: updatedPerms });
-        }
-      });
+      if (rpError) throw rpError;
 
-      try {
-        await batch.commit();
-      } catch (error) {
-        handleFirestoreError(error, OperationType.WRITE, 'batch');
-      }
+      // 2. Delete the permission document
+      const { error: deleteError } = await supabase.from('permissions').delete().eq('id', id);
+      if (deleteError) throw deleteError;
+
       triggerToast('Izin berhasil dihapus');
       setDeleteConfirm(null);
     } catch (error) {
@@ -314,7 +330,7 @@ const PermissionManagement: React.FC = () => {
   })).filter(f => f.perms.length > 0 && (f.name.toLowerCase().includes(searchTerm.toLowerCase())));
 
   return (
-    <AdminLayout title="Manajemen Izin (CRUD Based)">
+    <>
       {toast && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[150] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4 ${toast.type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'}`}>
           {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : <XCircle className="w-5 h-5" />}
@@ -612,7 +628,7 @@ const PermissionManagement: React.FC = () => {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 };
 

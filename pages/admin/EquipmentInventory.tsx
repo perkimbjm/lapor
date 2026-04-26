@@ -1,10 +1,9 @@
+import { useOutletContext } from 'react-router-dom';
 
 import React, { useState, useEffect } from 'react';
-import AdminLayout from './AdminLayout';
+
 import { Equipment } from '../../types';
-import { db } from '../../src/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { supabase } from '../../src/supabase';
 import { 
   Plus, 
   Pencil, 
@@ -21,18 +20,34 @@ import {
 import { exportToExcel } from '../../src/lib/excel';
 
 const EquipmentInventory: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+
+  useEffect(() => {
+    setPageTitle("Armada & Peralatan");
+  }, [setPageTitle]);
+
   const [activeTab, setActiveTab] = useState<'Heavy' | 'Tool'>('Heavy');
   const [equipment, setEquipment] = useState<Equipment[]>([]);
   
   useEffect(() => {
-    const q = query(collection(db, 'equipment'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Equipment));
-      setEquipment(data);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'equipment');
-    });
-    return () => unsubscribe();
+    const fetchEquipment = async () => {
+      const { data, error } = await supabase.from('equipment').select('*');
+      if (error) {
+        console.error("Error fetching equipment:", error);
+      } else if (data) {
+        setEquipment(data as Equipment[]);
+      }
+    };
+
+    fetchEquipment();
+
+    const interval = setInterval(() => {
+      fetchEquipment();
+    }, 9000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -62,17 +77,11 @@ const EquipmentInventory: React.FC = () => {
     
     try {
       if (isEditing && currentId) {
-        try {
-          await updateDoc(doc(db, 'equipment', currentId), itemData);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.UPDATE, `equipment/${currentId}`);
-        }
+        const { error } = await supabase.from('equipment').update(itemData).eq('id', currentId);
+        if (error) throw error;
       } else {
-        try {
-          await addDoc(collection(db, 'equipment'), itemData);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, 'equipment');
-        }
+        const { error } = await supabase.from('equipment').insert([itemData]);
+        if (error) throw error;
       }
       triggerToast('Data alat berhasil disimpan');
       setIsModalOpen(false);
@@ -88,7 +97,7 @@ const EquipmentInventory: React.FC = () => {
       'Tipe': e.type,
       'Kategori': e.category === 'Heavy' ? 'Alat Berat' : 'Peralatan',
       'Status': e.status,
-      'ID Pekerjaan': e.assignedToJobId || '-'
+      'ID Pekerjaan': e.assigned_to_job_id || '-'
     }));
 
     exportToExcel(dataToExport, `Armada_Peralatan_${new Date().toISOString().split('T')[0]}`, 'Armada & Peralatan');
@@ -109,11 +118,8 @@ const EquipmentInventory: React.FC = () => {
   const executeDelete = async (id: string) => {
     if (!confirm('Hapus data alat ini?')) return;
     try {
-      try {
-        await deleteDoc(doc(db, 'equipment', id));
-      } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `equipment/${id}`);
-      }
+      const { error } = await supabase.from('equipment').delete().eq('id', id);
+      if (error) throw error;
       triggerToast('Data alat dihapus');
     } catch (error) {
       console.error('Error deleting equipment:', error);
@@ -123,7 +129,7 @@ const EquipmentInventory: React.FC = () => {
 
 
   return (
-    <AdminLayout title="Armada & Peralatan">
+    <>
       {toast?.visible && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4">
           <CheckCircle2 className="w-5 h-5 text-green-400" />
@@ -215,7 +221,7 @@ const EquipmentInventory: React.FC = () => {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 };
 

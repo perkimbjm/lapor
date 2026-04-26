@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* font */
+  --font-sans: "Inter", sans-serif;
+
+  /* brand colors */
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-500: #3b82f6;
+  --color-brand-600: #2563eb;
+  --color-brand-900: #1e3a8a;
+}

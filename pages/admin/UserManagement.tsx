@@ -1,11 +1,9 @@
+import { useOutletContext } from 'react-router-dom';
 
 import React, { useState, useEffect } from 'react';
-import AdminLayout from './AdminLayout';
+
 import { AppUser, Role } from '../../types';
-import { db, auth } from '../../src/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, getDocs, getDoc } from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { supabase } from '../../src/supabase';
 import { logAuditActivity, AuditAction } from '../../src/lib/auditLogger';
 import { 
   Users, 
@@ -32,6 +30,12 @@ import {
 import { exportToExcel } from '../../src/lib/excel';
 
 const UserManagement: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+
+  useEffect(() => {
+    setPageTitle("Manajemen Pengguna (Users)");
+  }, [setPageTitle]);
+
   const [users, setUsers] = useState<AppUser[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,10 +45,10 @@ const UserManagement: React.FC = () => {
   const [currentId, setCurrentId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
-    displayName: '',
+    display_name: '',
     username: '',
     phone: '',
-    roleId: ''
+    role_id: ''
   });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -56,84 +60,112 @@ const UserManagement: React.FC = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        setIsSuperAdmin(user.email === 'denip23147@gmail.com');
-        
-        // Fetch user doc to get roles
-        let userDoc;
-        try {
-          userDoc = await getDoc(doc(db, 'users', user.uid));
-        } catch (error) {
-          handleFirestoreError(error, OperationType.GET, `users/${user.uid}`);
+    let authSubscription: any;
+
+    const initAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      handleUserSession(session?.user);
+
+      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        handleUserSession(session?.user);
+      });
+      authSubscription = data.subscription;
+    };
+
+    const handleUserSession = async (user: any) => {
+      if (!user) return;
+      setIsSuperAdmin(user.email === 'denip23147@gmail.com');
+      
+      try {
+        const { data: userData, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (error) {
+          console.error("Error fetching user:", error);
           return;
         }
-        if (userDoc.exists()) {
-          const userData = userDoc.data() as AppUser;
-          const roleId = userData.roleId || '';
-          
-          if (roleId) {
-            // Fetch permissions for this role
+
+        if (userData && userData.role_id) {
+          const { data: roleData } = await supabase
+            .from('roles')
+            .select('*')
+            .eq('id', userData.role_id)
+            .single();
+
+          if (roleData && roleData.permissionIds) {
             const perms: string[] = [];
-            const roleDoc = await getDoc(doc(db, 'roles', roleId));
-            if (roleDoc.exists()) {
-              const roleData = roleDoc.data() as Role;
-              const pIds = roleData.permissionIds || [];
-              
-              for (const pId of pIds) {
-                const pDoc = await getDoc(doc(db, 'permissions', pId));
-                if (pDoc.exists()) {
-                  perms.push(pDoc.data().code);
-                }
-              }
+            for (const pId of roleData.permissionIds) {
+              const { data: pDoc } = await supabase
+                .from('permissions')
+                .select('*')
+                .eq('id', pId)
+                .single();
+              if (pDoc) perms.push(pDoc.code);
             }
             setCurrentUserPerms(Array.from(new Set(perms)));
           }
         }
+      } catch (err) {
+        console.error(err);
       }
-    });
-    return () => unsubscribe();
+    };
+
+    initAuth();
+
+    return () => {
+      if (authSubscription) authSubscription.unsubscribe();
+    };
   }, []);
 
   const hasPermission = (code: string) => isSuperAdmin || currentUserPerms.includes(code);
 
   const handleExportExcel = () => {
     const dataToExport = users.map(u => ({
-      'UID': u.uid,
       'Email': u.email,
-      'Nama': u.displayName || '-',
+      'Nama': u.display_name || '-',
       'Username': u.username || '-',
       'Telepon': u.phone || '-',
-      'Role ID': u.roleId || '-',
-      'Status': u.isBanned ? 'Banned' : 'Aktif',
-      'Terdaftar': new Date(u.createdAt).toLocaleDateString('id-ID')
+      'Role ID': u.role_id || '-',
+      'Status': u.is_banned ? 'Banned' : 'Aktif',
+      'Terdaftar': new Date(u.created_at).toLocaleDateString('id-ID')
     }));
 
     exportToExcel(dataToExport, `Daftar_User_${new Date().toISOString().split('T')[0]}`, 'Manajemen User');
   };
 
   useEffect(() => {
-    const qUsers = query(collection(db, 'users'));
-    const unsubscribeUsers = onSnapshot(qUsers, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
-      setUsers(data);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'users');
-      setLoading(false);
-    });
+    const fetchUsers = async () => {
+    const { data, error } = await supabase.from('users').select('*');
+    if (error) {
+      console.error("Error fetching users:", error);
+    } else if (data) {
+      setUsers(data as AppUser[]);
+    }
+    setLoading(false);
+  };
 
-    const qRoles = query(collection(db, 'roles'));
-    const unsubscribeRoles = onSnapshot(qRoles, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Role));
-      setRoles(data);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'roles');
-    });
+    const fetchRoles = async () => {
+      const { data, error } = await supabase.from('roles').select('*');
+      if (error) {
+        console.error("Error fetching roles:", error);
+      } else if (data) {
+        setRoles(data as Role[]);
+      }
+    };
+
+    fetchUsers();
+    fetchRoles();
+
+    const interval = setInterval(() => {
+      fetchUsers();
+      fetchRoles();
+    }, 10000);
 
     return () => {
-      unsubscribeUsers();
-      unsubscribeRoles();
+      clearInterval(interval);
     };
   }, []);
 
@@ -146,20 +178,20 @@ const UserManagement: React.FC = () => {
     e.preventDefault();
     setIsSaving(true);
     try {
-      // Uniqueness checks
       const emailLower = formData.email.toLowerCase();
       const usernameLower = formData.username.toLowerCase();
 
       // Check email
-      const qEmail = query(collection(db, 'users'), where('email', '==', emailLower));
-      let snapEmail;
-      try {
-        snapEmail = await getDocs(qEmail);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.LIST, 'users');
+      const { data: emailData, error: emailError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('email', emailLower);
+      
+      if (emailError) {
+        console.error("Error checking email:", emailError);
         return;
       }
-      if (snapEmail.docs.some(doc => doc.id !== currentId)) {
+      if (emailData && emailData.some(doc => doc.id !== currentId)) {
         triggerToast('Email sudah terdaftar', 'error');
         setIsSaving(false);
         return;
@@ -167,15 +199,16 @@ const UserManagement: React.FC = () => {
 
       // Check username
       if (formData.username) {
-        const qUsername = query(collection(db, 'users'), where('username', '==', usernameLower));
-        let snapUsername;
-        try {
-          snapUsername = await getDocs(qUsername);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.LIST, 'users');
+        const { data: usernameData, error: usernameError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('username', usernameLower);
+          
+        if (usernameError) {
+          console.error("Error checking username:", usernameError);
           return;
         }
-        if (snapUsername.docs.some(doc => doc.id !== currentId)) {
+        if (usernameData && usernameData.some(doc => doc.id !== currentId)) {
           triggerToast('Username sudah terdaftar', 'error');
           setIsSaving(false);
           return;
@@ -184,15 +217,16 @@ const UserManagement: React.FC = () => {
 
       // Check phone
       if (formData.phone) {
-        const qPhone = query(collection(db, 'users'), where('phone', '==', formData.phone));
-        let snapPhone;
-        try {
-          snapPhone = await getDocs(qPhone);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.LIST, 'users');
+        const { data: phoneData, error: phoneError } = await supabase
+          .from('users')
+          .select('id')
+          .eq('phone', formData.phone);
+          
+        if (phoneError) {
+          console.error("Error checking phone:", phoneError);
           return;
         }
-        if (snapPhone.docs.some(doc => doc.id !== currentId)) {
+        if (phoneData && phoneData.some(doc => doc.id !== currentId)) {
           triggerToast('Nomor HP sudah terdaftar', 'error');
           setIsSaving(false);
           return;
@@ -200,37 +234,44 @@ const UserManagement: React.FC = () => {
       }
 
       if (isEditing && currentId) {
-        try {
-          await updateDoc(doc(db, 'users', currentId), {
-            displayName: formData.displayName,
+        const { error } = await supabase
+          .from('users')
+          .update({
+            display_name: formData.display_name,
             username: usernameLower,
             phone: formData.phone,
-            roleId: formData.roleId
-          });
+            role_id: formData.role_id
+          })
+          .eq('id', currentId);
+          
+        if (error) {
+          console.error("Update error:", error);
+        } else {
           await logAuditActivity(AuditAction.UPDATE, 'Manajemen User', `Memperbarui pengguna ${formData.email}`);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.UPDATE, `users/${currentId}`);
         }
         triggerToast('Pengguna berhasil diperbarui');
       } else {
-        try {
-          await addDoc(collection(db, 'users'), {
+        const { error } = await supabase
+          .from('users')
+          .insert([{
             email: emailLower,
             username: usernameLower,
             phone: formData.phone,
-            displayName: formData.displayName,
-            roleId: formData.roleId,
-            isBanned: false,
-            createdAt: new Date().toISOString()
-          });
+            display_name: formData.display_name,
+            role_id: formData.role_id,
+            is_banned: false,
+            created_at: new Date().toISOString()
+          }]);
+          
+        if (error) {
+          console.error("Create error:", error);
+        } else {
           await logAuditActivity(AuditAction.CREATE, 'Manajemen User', `Menambahkan pengguna ${emailLower}`);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, 'users');
         }
         triggerToast('Pengguna berhasil ditambahkan');
       }
       setIsModalOpen(false);
-      setFormData({ email: '', displayName: '', username: '', phone: '', roleId: '' });
+      setFormData({ email: '', display_name: '', username: '', phone: '', role_id: '' });
     } catch (error) {
       console.error('Error saving user:', error);
       triggerToast('Gagal menyimpan pengguna', 'error');
@@ -243,17 +284,18 @@ const UserManagement: React.FC = () => {
     e.preventDefault();
     if (!resetUserId || !newPassword) return;
     try {
-      // In a real Firebase app, you'd use Admin SDK or send a reset email.
-      // Here we'll simulate it by updating a field or just showing success.
-      // Note: We can't actually change the Auth password from frontend for another user.
-      try {
-        await updateDoc(doc(db, 'users', resetUserId), {
+      const { error } = await supabase
+        .from('users')
+        .update({
           _tempPassword: newPassword, // For simulation/admin reference
           passwordLastReset: new Date().toISOString()
-        });
-      } catch (error) {
-        handleFirestoreError(error, OperationType.UPDATE, `users/${resetUserId}`);
+        })
+        .eq('id', resetUserId);
+        
+      if (error) {
+        console.error("Reset password error:", error);
       }
+      
       triggerToast('Permintaan reset password berhasil diproses');
       setIsResetModalOpen(false);
       setNewPassword('');
@@ -265,15 +307,19 @@ const UserManagement: React.FC = () => {
 
   const toggleBanStatus = async (user: AppUser) => {
     try {
-      try {
-        await updateDoc(doc(db, 'users', user.id), {
-          isBanned: !user.isBanned
-        });
-        await logAuditActivity(AuditAction.UPDATE, 'Manajemen User', `Mengubah status blokir pengguna ${user.email} menjadi ${!user.isBanned}`);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.UPDATE, `users/${user.id}`);
+      const { error } = await supabase
+        .from('users')
+        .update({
+          is_banned: !user.is_banned
+        })
+        .eq('id', user.id);
+        
+      if (error) {
+        console.error("Status ban error:", error);
+      } else {
+        await logAuditActivity(AuditAction.UPDATE, 'Manajemen User', `Mengubah status blokir pengguna ${user.email} menjadi ${!user.is_banned}`);
       }
-      triggerToast(`Pengguna berhasil ${user.isBanned ? 'dibuka blokirnya' : 'diblukir'}`);
+      triggerToast(`Pengguna berhasil ${user.is_banned ? 'dibuka blokirnya' : 'diblokir'}`);
     } catch (error) {
       console.error('Error toggling ban status:', error);
       triggerToast('Gagal mengubah status blokir', 'error');
@@ -285,10 +331,10 @@ const UserManagement: React.FC = () => {
     setCurrentId(user.id);
     setFormData({
       email: user.email,
-      displayName: user.displayName || '',
+      display_name: user.display_name || '',
       username: user.username || '',
       phone: user.phone || '',
-      roleId: user.roleId || ''
+      role_id: user.role_id || ''
     });
     setIsModalOpen(true);
   };
@@ -296,12 +342,17 @@ const UserManagement: React.FC = () => {
   const handleDelete = async () => {
     if (!deleteConfirm) return;
     try {
-      try {
-        await deleteDoc(doc(db, 'users', deleteConfirm.id));
+      const { error } = await supabase
+        .from('users')
+        .delete()
+        .eq('id', deleteConfirm.id);
+        
+      if (error) {
+        console.error("Delete user error:", error);
+      } else {
         await logAuditActivity(AuditAction.DELETE, 'Manajemen User', `Menghapus pengguna ${deleteConfirm.email}`);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `users/${deleteConfirm.id}`);
       }
+      
       triggerToast('Pengguna berhasil dihapus');
       setDeleteConfirm(null);
     } catch (error) {
@@ -312,11 +363,11 @@ const UserManagement: React.FC = () => {
 
   const filteredUsers = users.filter(u => 
     u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (u.displayName || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (u.display_name || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <AdminLayout title="Manajemen Pengguna (Users)">
+    <>
       {toast && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4 ${toast.type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'}`}>
           {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : <XCircle className="w-5 h-5" />}
@@ -345,7 +396,7 @@ const UserManagement: React.FC = () => {
           <button 
             onClick={() => {
               setIsEditing(false);
-              setFormData({ email: '', displayName: '', username: '', phone: '', roleId: '' });
+              setFormData({ email: '', display_name: '', username: '', phone: '', role_id: '' });
               setIsModalOpen(true);
             }}
             className="flex-1 sm:flex-none px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -387,11 +438,11 @@ const UserManagement: React.FC = () => {
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-slate-100 dark:bg-slate-900 rounded-full flex items-center justify-center text-slate-400 font-black text-xs uppercase">
-                          {user.displayName ? user.displayName.substring(0, 2) : user.email.substring(0, 2)}
+                          {user.display_name ? user.display_name.substring(0, 2) : user.email.substring(0, 2)}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{user.displayName || 'Tanpa Nama'}</p>
+                            <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{user.display_name || 'Tanpa Nama'}</p>
                             {user.email === 'denip23147@gmail.com' && (
                               <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded text-[8px] font-black uppercase tracking-widest border border-amber-200 dark:border-amber-800 flex items-center gap-1">
                                 <Shield size={8} /> Super Admin
@@ -404,13 +455,13 @@ const UserManagement: React.FC = () => {
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex flex-wrap gap-1">
-                        {!user.roleId ? (
+                        {!user.role_id ? (
                           <span className="px-2 py-1 bg-slate-100 dark:bg-slate-900 text-slate-400 rounded-lg text-[9px] font-bold uppercase tracking-tight">Tanpa Peran</span>
                         ) : (
                           (() => {
-                            const r = roles.find(role => role.id === user.roleId);
+                            const r = roles.find(role => role.id === user.role_id);
                             return r ? (
-                              <span key={user.roleId} className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[9px] font-black uppercase tracking-tight">
+                              <span key={user.role_id} className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[9px] font-black uppercase tracking-tight">
                                 {r.name}
                               </span>
                             ) : null;
@@ -422,7 +473,7 @@ const UserManagement: React.FC = () => {
                       <div className="flex items-center gap-1.5 text-slate-400">
                         <Calendar size={12} />
                         <span className="text-[10px] font-bold uppercase tracking-tight">
-                          {user.createdAt ? new Date(user.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
+                          {user.created_at ? new Date(user.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-'}
                         </span>
                       </div>
                     </td>
@@ -445,13 +496,13 @@ const UserManagement: React.FC = () => {
                             onClick={() => toggleBanStatus(user)}
                             disabled={user.email === 'denip23147@gmail.com'}
                             className={`p-2.5 rounded-xl transition-all ${
-                              user.isBanned 
+                              user.is_banned 
                                 ? 'text-red-600 bg-red-50 dark:bg-red-900/30 hover:bg-red-100' 
                                 : 'text-slate-400 hover:text-orange-600 hover:bg-orange-50 dark:hover:bg-orange-900/30'
                             } disabled:opacity-20 disabled:cursor-not-allowed`}
-                            title={user.isBanned ? "Buka Blokir" : "Blokir Pengguna"}
+                            title={user.is_banned ? "Buka Blokir" : "Blokir Pengguna"}
                           >
-                            {user.isBanned ? <Unlock size={18} /> : <Ban size={18} />}
+                            {user.is_banned ? <Unlock size={18} /> : <Ban size={18} />}
                           </button>
                         )}
                         <button 
@@ -543,8 +594,8 @@ const UserManagement: React.FC = () => {
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Nama Lengkap</label>
                     <input 
                       type="text" 
-                      value={formData.displayName}
-                      onChange={e => setFormData({...formData, displayName: e.target.value})}
+                      value={formData.display_name}
+                      onChange={e => setFormData({...formData, display_name: e.target.value})}
                       placeholder="Contoh: Ahmad Fulan"
                       className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                     />
@@ -555,12 +606,12 @@ const UserManagement: React.FC = () => {
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex justify-between">
                       Peran (Role)
-                      <span className="text-blue-600">{formData.roleId ? '1' : '0'} Terpilih</span>
+                      <span className="text-blue-600">{formData.role_id ? '1' : '0'} Terpilih</span>
                     </label>
                     <div className="relative">
                       <select 
-                        value={formData.roleId}
-                        onChange={e => setFormData({...formData, roleId: e.target.value})}
+                        value={formData.role_id}
+                        onChange={e => setFormData({...formData, role_id: e.target.value})}
                         className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                       >
                         <option value="">Pilih Peran</option>
@@ -668,7 +719,7 @@ const UserManagement: React.FC = () => {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 };
 

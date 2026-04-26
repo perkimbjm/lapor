@@ -1,10 +1,9 @@
+import { useOutletContext } from 'react-router-dom';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import AdminLayout from './AdminLayout';
+
 import { Worker, AttendanceRecord, RoadType, Holiday } from '../../types';
-import { db, auth } from '../../src/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc, getDocFromServer, setDoc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { supabase } from '../../src/supabase';
 import { logAuditActivity, AuditAction } from '../../src/lib/auditLogger';
 import { 
   Users, 
@@ -40,6 +39,12 @@ import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
 
 const WorkforceManagement: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+
+  useEffect(() => {
+    setPageTitle("Manajemen Tenaga Kerja");
+  }, [setPageTitle]);
+
   const [activeTab, setActiveTab] = useState<RoadType>(RoadType.JALAN);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
   const [selectedMonth, setSelectedMonth] = useState((new Date().getMonth() + 1).toString());
@@ -67,46 +72,63 @@ const WorkforceManagement: React.FC = () => {
   const [isSavingRates, setIsSavingRates] = useState(false);
 
   useEffect(() => {
-    const testConnection = async () => {
-      try {
-        await getDocFromServer(doc(db, 'cms', 'connection-test'));
-      } catch (error: any) {
-        if (error.message?.includes('the client is offline')) {
-          console.error("Firebase connection test failed: client is offline. Check configuration.");
-        }
+    const fetchWorkers = async () => {
+      const { data } = await supabase.from('workers').select('*');
+      if (data) setWorkers(data as Worker[]);
+    };
+
+    const fetchAttendance = async () => {
+      const { data } = await supabase.from('attendance').select('*');
+      if (data) {
+        setAttendance(data.map((row: any) => ({
+          id: row.id,
+          worker_id: row.worker_id,
+          month: row.month,
+          week: row.week,
+          presence: {
+            monday:    row.monday    ?? 0,
+            tuesday:   row.tuesday   ?? 0,
+            wednesday: row.wednesday ?? 0,
+            thursday:  row.thursday  ?? 0,
+            friday:    row.friday    ?? 0,
+            saturday:  row.saturday  ?? 0,
+            sunday:    row.sunday    ?? 0,
+          }
+        })));
       }
     };
-    testConnection();
 
-    const qWorkers = query(collection(db, 'workers'));
-    const unsubscribeWorkers = onSnapshot(qWorkers, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Worker));
-      setWorkers(data);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'workers'));
+    const fetchHolidays = async () => {
+      const { data } = await supabase.from('holidays').select('*');
+      if (data) setHolidays(data as Holiday[]);
+    };
 
-    const qAttendance = query(collection(db, 'attendance'));
-    const unsubscribeAttendance = onSnapshot(qAttendance, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AttendanceRecord));
-      setAttendance(data);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'attendance'));
-
-    const qHolidays = query(collection(db, 'holidays'));
-    const unsubscribeHolidays = onSnapshot(qHolidays, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Holiday));
-      setHolidays(data);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'holidays'));
-
-    const unsubscribeRates = onSnapshot(doc(db, 'cms', 'workforce_rates'), (docSnap) => {
-      if (docSnap.exists()) {
-        setGlobalRates(docSnap.data() as any);
+    const fetchRates = async () => {
+      const { data } = await supabase.from('cms').select('*').eq('id', 'workforce_rates').single();
+      if (data && data.data) {
+        setGlobalRates({
+          dailyRate: data.data.dailyRate ?? 170000,
+          otRate1: data.data.otRate1 ?? 240000,
+          otRate2: data.data.otRate2 ?? 290000,
+          otRate3: data.data.otRate3 ?? 340000,
+        });
       }
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'cms/workforce_rates'));
+    };
+
+    fetchWorkers();
+    fetchAttendance();
+    fetchHolidays();
+    fetchRates();
+
+    const interval = setInterval(() => {
+      fetchWorkers();
+      fetchAttendance();
+      fetchHolidays();
+      fetchRates();
+    }, 6000);
 
     return () => {
-      unsubscribeWorkers();
-      unsubscribeAttendance();
-      unsubscribeHolidays();
-      unsubscribeRates();
+      clearInterval(interval);
     };
   }, []);
 
@@ -180,13 +202,13 @@ const WorkforceManagement: React.FC = () => {
            (overtime3Days * globalRates.otRate3);
   };
 
-  const getAttendanceRecordsForWorker = (workerId: string) => {
+  const getAttendanceRecordsForWorker = (worker_id: string) => {
     return attendance.filter(a => {
       const [year, month] = a.month.split('-');
       const yearMatch = year === selectedYear;
       const monthMatch = selectedMonth === 'all' || Number(month) === Number(selectedMonth);
       const weekMatch = selectedWeek === 'all' || a.week === selectedWeek;
-      return yearMatch && monthMatch && weekMatch && a.workerId === workerId;
+      return yearMatch && monthMatch && weekMatch && a.worker_id === worker_id;
     });
   };
 
@@ -212,7 +234,7 @@ const WorkforceManagement: React.FC = () => {
         const monthNum = idx + 1;
         const count = attendance.filter(a => {
           const [year, month] = a.month.split('-');
-          const isWorkerInTab = filteredWorkers.some(w => w.id === a.workerId);
+          const isWorkerInTab = filteredWorkers.some(w => w.id === a.worker_id);
           return year === selectedYear && Number(month) === monthNum && isWorkerInTab;
         }).length;
         return { name: monthName, count };
@@ -225,7 +247,7 @@ const WorkforceManagement: React.FC = () => {
       return weeks.map(weekNum => {
         const count = attendance.filter(a => {
           const [year, month] = a.month.split('-');
-          const isWorkerInTab = filteredWorkers.some(w => w.id === a.workerId);
+          const isWorkerInTab = filteredWorkers.some(w => w.id === a.worker_id);
           return year === selectedYear && Number(month) === Number(selectedMonth) && a.week === weekNum && isWorkerInTab;
         }).length;
         return { name: `W${weekNum}`, count };
@@ -241,7 +263,7 @@ const WorkforceManagement: React.FC = () => {
         const yearMatch = year === selectedYear;
         const monthMatch = Number(month) === Number(selectedMonth);
         const weekMatch = a.week === selectedWeek;
-        const isWorkerInTab = filteredWorkers.some(w => w.id === a.workerId);
+        const isWorkerInTab = filteredWorkers.some(w => w.id === a.worker_id);
         return yearMatch && monthMatch && weekMatch && isWorkerInTab && (a.presence as any)[day] > 0;
       }).length;
       return { name: dayNames[idx], count };
@@ -355,10 +377,10 @@ const WorkforceManagement: React.FC = () => {
               id: `imp-${name.replace(/\s+/g, '-').toLowerCase()}`,
               name: name,
               category: cat,
-              dailyRate: 0,
-              otRate1: 0,
-              otRate2: 0,
-              otRate3: 0
+              daily_rate: 170000,
+              ot_rate_1: 240000,
+              ot_rate_2: 290000,
+              ot_rate_3: 340000
             });
           }
 
@@ -366,7 +388,7 @@ const WorkforceManagement: React.FC = () => {
 
           newRecords.push({
             id: `rec-${Date.now()}-${i}`,
-            workerId: currentWorker.id,
+            worker_id: currentWorker.id,
             month: `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`,
             week: weekFromRow,
             presence: {
@@ -390,7 +412,7 @@ const WorkforceManagement: React.FC = () => {
         setAttendance(prev => {
           const existing = [...prev];
           newRecords.forEach(nr => {
-            const idx = existing.findIndex(e => e.workerId === nr.workerId && e.month === nr.month && e.week === nr.week);
+            const idx = existing.findIndex(e => e.worker_id === nr.worker_id && e.month === nr.month && e.week === nr.week);
             if (idx > -1) existing[idx] = nr;
             else existing.push(nr);
           });
@@ -442,24 +464,21 @@ const WorkforceManagement: React.FC = () => {
   const handleDelete = async () => {
     if (!deleteConfirm) return;
     try {
-      try {
-        const workerToDelete = workers.find(w => w.id === deleteConfirm.id);
-        await deleteDoc(doc(db, 'workers', deleteConfirm.id));
-        if (workerToDelete) {
-          await logAuditActivity(AuditAction.DELETE, 'Tenaga Kerja', `Menghapus tenaga kerja ${workerToDelete.name}`);
-        }
-      } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `workers/${deleteConfirm.id}`);
+      const workerToDelete = workers.find(w => w.id === deleteConfirm.id);
+      
+      const { error: workerError } = await supabase.from('workers').delete().eq('id', deleteConfirm.id);
+      if (workerError) {
+        console.error("Error deleting worker:", workerError);
+      } else if (workerToDelete) {
+        await logAuditActivity(AuditAction.DELETE, 'Tenaga Kerja', `Menghapus tenaga kerja ${workerToDelete.name}`);
       }
+      
       // Also delete attendance records for this worker
-      const workerAttendance = attendance.filter(a => a.workerId === deleteConfirm.id);
-      for (const record of workerAttendance) {
-        try {
-          await deleteDoc(doc(db, 'attendance', record.id));
-        } catch (error) {
-          handleFirestoreError(error, OperationType.DELETE, `attendance/${record.id}`);
-        }
+      const { error: attError } = await supabase.from('attendance').delete().eq('worker_id', deleteConfirm.id);
+      if (attError) {
+        console.error("Error deleting attendance:", attError);
       }
+
       toast.success('Pekerja berhasil dihapus');
       setDeleteConfirm(null);
     } catch (error) {
@@ -471,11 +490,16 @@ const WorkforceManagement: React.FC = () => {
   const handleSaveRates = async () => {
     setIsSavingRates(true);
     try {
-      await setDoc(doc(db, 'cms', 'workforce_rates'), globalRates);
+      const { error } = await supabase.from('cms').upsert({
+        id: 'workforce_rates',
+        data: globalRates,
+        updated_at: new Date().toISOString()
+      });
+      if (error) throw error;
       await logAuditActivity(AuditAction.UPDATE, 'Tenaga Kerja', 'Memperbarui tarif upah global');
       toast.success('Tarif upah berhasil disimpan');
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'cms/workforce_rates');
+      console.error('Save rates exception:', error);
       toast.error('Gagal menyimpan tarif upah');
     } finally {
       setIsSavingRates(false);
@@ -484,66 +508,59 @@ const WorkforceManagement: React.FC = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    const workerId = selectedWorkerId || `w-${Date.now()}`;
-    const workerData = {
-      name: formData.name,
-      category: formData.category
+
+    const presenceData = {
+      monday: formData.monday,
+      tuesday: formData.tuesday,
+      wednesday: formData.wednesday,
+      thursday: formData.thursday,
+      friday: formData.friday,
+      saturday: formData.saturday,
+      sunday: formData.sunday
     };
 
-    const attendanceData = {
-      workerId: workerId,
-      month: `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`,
-      week: selectedWeek === 'all' ? 1 : selectedWeek,
-      presence: {
-        monday: formData.monday,
-        tuesday: formData.tuesday,
-        wednesday: formData.wednesday,
-        thursday: formData.thursday,
-        friday: formData.friday,
-        saturday: formData.saturday,
-        sunday: formData.sunday
-      }
-    };
+    const month = `${selectedYear}-${selectedMonth.toString().padStart(2, '0')}`;
+    const week = selectedWeek === 'all' ? 1 : selectedWeek;
 
     try {
       if (isEditing && selectedWorkerId) {
-        try {
-          await setDoc(doc(db, 'workers', selectedWorkerId), { id: selectedWorkerId, ...workerData }, { merge: true });
-          await logAuditActivity(AuditAction.UPDATE, 'Tenaga Kerja', `Memperbarui tenaga kerja ${workerData.name}`);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.UPDATE, `workers/${selectedWorkerId}`);
-        }
-        // Update attendance record if exists
-        const existingRecord = attendance.find(a => a.workerId === selectedWorkerId && a.month === attendanceData.month && a.week === attendanceData.week);
+        const { error: wError } = await supabase.from('workers').update({
+          name: formData.name,
+          category: formData.category
+        }).eq('id', selectedWorkerId);
+        if (wError) throw wError;
+        await logAuditActivity(AuditAction.UPDATE, 'Tenaga Kerja', `Memperbarui tenaga kerja ${formData.name}`);
+
+        const records = getAttendanceRecordsForWorker(selectedWorkerId);
+        const existingRecord = records.find(a => a.month === month && a.week === week);
+
         if (existingRecord) {
-          try {
-            await setDoc(doc(db, 'attendance', existingRecord.id), attendanceData, { merge: true });
-            await logAuditActivity(AuditAction.UPDATE, 'Presensi', `Memperbarui presensi ${workerData.name} (Pekan ${attendanceData.week}, ${attendanceData.month})`);
-          } catch (error) {
-            handleFirestoreError(error, OperationType.UPDATE, `attendance/${existingRecord.id}`);
-          }
+          const { error: attError } = await supabase.from('attendance').update({ ...presenceData }).eq('id', existingRecord.id);
+          if (attError) throw attError;
+          await logAuditActivity(AuditAction.UPDATE, 'Presensi', `Memperbarui presensi ${formData.name} (Pekan ${week}, ${month})`);
         } else {
-          try {
-            await addDoc(collection(db, 'attendance'), attendanceData);
-            await logAuditActivity(AuditAction.CREATE, 'Presensi', `Menambahkan presensi ${workerData.name} (Pekan ${attendanceData.week}, ${attendanceData.month})`);
-          } catch (error) {
-            handleFirestoreError(error, OperationType.CREATE, 'attendance');
-          }
+          const { error: attError } = await supabase.from('attendance').insert([{ worker_id: selectedWorkerId, month, week, ...presenceData }]);
+          if (attError) throw attError;
+          await logAuditActivity(AuditAction.CREATE, 'Presensi', `Menambahkan presensi ${formData.name} (Pekan ${week}, ${month})`);
         }
       } else {
-        try {
-          await setDoc(doc(db, 'workers', workerId), { id: workerId, ...workerData });
-          await logAuditActivity(AuditAction.CREATE, 'Tenaga Kerja', `Menambahkan tenaga kerja ${workerData.name}`);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, 'workers');
-        }
-        try {
-          await addDoc(collection(db, 'attendance'), attendanceData);
-          await logAuditActivity(AuditAction.CREATE, 'Presensi', `Menambahkan presensi ${workerData.name} (Pekan ${attendanceData.week}, ${attendanceData.month})`);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, 'attendance');
-        }
+        const { data: newWorker, error: wError } = await supabase.from('workers').insert([{
+          name: formData.name,
+          category: formData.category,
+        }]).select().single();
+        if (wError) throw wError;
+        await logAuditActivity(AuditAction.CREATE, 'Tenaga Kerja', `Menambahkan tenaga kerja ${formData.name}`);
+
+        const { error: attError } = await supabase.from('attendance').insert([{
+          worker_id: newWorker.id,
+          month,
+          week,
+          ...presenceData
+        }]);
+        if (attError) throw attError;
+        await logAuditActivity(AuditAction.CREATE, 'Presensi', `Menambahkan presensi ${formData.name} (Pekan ${week}, ${month})`);
       }
+
       setIsModalOpen(false);
       toast.success(isEditing ? 'Data pekerja berhasil diupdate' : 'Data pekerja berhasil ditambahkan');
     } catch (error) {
@@ -564,12 +581,12 @@ const WorkforceManagement: React.FC = () => {
   const handleDeleteHoliday = async () => {
     if (!deleteHolidayConfirm) return;
     try {
-      try {
-        await deleteDoc(doc(db, 'holidays', deleteHolidayConfirm.id));
-      } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `holidays/${deleteHolidayConfirm.id}`);
+      const { error } = await supabase.from('holidays').delete().eq('id', deleteHolidayConfirm.id);
+      if (error) {
+        console.error("Holiday delete error:", error);
+      } else {
+        toast.success('Hari libur berhasil dihapus');
       }
-      toast.success('Hari libur berhasil dihapus');
       setDeleteHolidayConfirm(null);
     } catch (error) {
       console.error("Error deleting holiday:", error);
@@ -587,19 +604,19 @@ const WorkforceManagement: React.FC = () => {
     if (!date || !name) return;
 
     try {
-      try {
-        await addDoc(collection(db, 'holidays'), { date, name, type });
-      } catch (error) {
-        handleFirestoreError(error, OperationType.CREATE, 'holidays');
+      const { error } = await supabase.from('holidays').insert([{ date, name, type }]);
+      if (error) {
+        console.error("Add holiday error", error);
+      } else {
+        form.reset();
       }
-      form.reset();
     } catch (error) {
       console.error("Error adding holiday:", error);
     }
   };
 
   return (
-    <AdminLayout title="Manajemen Tenaga Kerja">
+    <>
       {isHolidayModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsHolidayModalOpen(false)}></div>
@@ -702,7 +719,7 @@ const WorkforceManagement: React.FC = () => {
                 <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 block">Upah Harian</label>
                 <input 
                   type="number" 
-                  value={globalRates.dailyRate} 
+                  value={globalRates?.dailyRate ?? 0} 
                   onChange={e => setGlobalRates({...globalRates, dailyRate: Number(e.target.value)})}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -711,7 +728,7 @@ const WorkforceManagement: React.FC = () => {
                 <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 block">Bonus Lembur 1</label>
                 <input 
                   type="number" 
-                  value={globalRates.otRate1} 
+                  value={globalRates?.otRate1 ?? 0} 
                   onChange={e => setGlobalRates({...globalRates, otRate1: Number(e.target.value)})}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -720,7 +737,7 @@ const WorkforceManagement: React.FC = () => {
                 <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 block">Bonus Lembur 2</label>
                 <input 
                   type="number" 
-                  value={globalRates.otRate2} 
+                  value={globalRates?.otRate2 ?? 0} 
                   onChange={e => setGlobalRates({...globalRates, otRate2: Number(e.target.value)})}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -729,7 +746,7 @@ const WorkforceManagement: React.FC = () => {
                 <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 block">Bonus Lembur 3</label>
                 <input 
                   type="number" 
-                  value={globalRates.otRate3} 
+                  value={globalRates?.otRate3 ?? 0} 
                   onChange={e => setGlobalRates({...globalRates, otRate3: Number(e.target.value)})}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                 />
@@ -922,7 +939,7 @@ const WorkforceManagement: React.FC = () => {
                     <td className="px-4 py-4 text-xs font-bold text-slate-400 dark:text-slate-300">{actualIndex}</td>
                     <td className="px-4 py-4">
                       <div className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{worker.name}</div>
-                      <div className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase mt-0.5 tracking-wider">Rp {worker.dailyRate.toLocaleString()} / Hari</div>
+                      <div className="text-[10px] font-black text-slate-400 dark:text-slate-300 uppercase mt-0.5 tracking-wider">Rp {(worker.daily_rate || 0).toLocaleString()} / Hari</div>
                     </td>
                     {selectedWeek !== 'all' ? (
                       <>
@@ -1158,7 +1175,7 @@ const WorkforceManagement: React.FC = () => {
         </div>
       )}
 
-    </AdminLayout>
+    </>
   );
 };
 

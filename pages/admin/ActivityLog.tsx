@@ -1,8 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import AdminLayout from './AdminLayout';
-import { db } from '../../src/firebase';
-import { collection, onSnapshot, query } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { supabase } from '../../src/supabase';
 import { ComplaintStatus } from '../../types';
 import { Search, Calendar, Filter, X } from 'lucide-react';
 
@@ -15,28 +13,35 @@ const ActivityLog: React.FC = () => {
   const [dateFilter, setDateFilter] = useState('');
 
   useEffect(() => {
-    const qComplaints = query(collection(db, 'complaints'));
-    const unsubscribeComplaints = onSnapshot(qComplaints, (snapshot) => {
-      setComplaints(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'complaints'));
+    const fetchComplaints = async () => {
+      const { data, error } = await supabase.from('complaints').select('*');
+      if (error) console.error("Error fetching complaints:", error);
+      else if (data) setComplaints(data);
+    };
 
-    const qNotifications = query(collection(db, 'notifications'));
-    const unsubscribeNotifications = onSnapshot(qNotifications, (snapshot) => {
-      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const fetchNotifications = async () => {
+      const { data, error } = await supabase.from('notifications').select('*');
+      if (error) console.error("Error fetching notifications:", error);
+      else if (data) setNotifications(data);
       setLoading(false);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
+    };
+
+    fetchComplaints();
+    fetchNotifications();
+
+    const channel = supabase.channel('activity-log-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, fetchComplaints)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, fetchNotifications)
+      .subscribe();
 
     return () => {
-      unsubscribeComplaints();
-      unsubscribeNotifications();
+      supabase.removeChannel(channel);
     };
   }, []);
 
   const parseFirestoreDate = (dateField: any): Date | null => {
     if (!dateField) return null;
-    if (dateField.toDate) return dateField.toDate();
-    if (typeof dateField === 'string' || typeof dateField === 'number') return new Date(dateField);
-    return null;
+    return new Date(dateField);
   };
 
   const formatIndonesianDate = (dateField: any, includeTime = false) => {
@@ -55,10 +60,10 @@ const ActivityLog: React.FC = () => {
   const combinedActivities = useMemo(() => {
     const complaintActivities = complaints.map(c => ({
       id: c.id,
-      title: `Aduan Baru: ${c.ticketNumber || c.id.substring(0, 8)}`,
-      message: `${c.reporterName} melaporkan kerusakan ${c.category} di ${c.landmark || c.location}`,
+      title: `Aduan Baru: ${c.ticket_number || c.id.substring(0, 8)}`,
+      message: `${c.reporter_name} melaporkan kerusakan ${c.category} di ${c.landmark || c.location}`,
       type: c.status === ComplaintStatus.REJECTED ? 'warning' : 'info',
-      timestamp: c.dateSubmitted || c.dateCreated || c.createdAt,
+      timestamp: c.date_submitted || c.created_at,
     }));
 
     const all = [...notifications, ...complaintActivities];

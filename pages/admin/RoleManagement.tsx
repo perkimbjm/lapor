@@ -1,10 +1,7 @@
-
 import React, { useState, useEffect } from 'react';
-import AdminLayout from './AdminLayout';
-import { Role, Permission } from '../../types';
-import { db } from '../../src/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { useOutletContext } from 'react-router-dom';
+import { Role, Permission, RolePermission } from '../../types';
+import { supabase } from '../../src/supabase';
 import { 
   Shield, 
   Plus, 
@@ -43,8 +40,12 @@ const ACTIONS = [
 ];
 
 const RoleManagement: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (t: string) => void }>();
+  useEffect(() => { setPageTitle('Manajemen Peran (Roles)'); }, [setPageTitle]);
+
   const [roles, setRoles] = useState<Role[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
+  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -53,34 +54,44 @@ const RoleManagement: React.FC = () => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    permissionIds: [] as string[]
+    selectedPermissionIds: [] as string[]
   });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  useEffect(() => {
-    const qRoles = query(collection(db, 'roles'));
-    const unsubscribeRoles = onSnapshot(qRoles, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Role));
-      setRoles(data);
-      setLoading(false);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'roles');
-      setLoading(false);
-    });
+  
+  const fetchRoles = async () => {
+    const { data } = await supabase.from('roles').select('*');
+    if (data) setRoles(data as Role[]);
+  };
 
-    const qPermissions = query(collection(db, 'permissions'));
-    const unsubscribePermissions = onSnapshot(qPermissions, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Permission));
-      setPermissions(data);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'permissions');
-    });
+  const fetchPermissions = async () => {
+    const { data } = await supabase.from('permissions').select('*');
+    if (data) setPermissions(data as Permission[]);
+  };
+
+  const fetchRolePermissions = async () => {
+    const { data } = await supabase.from('role_permissions').select('*');
+    if (data) setRolePermissions(data as RolePermission[]);
+  };
+
+  const fetchData = async () => {
+    setLoading(true);
+    await Promise.all([fetchRoles(), fetchPermissions(), fetchRolePermissions()]);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    fetchData();
+
+    // Poll setiap 30 detik sebagai pengganti realtime
+    const interval = setInterval(() => {
+      fetchData();
+    }, 6000);
 
     return () => {
-      unsubscribeRoles();
-      unsubscribePermissions();
+      clearInterval(interval);
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const triggerToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -89,12 +100,17 @@ const RoleManagement: React.FC = () => {
 
   const handleExportExcel = () => {
     const dataToExport = roles.map(r => {
-      const rolePermissions = permissions.filter(p => r.permissionIds.includes(p.id!));
+      const rolePermIds = rolePermissions
+        .filter(rp => rp.role_id === r.id)
+        .map(rp => rp.permission_id);
+      
+      const rolePerms = permissions.filter(p => rolePermIds.includes(p.id));
+      
       return {
         'Nama Role': r.name,
         'Deskripsi': r.description,
-        'Jumlah Izin': r.permissionIds.length,
-        'Daftar Izin': rolePermissions.map(p => p.name).join(', ')
+        'Jumlah Izin': rolePermIds.length,
+        'Daftar Izin': rolePerms.map(p => p.name).join(', ')
       };
     });
 
@@ -104,23 +120,60 @@ const RoleManagement: React.FC = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      let roleId = currentId;
+
       if (isEditing && currentId) {
-        try {
-          await updateDoc(doc(db, 'roles', currentId), formData);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.UPDATE, `roles/${currentId}`);
-        }
-        triggerToast('Peran berhasil diperbarui');
+        const { error } = await supabase
+          .from('roles')
+          .update({
+            name: formData.name,
+            description: formData.description
+          })
+          .eq('id', currentId);
+        
+        if (error) throw error;
       } else {
-        try {
-          await addDoc(collection(db, 'roles'), formData);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, 'roles');
-        }
-        triggerToast('Peran berhasil ditambahkan');
+        const { data: newRole, error: roleError } = await supabase
+          .from('roles')
+          .insert([{
+            name: formData.name,
+            description: formData.description
+          }])
+          .select()
+          .single();
+        
+        if (roleError) throw roleError;
+        roleId = newRole.id;
       }
+
+      // Sync role_permissions
+      if (roleId) {
+        // 1. Delete existing
+        const { error: deleteError } = await supabase
+          .from('role_permissions')
+          .delete()
+          .eq('role_id', roleId);
+        
+        if (deleteError) throw deleteError;
+
+        // 2. Insert new ones
+        if (formData.selectedPermissionIds.length > 0) {
+          const { error: insertError } = await supabase
+            .from('role_permissions')
+            .insert(
+              formData.selectedPermissionIds.map(pId => ({
+                role_id: roleId as string,
+                permission_id: pId
+              }))
+            );
+          
+          if (insertError) throw insertError;
+        }
+      }
+
+      triggerToast(isEditing ? 'Peran berhasil diperbarui' : 'Peran berhasil ditambahkan');
       setIsModalOpen(false);
-      setFormData({ name: '', description: '', permissionIds: [] });
+      setFormData({ name: '', description: '', selectedPermissionIds: [] });
     } catch (error) {
       console.error('Error saving role:', error);
       triggerToast('Gagal menyimpan peran', 'error');
@@ -130,19 +183,24 @@ const RoleManagement: React.FC = () => {
   const togglePermission = (id: string) => {
     setFormData(prev => ({
       ...prev,
-      permissionIds: prev.permissionIds.includes(id)
-        ? prev.permissionIds.filter(pId => pId !== id)
-        : [...prev.permissionIds, id]
+      selectedPermissionIds: prev.selectedPermissionIds.includes(id)
+        ? prev.selectedPermissionIds.filter(pId => pId !== id)
+        : [...prev.selectedPermissionIds, id]
     }));
   };
 
   const openEditModal = (role: Role) => {
     setIsEditing(true);
     setCurrentId(role.id);
+    
+    const rolePermIds = rolePermissions
+      .filter(rp => rp.role_id === role.id)
+      .map(rp => rp.permission_id);
+
     setFormData({
       name: role.name,
       description: role.description || '',
-      permissionIds: role.permissionIds || []
+      selectedPermissionIds: rolePermIds
     });
     setIsModalOpen(true);
   };
@@ -150,11 +208,22 @@ const RoleManagement: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!window.confirm('Apakah Anda yakin ingin menghapus peran ini?')) return;
     try {
-      try {
-        await deleteDoc(doc(db, 'roles', id));
-      } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `roles/${id}`);
-      }
+      // 1. Delete from role_permissions first (pivot cleanup)
+      const { error: rpError } = await supabase
+        .from('role_permissions')
+        .delete()
+        .eq('role_id', id);
+      
+      if (rpError) throw rpError;
+
+      // 2. Delete the role
+      const { error: roleError } = await supabase
+        .from('roles')
+        .delete()
+        .eq('id', id);
+      
+      if (roleError) throw roleError;
+
       triggerToast('Peran berhasil dihapus');
     } catch (error) {
       console.error('Error deleting role:', error);
@@ -167,7 +236,7 @@ const RoleManagement: React.FC = () => {
   );
 
   return (
-    <AdminLayout title="Manajemen Peran (Roles)">
+    <>
       {toast && (
         <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4 ${toast.type === 'success' ? 'bg-slate-900 text-white' : 'bg-red-600 text-white'}`}>
           {toast.type === 'success' ? <CheckCircle2 className="w-5 h-5 text-green-400" /> : <XCircle className="w-5 h-5" />}
@@ -196,7 +265,7 @@ const RoleManagement: React.FC = () => {
           <button 
             onClick={() => {
               setIsEditing(false);
-              setFormData({ name: '', description: '', permissionIds: [] });
+              setFormData({ name: '', description: '', selectedPermissionIds: [] });
               setIsModalOpen(true);
             }}
             className="flex-1 sm:flex-none px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -246,20 +315,25 @@ const RoleManagement: React.FC = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Izin Terpasang</span>
-                  <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black">{role.permissionIds?.length || 0}</span>
+                  <span className="px-2 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg text-[10px] font-black">
+                    {rolePermissions.filter(rp => rp.role_id === role.id).length}
+                  </span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
-                  {(role.permissionIds || []).slice(0, 3).map(pId => {
-                    const p = permissions.find(perm => perm.id === pId);
-                    return p ? (
-                      <span key={pId} className="px-2 py-1 bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 rounded-lg text-[9px] font-bold uppercase tracking-tight">
-                        {p.name}
-                      </span>
-                    ) : null;
-                  })}
-                  {(role.permissionIds?.length || 0) > 3 && (
+                  {rolePermissions
+                    .filter(rp => rp.role_id === role.id)
+                    .slice(0, 3)
+                    .map(rp => {
+                      const p = permissions.find(perm => perm.id === rp.permission_id);
+                      return p ? (
+                        <span key={rp.permission_id} className="px-2 py-1 bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 rounded-lg text-[9px] font-bold uppercase tracking-tight">
+                          {p.name}
+                        </span>
+                      ) : null;
+                    })}
+                  {rolePermissions.filter(rp => rp.role_id === role.id).length > 3 && (
                     <span className="px-2 py-1 bg-slate-50 dark:bg-slate-900 text-slate-400 rounded-lg text-[9px] font-bold uppercase tracking-tight">
-                      +{(role.permissionIds?.length || 0) - 3} Lainnya
+                      +{rolePermissions.filter(rp => rp.role_id === role.id).length - 3} Lainnya
                     </span>
                   )}
                 </div>
@@ -329,7 +403,7 @@ const RoleManagement: React.FC = () => {
                 <div className="md:col-span-2 space-y-4">
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 flex justify-between">
                     Izin Akses (Matriks CRUD)
-                    <span className="text-blue-600">{formData.permissionIds.length} Terpilih</span>
+                    <span className="text-blue-600">{formData.selectedPermissionIds.length} Terpilih</span>
                   </label>
                   
                   <div className="bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-slate-100 dark:border-slate-700 overflow-hidden">
@@ -362,12 +436,12 @@ const RoleManagement: React.FC = () => {
                                         type="button"
                                         onClick={() => togglePermission(perm.id)}
                                         className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all mx-auto ${
-                                          formData.permissionIds.includes(perm.id)
+                                          formData.selectedPermissionIds.includes(perm.id)
                                             ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
                                             : 'bg-slate-200 dark:bg-slate-700 text-slate-400 hover:bg-blue-100'
                                         }`}
                                       >
-                                        {formData.permissionIds.includes(perm.id) ? <Check size={12} /> : action.icon}
+                                        {formData.selectedPermissionIds.includes(perm.id) ? <Check size={12} /> : action.icon}
                                       </button>
                                     ) : (
                                       <div className="w-6 h-6 rounded-lg bg-slate-50 dark:bg-slate-900/30 mx-auto opacity-20"></div>
@@ -395,7 +469,7 @@ const RoleManagement: React.FC = () => {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 };
 

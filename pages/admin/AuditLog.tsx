@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import AdminLayout from './AdminLayout';
-import { db } from '../../src/firebase';
-import { collection, onSnapshot, query, orderBy } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { useOutletContext } from 'react-router-dom';
+import { supabase } from '../../src/supabase';
 import { Search, Calendar, Filter, X, Activity, User, Database, Clock } from 'lucide-react';
 
 const AuditLog: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (t: string) => void }>();
+  useEffect(() => { setPageTitle('Audit Log'); }, [setPageTitle]);
+
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -14,14 +15,29 @@ const AuditLog: React.FC = () => {
   const [moduleFilter, setModuleFilter] = useState('');
 
   useEffect(() => {
-    const qLogs = query(collection(db, 'audit_logs'), orderBy('timestamp', 'desc'));
-    const unsubscribeLogs = onSnapshot(qLogs, (snapshot) => {
-      setLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    const fetchLogs = async () => {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('timestamp', { ascending: false });
+        
+      if (error) {
+        console.error("Error fetching audit logs:", error);
+      } else if (data) {
+        setLogs(data);
+      }
       setLoading(false);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'audit_logs'));
+    };
+
+    fetchLogs();
+
+    const channelName = `audit-logs-realtime-${Math.random().toString(36).substring(2, 7)}`;
+    const channel = supabase.channel(channelName)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, fetchLogs)
+      .subscribe();
 
     return () => {
-      unsubscribeLogs();
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -48,7 +64,7 @@ const AuditLog: React.FC = () => {
   const filteredLogs = useMemo(() => {
     return logs.filter(log => {
       const matchesSearch = searchKeyword === '' || 
-        (log.userEmail && log.userEmail.toLowerCase().includes(searchKeyword.toLowerCase())) ||
+        (log.user_email && log.user_email.toLowerCase().includes(searchKeyword.toLowerCase())) ||
         (log.action && log.action.toLowerCase().includes(searchKeyword.toLowerCase())) ||
         (log.details && log.details.toLowerCase().includes(searchKeyword.toLowerCase()));
       
@@ -75,7 +91,7 @@ const AuditLog: React.FC = () => {
   }, [logs]);
 
   return (
-    <AdminLayout title="Audit Log">
+    <>
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
@@ -156,7 +172,7 @@ const AuditLog: React.FC = () => {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-slate-900 dark:text-white font-bold">
                           <User size={16} className="mr-2 text-slate-400" />
-                          {log.userEmail || log.userId || 'System'}
+                          {log.user_email || log.user_id || 'System'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -199,7 +215,7 @@ const AuditLog: React.FC = () => {
           </div>
         </div>
       </div>
-    </AdminLayout>
+    </>
   );
 };
 

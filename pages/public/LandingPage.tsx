@@ -2,15 +2,14 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ShieldCheck, CheckCircle2, Camera, ClipboardCheck, Activity, Search } from 'lucide-react';
 import PublicNavbar from '../../components/PublicNavbar';
-import { db } from '../../src/firebase';
-import { collection, getDocs, query, where, doc, getDoc } from 'firebase/firestore';
+import { supabase } from '../../src/supabase';
 import { ComplaintStatus } from '../../types';
 
 const LandingPage: React.FC = () => {
   const [stats, setStats] = useState({
-    total: 1250,
-    processing: 450,
-    completed: 800
+    total: 40,
+    processing: 10,
+    completed: 30
   });
   const [config, setConfig] = useState({
     heroTitle: 'Jalan Mantap,',
@@ -31,31 +30,41 @@ const LandingPage: React.FC = () => {
   useEffect(() => {
     const fetchContent = async () => {
       try {
-        const docRef = doc(db, 'cms', 'site_config');
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setConfig(prev => ({ ...prev, ...docSnap.data() }));
+        // Fetch CMS Config
+        const { data: cmsData } = await supabase
+          .from('cms')
+          .select('*')
+          .eq('id', 'site_config')
+          .single();
+          
+        if (cmsData && cmsData.data) {
+          setConfig(prev => ({ ...prev, ...cmsData.data }));
         }
 
-        const complaintsCol = collection(db, 'complaints');
-        const snapshot = await getDocs(complaintsCol);
-        const total = snapshot.size;
+        // Fetch Stats
+        const { count: total } = await supabase
+          .from('complaints')
+          .select('*', { count: 'exact', head: true });
         
-        const processingQuery = query(complaintsCol, where('status', 'in', [
-          ComplaintStatus.PENDING, 
-          ComplaintStatus.RECEIVED, 
-          ComplaintStatus.SURVEY
-        ]));
-        const processingSnapshot = await getDocs(processingQuery);
-        const processing = processingSnapshot.size;
+        const { count: processing } = await supabase
+          .from('complaints')
+          .select('*', { count: 'exact', head: true })
+          .in('status', [
+            ComplaintStatus.PENDING, 
+            ComplaintStatus.RECEIVED, 
+            ComplaintStatus.SURVEY
+          ]);
         
-        const completedQuery = query(complaintsCol, where('status', '==', ComplaintStatus.COMPLETED));
-        const completedSnapshot = await getDocs(completedQuery);
-        const completed = completedSnapshot.size;
+        const { count: completed } = await supabase
+          .from('complaints')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', ComplaintStatus.COMPLETED);
 
-        if (total > 0) {
-          setStats({ total, processing, completed });
-        }
+        setStats({ 
+          total: total || 0, 
+          processing: processing || 0, 
+          completed: completed || 0 
+        });
       } catch (error) {
         console.error("Error fetching content:", error);
       }
@@ -79,7 +88,7 @@ const LandingPage: React.FC = () => {
             backgroundPosition: 'center',
           }}
         >
-          <div className="absolute inset-0 bg-white/80 dark:bg-slate-950/90 backdrop-blur-[2px] transition-colors duration-500" />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/70 to-white/90 dark:from-slate-950/70 dark:to-slate-950/95" />
         </div>
         
         {/* Decorative Gradients */}

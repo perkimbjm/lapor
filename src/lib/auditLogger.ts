@@ -1,25 +1,29 @@
-import { db, auth } from '../firebase';
-import { collection, addDoc } from 'firebase/firestore';
+// src/lib/auditLogger.ts
+import { supabase } from '../supabase';
 
 export enum AuditAction {
   CREATE = 'CREATE',
   READ = 'READ',
   UPDATE = 'UPDATE',
-  DELETE = 'DELETE'
+  DELETE = 'DELETE',
 }
 
-export const logAuditActivity = async (action: AuditAction, module: string, details: string) => {
+export const logAuditActivity = async (
+  action: AuditAction,
+  module: string,
+  details: string
+) => {
   try {
-    const user = auth.currentUser;
-    if (!user) return; // Only log authenticated user actions
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-    await addDoc(collection(db, 'audit_logs'), {
+    await supabase.from('audit_logs').insert({
       timestamp: new Date().toISOString(),
-      userId: user.uid,
-      userEmail: user.email || 'Unknown',
+      user_id: user.id,
+      user_email: user.email ?? 'Unknown',
       action,
       module,
-      details
+      details,
     });
   } catch (error) {
     console.error('Failed to write audit log:', error);

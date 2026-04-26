@@ -8,9 +8,19 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+migrated_prompt_history
+.claude
 dist
 dist-ssr
 *.local
+firebase-applet-config.json
+.env
+firebase-blueprint.json
+firestore.rules
+implementation_plan_pooling.md
+implementation_plan.md
+implementation_plan2.md
+masalah_pejantan.md
 
 # Editor directories and files
 .vscode/*

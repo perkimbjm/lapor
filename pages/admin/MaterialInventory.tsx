@@ -1,10 +1,9 @@
+import { useOutletContext } from 'react-router-dom';
 
 import React, { useState, useEffect } from 'react';
-import AdminLayout from './AdminLayout';
+
 import { Material } from '../../types';
-import { db } from '../../src/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { supabase } from '../../src/supabase';
 import { logAuditActivity, AuditAction } from '../../src/lib/auditLogger';
 import { 
   AlertTriangle, 
@@ -26,17 +25,33 @@ import { exportToExcel } from '../../src/lib/excel';
 import { GoogleGenAI } from "@google/genai";
 
 const MaterialInventory: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+
+  useEffect(() => {
+    setPageTitle("Manajemen Stok Material");
+  }, [setPageTitle]);
+
   const [materials, setMaterials] = useState<Material[]>([]);
   
   useEffect(() => {
-    const q = query(collection(db, 'materials'));
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Material));
-      setMaterials(data);
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'materials');
-    });
-    return () => unsubscribe();
+    const fetchMaterials = async () => {
+      const { data, error } = await supabase.from('materials').select('*');
+      if (error) {
+        console.error("Error fetching materials:", error);
+      } else if (data) {
+        setMaterials(data as Material[]);
+      }
+    };
+
+    fetchMaterials();
+
+    const interval = setInterval(() => {
+      fetchMaterials();
+    }, 6000);
+
+    return () => {
+      clearInterval(interval);
+    };
   }, []);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -83,7 +98,7 @@ const MaterialInventory: React.FC = () => {
       }
       
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const inventoryData = materials.map(m => `${m.name}: ${m.currentStock} ${m.unit} (Min: ${m.minThreshold})`).join(', ');
+      const inventoryData = materials.map(m => `${m.name}: ${m.current_stock} ${m.unit} (Min: ${m.min_threshold})`).join(', ');
       
       // Fixed: Using simplified contents string according to guidelines
       const response = await ai.models.generateContent({
@@ -121,8 +136,8 @@ const MaterialInventory: React.FC = () => {
     setFormData({
       name: item.name,
       unit: item.unit,
-      currentStock: item.currentStock,
-      minThreshold: item.minThreshold
+      currentStock: item.current_stock,
+      minThreshold: item.min_threshold
     });
     setIsModalOpen(true);
   };
@@ -130,12 +145,11 @@ const MaterialInventory: React.FC = () => {
   const executeDelete = async () => {
     if (!itemToDelete) return;
     try {
-      try {
-        await deleteDoc(doc(db, 'materials', itemToDelete.id));
-        await logAuditActivity(AuditAction.DELETE, 'Stok Material', `Menghapus material ${itemToDelete.name}`);
-      } catch (error) {
-        handleFirestoreError(error, OperationType.DELETE, `materials/${itemToDelete.id}`);
-      }
+      const { error } = await supabase.from('materials').delete().eq('id', itemToDelete.id);
+      if (error) throw error;
+      
+      await logAuditActivity(AuditAction.DELETE, 'Stok Material', `Menghapus material ${itemToDelete.name}`);
+      
       triggerToast(`Material berhasil dihapus`);
       setItemToDelete(null);
     } catch (error) {
@@ -149,26 +163,20 @@ const MaterialInventory: React.FC = () => {
     const materialData = {
       name: formData.name,
       unit: formData.unit,
-      currentStock: Number(formData.currentStock),
-      minThreshold: Number(formData.minThreshold),
-      lastUpdated: new Date().toISOString().split('T')[0]
+      current_stock: Number(formData.currentStock),
+      min_threshold: Number(formData.minThreshold),
+      last_updated: new Date().toISOString().split('T')[0]
     };
     
     try {
       if (isEditing && currentId) {
-        try {
-          await updateDoc(doc(db, 'materials', currentId), materialData);
-          await logAuditActivity(AuditAction.UPDATE, 'Stok Material', `Memperbarui material ${materialData.name}`);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.UPDATE, `materials/${currentId}`);
-        }
+        const { error } = await supabase.from('materials').update(materialData).eq('id', currentId);
+        if (error) throw error;
+        await logAuditActivity(AuditAction.UPDATE, 'Stok Material', `Memperbarui material ${materialData.name}`);
       } else {
-        try {
-          await addDoc(collection(db, 'materials'), materialData);
-          await logAuditActivity(AuditAction.CREATE, 'Stok Material', `Menambahkan material ${materialData.name}`);
-        } catch (error) {
-          handleFirestoreError(error, OperationType.CREATE, 'materials');
-        }
+        const { error } = await supabase.from('materials').insert([materialData]);
+        if (error) throw error;
+        await logAuditActivity(AuditAction.CREATE, 'Stok Material', `Menambahkan material ${materialData.name}`);
       }
       triggerToast(`Stok berhasil diperbarui`);
       setIsModalOpen(false);
@@ -182,9 +190,9 @@ const MaterialInventory: React.FC = () => {
     const dataToExport = materials.map(m => ({
       'Nama Material': m.name,
       'Satuan': m.unit,
-      'Stok Saat Ini': m.currentStock,
-      'Ambang Batas': m.minThreshold,
-      'Terakhir Update': m.lastUpdated
+      'Stok Saat Ini': m.current_stock,
+      'Ambang Batas': m.min_threshold,
+      'Terakhir Update': m.last_updated
     }));
 
     exportToExcel(dataToExport, `Stok_Material_${new Date().toISOString().split('T')[0]}`, 'Stok Material');
@@ -192,7 +200,7 @@ const MaterialInventory: React.FC = () => {
 
 
   return (
-    <AdminLayout title="Manajemen Stok Material">
+    <>
       {toast?.visible && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-4">
           <CheckCircle2 className="w-5 h-5 text-green-400" />
@@ -246,17 +254,17 @@ const MaterialInventory: React.FC = () => {
         </div>
         <ul className="divide-y divide-slate-100 dark:divide-slate-700">
           {materials.map((item) => {
-            const isCritical = item.currentStock <= item.minThreshold;
+            const isCritical = item.current_stock <= item.min_threshold;
             return (
               <li key={item.id} className={`px-6 py-5 transition-all group ${isCritical ? 'bg-red-50/50 dark:bg-red-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700/30'}`}>
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <p className={`text-xs font-black uppercase ${isCritical ? 'text-red-600' : 'text-slate-900 dark:text-white'}`}>{item.name}</p>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-200 font-bold uppercase mt-1">Min: {item.minThreshold} {item.unit}</p>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-200 font-bold uppercase mt-1">Min: {item.min_threshold} {item.unit}</p>
                   </div>
                   <div className="flex items-center gap-8">
                     <div className="text-right">
-                       <p className={`text-2xl font-black ${item.currentStock === 0 ? 'text-red-600 animate-pulse' : isCritical ? 'text-orange-600' : 'text-slate-900 dark:text-white'}`}>{item.currentStock}</p>
+                       <p className={`text-2xl font-black ${item.current_stock === 0 ? 'text-red-600 animate-pulse' : isCritical ? 'text-orange-600' : 'text-slate-900 dark:text-white'}`}>{item.current_stock}</p>
                        <p className="text-[9px] text-slate-400 dark:text-slate-200 font-black uppercase tracking-widest">{item.unit}</p>
                     </div>
                     <div className="flex gap-2">
@@ -300,7 +308,7 @@ const MaterialInventory: React.FC = () => {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 };
 

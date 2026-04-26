@@ -17,7 +17,12 @@ export const parseFirestoreDate = (dateField: any): Date | null => {
   
   // If it's a string (ISO or other)
   if (typeof dateField === 'string') {
-    const d = new Date(dateField);
+    // Date-only strings (YYYY-MM-DD) are treated as UTC midnight by the spec,
+    // which can shift to the previous day in UTC+ timezones for getDate() comparisons.
+    // Append T12:00:00 to anchor to local noon instead.
+    const s = dateField.trim();
+    const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s);
+    const d = new Date(isDateOnly ? `${s}T12:00:00` : s);
     return isNaN(d.getTime()) ? null : d;
   }
   

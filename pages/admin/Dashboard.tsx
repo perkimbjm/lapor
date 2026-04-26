@@ -1,10 +1,6 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import AdminLayout from './AdminLayout';
-import { db } from '../../src/firebase';
-import { collection, onSnapshot, query } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+import { Link, useOutletContext } from 'react-router-dom';
+import { supabase } from '../../src/supabase';
 import { ComplaintStatus, RoadType } from '../../types';
 import { parseFirestoreDate, formatIndonesianDate } from '../../src/lib/dateUtils';
 import { 
@@ -58,6 +54,12 @@ const StatCard = ({ title, value, icon, color, darkColor, textColor, darkTextCol
 );
 
 const Dashboard: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+
+  useEffect(() => {
+    setPageTitle("Dashboard Operasional");
+  }, [setPageTitle]);
+
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
 
@@ -73,38 +75,43 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const qComplaints = query(collection(db, 'complaints'));
-    const unsubscribeComplaints = onSnapshot(qComplaints, (snapshot) => {
-      setComplaints(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'complaints'));
-
-    const qMaterials = query(collection(db, 'materials'));
-    const unsubscribeMaterials = onSnapshot(qMaterials, (snapshot) => {
-      setMaterials(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'materials'));
-
-    const qEquipment = query(collection(db, 'equipment'));
-    const unsubscribeEquipment = onSnapshot(qEquipment, (snapshot) => {
-      setEquipment(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'equipment'));
-
-    const qWorkers = query(collection(db, 'workers'));
-    const unsubscribeWorkers = onSnapshot(qWorkers, (snapshot) => {
-      setWorkers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'workers'));
-
-    const qNotifications = query(collection(db, 'notifications'));
-    const unsubscribeNotifications = onSnapshot(qNotifications, (snapshot) => {
-      setNotifications(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    // Initial full load
+    const fetchAll = async () => {
+      const [c, m, eq, w, n] = await Promise.all([
+        supabase.from('complaints').select('*'),
+        supabase.from('materials').select('*'),
+        supabase.from('equipment').select('*'),
+        supabase.from('workers').select('*'),
+        supabase.from('notifications').select('*'),
+      ]);
+      if (c.data)  setComplaints(c.data);
+      if (m.data)  setMaterials(m.data);
+      if (eq.data) setEquipment(eq.data);
+      if (w.data)  setWorkers(w.data);
+      if (n.data)  setNotifications(n.data);
       setLoading(false);
-    }, (error) => handleFirestoreError(error, OperationType.LIST, 'notifications'));
+    };
+
+    fetchAll();
+
+    // Debounce to avoid hammering on batch Excel imports (many rows at once)
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const refetchComplaints = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(async () => {
+        const { data } = await supabase.from('complaints').select('*');
+        if (data) setComplaints(data);
+      }, 400);
+    };
+
+    const channel = supabase
+      .channel('dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, refetchComplaints)
+      .subscribe();
 
     return () => {
-      unsubscribeComplaints();
-      unsubscribeMaterials();
-      unsubscribeEquipment();
-      unsubscribeWorkers();
-      unsubscribeNotifications();
+      if (debounceTimer) clearTimeout(debounceTimer);
+      supabase.removeChannel(channel);
     };
   }, []);
 
@@ -120,7 +127,7 @@ const Dashboard: React.FC = () => {
 
       return last7Days.map(date => {
         const count = complaints.filter(c => {
-          const cDate = parseFirestoreDate(c.dateSubmitted || c.dateCreated || c.createdAt);
+          const cDate = parseFirestoreDate(c.date_submitted || c.created_at);
           if (!cDate) return false;
           return cDate.toDateString() === date.toDateString();
         }).length;
@@ -148,7 +155,7 @@ const Dashboard: React.FC = () => {
       ];
       
       complaints.forEach(c => {
-        const cDate = parseFirestoreDate(c.dateSubmitted || c.dateCreated || c.createdAt);
+        const cDate = parseFirestoreDate(c.date_submitted || c.created_at);
         if (!cDate) return;
         if (cDate.getFullYear() === year && (cDate.getMonth() + 1) === month) {
           const week = getWeekOfMonth(cDate);
@@ -168,7 +175,7 @@ const Dashboard: React.FC = () => {
       ];
       
       complaints.forEach(c => {
-        const cDate = parseFirestoreDate(c.dateSubmitted || c.dateCreated || c.createdAt);
+        const cDate = parseFirestoreDate(c.date_submitted || c.created_at);
         if (!cDate) return;
         if (cDate.getFullYear() === year) {
           const month = cDate.getMonth();
@@ -183,7 +190,7 @@ const Dashboard: React.FC = () => {
       const yearData = monthNames.map(name => ({ name, value: 0 }));
       
       complaints.forEach(c => {
-        const cDate = parseFirestoreDate(c.dateSubmitted || c.dateCreated || c.createdAt);
+        const cDate = parseFirestoreDate(c.date_submitted || c.created_at);
         if (!cDate) return;
         if (cDate.getFullYear() === year) {
           const month = cDate.getMonth();
@@ -198,10 +205,10 @@ const Dashboard: React.FC = () => {
   const combinedActivities = useMemo(() => {
     const complaintActivities = complaints.map(c => ({
       id: c.id,
-      title: `Aduan Baru: ${c.ticketNumber || c.id.substring(0, 8)}`,
-      message: `${c.reporterName} melaporkan kerusakan ${c.category} di ${c.landmark || c.location}`,
+      title: `Aduan Baru: ${c.ticket_number || c.id.substring(0, 8)}`,
+      message: `${c.reporter_name} melaporkan kerusakan ${c.category} di ${c.landmark || c.location}`,
       type: c.status === ComplaintStatus.REJECTED ? 'warning' : 'info',
-      timestamp: c.dateSubmitted || c.dateCreated || c.createdAt,
+      timestamp: c.date_submitted || c.created_at,
     }));
 
     const all = [...notifications, ...complaintActivities];
@@ -254,7 +261,7 @@ const Dashboard: React.FC = () => {
     };
 
     const filteredComplaints = complaints.filter(c => {
-      const date = parseFirestoreDate(c.dateSubmitted || c.dateCreated || c.createdAt);
+      const date = parseFirestoreDate(c.date_submitted || c.created_at);
       if (!date) return false;
       const yearMatch = date.getFullYear().toString() === selectedYear;
       const monthMatch = selectedMonth === 'all' || (date.getMonth() + 1).toString() === selectedMonth;
@@ -299,7 +306,7 @@ const Dashboard: React.FC = () => {
   };
 
   return (
-    <AdminLayout title="Dashboard Operasional">
+    <>
       
       {/* Interactive Filters Bar */}
       <div className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm transition-all">
@@ -561,7 +568,7 @@ const Dashboard: React.FC = () => {
            </div>
         </div>
       </div>
-    </AdminLayout>
+    </>
   );
 };
 

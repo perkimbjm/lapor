@@ -1,14 +1,18 @@
+import { useOutletContext } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
-import AdminLayout from './AdminLayout';
-import { db, storage } from '../../src/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
-import { ref, uploadBytes, getDownloadURL, uploadBytesResumable } from 'firebase/storage';
+
+import { supabase } from '../../src/supabase';
 import { Save, Loader2, Image as ImageIcon, Video, CheckCircle2, AlertCircle } from 'lucide-react';
 import imageCompression from 'browser-image-compression';
 import { toast } from 'sonner';
 
 const CMS: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+
+  useEffect(() => {
+    setPageTitle("CMS Management");
+  }, [setPageTitle]);
+
   const [config, setConfig] = useState({
     heroTitle: 'Jalan Mantap,',
     heroSubtitle: 'Banjarmasin Maju Sejahtera',
@@ -38,14 +42,22 @@ const CMS: React.FC = () => {
 
   useEffect(() => {
     const fetchContent = async () => {
-      const docRef = doc(db, 'cms', 'site_config');
       try {
-        const docSnap = await getDoc(docRef);
-        if (docSnap.exists()) {
-          setConfig(prev => ({ ...prev, ...docSnap.data() }));
+        const { data, error } = await supabase
+          .from('cms')
+          .select('*')
+          .eq('id', 'site_config')
+          .single();
+          
+        if (error && error.code !== 'PGRST116') { // PGRST116 is code for "no rows returned"
+          throw error;
+        }
+        
+        if (data && data.data) {
+          setConfig(prev => ({ ...prev, ...data.data }));
         }
       } catch (error) {
-        handleFirestoreError(error, OperationType.GET, 'cms/site_config');
+        console.error("Error fetching CMS content:", error);
       }
       setLoading(false);
     };
@@ -55,10 +67,20 @@ const CMS: React.FC = () => {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await setDoc(doc(db, 'cms', 'site_config'), config);
+      const { error } = await supabase
+        .from('cms')
+        .upsert({ 
+          id: 'site_config', 
+          data: config, 
+          updated_at: new Date().toISOString() 
+        });
+        
+      if (error) throw error;
       toast.success('Content saved successfully!');
-    } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, 'cms/site_config');
+    } catch (error: any) {
+      console.error('Error saving CMS content:', error);
+      const errorMessage = error.message || 'Gagal menyimpan konten';
+      toast.error(`Error: ${errorMessage}`);
     }
     setSaving(false);
   };
@@ -81,36 +103,32 @@ const CMS: React.FC = () => {
       
       const compressedFile = await imageCompression(file, options);
 
-      const storageRef = ref(storage, `cms/${field}_${Date.now()}`);
-      const uploadTask = uploadBytesResumable(storageRef, compressedFile);
+      const filePath = `cms/${field}_${Date.now()}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('reports')
+        .upload(filePath, compressedFile);
 
-      uploadTask.on('state_changed',
-        (snapshot) => {
-          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-          setUploadProgress(prev => ({ ...prev, [field]: Math.round(progress) }));
-        },
-        (error) => {
-          console.error("Upload error:", error);
-          setUploadErrors(prev => ({ ...prev, [field]: "Gagal mengunggah. Coba lagi." }));
-          setUploadingField(null);
-        },
-        async () => {
-          const url = await getDownloadURL(uploadTask.snapshot.ref);
-          setConfig(prev => ({ ...prev, [field]: url }));
-          setUploadingField(null);
-        }
-      );
+      if (uploadError) throw uploadError;
+
+      setUploadProgress(prev => ({ ...prev, [field]: 100 }));
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('reports')
+        .getPublicUrl(filePath);
+
+      setConfig(prev => ({ ...prev, [field]: publicUrl }));
+      setUploadingField(null);
     } catch (error) {
-      console.error("Compression error:", error);
-      setUploadErrors(prev => ({ ...prev, [field]: "Gagal memproses gambar." }));
+      console.error("Upload/Compression error:", error);
+      setUploadErrors(prev => ({ ...prev, [field]: "Gagal memproses atau mengunggah gambar." }));
       setUploadingField(null);
     }
   };
 
-  if (loading) return <AdminLayout title="CMS Management"><div className="flex justify-center p-10"><Loader2 className="animate-spin" /></div></AdminLayout>;
+  if (loading) return <><div className="flex justify-center p-10"><Loader2 className="animate-spin" /></div></>;
 
   return (
-    <AdminLayout title="CMS Management">
+    <>
       <div className="max-w-5xl mx-auto space-y-8 pb-20">
         
         {/* Navbar Section */}
@@ -260,7 +278,7 @@ const CMS: React.FC = () => {
           </button>
         </div>
       </div>
-    </AdminLayout>
+    </>
   );
 };
 

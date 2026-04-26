@@ -1,10 +1,8 @@
+import { useOutletContext } from 'react-router-dom';
 
 import React, { useState, useEffect } from 'react';
-import AdminLayout from './AdminLayout';
-import { db, storage } from '../../src/firebase';
-import { collection, onSnapshot, query, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { handleFirestoreError, OperationType } from '../../src/lib/firestoreErrorHandler';
+
+import { supabase } from '../../src/supabase';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
   PieChart, Pie, Cell
@@ -49,6 +47,12 @@ const formatRupiah = (value: number) => {
 };
 
 const Reports: React.FC = () => {
+  const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+
+  useEffect(() => {
+    setPageTitle("Laporan & Keuangan");
+  }, [setPageTitle]);
+
   const [activeTab, setActiveTab] = useState<'grafik' | 'komitmen' | 'epurchasing' | 'biaya'>('komitmen');
   const [fiscalAnalysis, setFiscalAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -71,6 +75,7 @@ const Reports: React.FC = () => {
     pagu: 0,
     commitment: 0
   });
+  const [commitmentError, setCommitmentError] = useState<string | null>(null);
 
   const [epurchasingForm, setEpurchasingForm] = useState({
     noKontrak: '',
@@ -91,31 +96,36 @@ const Reports: React.FC = () => {
   });
 
   useEffect(() => {
-    const qCommitments = query(collection(db, 'commitments'));
-    const unsubscribeCommitments = onSnapshot(qCommitments, (snapshot) => {
-      setCommitments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'commitments');
-    });
+    const fetchCommitments = async () => {
+      const { data, error } = await supabase.from('commitments').select('*');
+      if (error) console.error("Error fetching commitments:", error);
+      else if (data) setCommitments(data);
+    };
 
-    const qEpurchasing = query(collection(db, 'epurchasing'));
-    const unsubscribeEpurchasing = onSnapshot(qEpurchasing, (snapshot) => {
-      setEpurchasing(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'epurchasing');
-    });
+    const fetchEpurchasing = async () => {
+      const { data, error } = await supabase.from('epurchasing').select('*');
+      if (error) console.error("Error fetching epurchasing:", error);
+      else if (data) setEpurchasing(data);
+    };
 
-    const qCostReports = query(collection(db, 'costReports'));
-    const unsubscribeCostReports = onSnapshot(qCostReports, (snapshot) => {
-      setCostReports(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'costReports');
-    });
+    const fetchCostReports = async () => {
+      const { data, error } = await supabase.from('cost_reports').select('*');
+      if (error) console.error("Error fetching cost reports:", error);
+      else if (data) setCostReports(data);
+    };
+
+    fetchCommitments();
+    fetchEpurchasing();
+    fetchCostReports();
+
+    const interval = setInterval(() => {
+      fetchCommitments();
+      fetchEpurchasing();
+      fetchCostReports();
+    }, 6000);
 
     return () => {
-      unsubscribeCommitments();
-      unsubscribeEpurchasing();
-      unsubscribeCostReports();
+      clearInterval(interval);
     };
   }, []);
 
@@ -208,6 +218,7 @@ const Reports: React.FC = () => {
   const handleAddCommitment = () => {
     setEditingItem(null);
     setCommitmentForm({ name: '', vendor: '', pagu: 0, commitment: 0 });
+    setCommitmentError(null);
     setSelectedFile(null);
     setUploadProgress(null);
     setIsCommitmentModalOpen(true);
@@ -221,44 +232,51 @@ const Reports: React.FC = () => {
       pagu: item.pagu,
       commitment: item.commitment
     });
+    setCommitmentError(null);
     setSelectedFile(null);
     setUploadProgress(null);
     setIsCommitmentModalOpen(true);
   };
 
   const handleDeleteCommitment = async (id: string) => {
-    // Note: window.confirm is still used here as per guidelines to use custom modal UI for these, 
-    // but for now I will keep it as is since the user didn't explicitly ask to replace confirm.
-    // However, I will replace any alerts.
     if (!window.confirm('Hapus komitmen ini?')) return;
     try {
-      await deleteDoc(doc(db, 'commitments', id));
+      const { error } = await supabase.from('commitments').delete().eq('id', id);
+      if (error) throw error;
       toast.success('Komitmen berhasil dihapus');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'commitments');
+      console.error('Error deleting commitment:', error);
+      toast.error('Gagal menghapus komitmen');
     }
   };
 
   const handleCommitmentSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (commitmentForm.pagu > 0 && commitmentForm.commitment > commitmentForm.pagu) {
+      setCommitmentError(`Nilai Kontrak tidak boleh melebihi Pagu (${formatRupiah(commitmentForm.pagu)})`);
+      return;
+    }
     setIsSubmitting(true);
 
     try {
       if (editingItem) {
-        await updateDoc(doc(db, 'commitments', editingItem.id), {
+        const { error } = await supabase.from('commitments').update({
           ...commitmentForm,
-          updatedAt: serverTimestamp()
-        });
+          updated_at: new Date().toISOString()
+        }).eq('id', editingItem.id);
+        if (error) throw error;
       } else {
-        await addDoc(collection(db, 'commitments'), {
+        const { error } = await supabase.from('commitments').insert([{
           ...commitmentForm,
-          createdAt: serverTimestamp()
-        });
+          created_at: new Date().toISOString()
+        }]);
+        if (error) throw error;
       }
       setIsCommitmentModalOpen(false);
       toast.success(editingItem ? 'Komitmen berhasil diperbarui' : 'Komitmen berhasil ditambahkan');
     } catch (error) {
-      handleFirestoreError(error, editingItem ? OperationType.UPDATE : OperationType.CREATE, 'commitments');
+      console.error('Error saving commitment:', error);
+      toast.error('Gagal menyimpan komitmen');
     } finally {
       setIsSubmitting(false);
     }
@@ -299,10 +317,12 @@ const Reports: React.FC = () => {
   const handleDeleteEPurchasing = async (id: string) => {
     if (!window.confirm('Hapus data e-purchasing ini?')) return;
     try {
-      await deleteDoc(doc(db, 'epurchasing', id));
+      const { error } = await supabase.from('epurchasing').delete().eq('id', id);
+      if (error) throw error;
       toast.success('Data e-purchasing berhasil dihapus');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'epurchasing');
+      console.error('Error deleting epurchasing:', error);
+      toast.error('Gagal menghapus data e-purchasing');
     }
   };
 
@@ -315,43 +335,43 @@ const Reports: React.FC = () => {
       let documentUrl = editingItem?.documentUrl || null;
 
       if (selectedFile) {
-        const storageRef = ref(storage, `epurchasing/${Date.now()}_${selectedFile.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, selectedFile);
+        const filePath = `epurchasing/${Date.now()}_${selectedFile.name}`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('reports')
+          .upload(filePath, selectedFile);
 
-        documentUrl = await new Promise((resolve, reject) => {
-          uploadTask.on('state_changed', 
-            (snapshot) => {
-              const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              setUploadProgress(progress);
-            }, 
-            (error) => reject(error), 
-            async () => {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(url);
-            }
-          );
-        });
+        if (uploadError) throw uploadError;
+        setUploadProgress(100);
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('reports')
+          .getPublicUrl(filePath);
+        
+        documentUrl = publicUrl;
       }
 
       if (editingItem) {
-        await updateDoc(doc(db, 'epurchasing', editingItem.id), {
+        const { error } = await supabase.from('epurchasing').update({
           ...epurchasingForm,
           documentUrl,
-          updatedAt: serverTimestamp()
-        });
+          updated_at: new Date().toISOString()
+        }).eq('id', editingItem.id);
+        if (error) throw error;
       } else {
-        await addDoc(collection(db, 'epurchasing'), {
+        const { error } = await supabase.from('epurchasing').insert([{
           ...epurchasingForm,
           documentUrl,
-          createdAt: serverTimestamp()
-        });
+          created_at: new Date().toISOString()
+        }]);
+        if (error) throw error;
       }
       setIsEPurchasingModalOpen(false);
       setSelectedFile(null);
       setUploadProgress(null);
       toast.success(editingItem ? 'Data e-purchasing berhasil diperbarui' : 'Data e-purchasing berhasil ditambahkan');
     } catch (error) {
-      handleFirestoreError(error, editingItem ? OperationType.UPDATE : OperationType.CREATE, 'epurchasing');
+      console.error('Error saving epurchasing:', error);
+      toast.error('Gagal menyimpan data e-purchasing');
     } finally {
       setIsSubmitting(false);
     }
@@ -384,10 +404,12 @@ const Reports: React.FC = () => {
   const handleDeleteCostReport = async (id: string) => {
     if (!window.confirm('Hapus laporan biaya ini?')) return;
     try {
-      await deleteDoc(doc(db, 'costReports', id));
+      const { error } = await supabase.from('cost_reports').delete().eq('id', id);
+      if (error) throw error;
       toast.success('Laporan biaya berhasil dihapus');
     } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'costReports');
+      console.error('Error deleting cost report:', error);
+      toast.error('Gagal menghapus laporan biaya');
     }
   };
 
@@ -396,20 +418,23 @@ const Reports: React.FC = () => {
     setIsSubmitting(true);
     try {
       if (editingItem) {
-        await updateDoc(doc(db, 'costReports', editingItem.id), {
+        const { error } = await supabase.from('cost_reports').update({
           ...costReportForm,
-          updatedAt: serverTimestamp()
-        });
+          updated_at: new Date().toISOString()
+        }).eq('id', editingItem.id);
+        if (error) throw error;
       } else {
-        await addDoc(collection(db, 'costReports'), {
+        const { error } = await supabase.from('cost_reports').insert([{
           ...costReportForm,
-          createdAt: serverTimestamp()
-        });
+          created_at: new Date().toISOString()
+        }]);
+        if (error) throw error;
       }
       setIsCostReportModalOpen(false);
       toast.success(editingItem ? 'Laporan biaya berhasil diperbarui' : 'Laporan biaya berhasil ditambahkan');
     } catch (error) {
-      handleFirestoreError(error, editingItem ? OperationType.UPDATE : OperationType.CREATE, 'costReports');
+      console.error('Error saving cost report:', error);
+      toast.error('Gagal menyimpan laporan biaya');
     } finally {
       setIsSubmitting(false);
     }
@@ -438,7 +463,7 @@ const Reports: React.FC = () => {
   }, [costReports]);
 
   return (
-    <AdminLayout title="Laporan & Keuangan">
+    <>
       
       {/* AI Fiscal Advisor */}
       <div className="mb-6 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
@@ -1042,38 +1067,61 @@ const Reports: React.FC = () => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Pagu (Rp)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     required
                     value={commitmentForm.pagu}
-                    onChange={e => setCommitmentForm({...commitmentForm, pagu: Number(e.target.value)})}
+                    onChange={e => {
+                      const pagu = Number(e.target.value);
+                      setCommitmentForm({...commitmentForm, pagu});
+                      if (pagu > 0 && commitmentForm.commitment > pagu) {
+                        setCommitmentError(`Nilai Kontrak tidak boleh melebihi Pagu (${formatRupiah(pagu)})`);
+                      } else {
+                        setCommitmentError(null);
+                      }
+                    }}
                     className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
                   />
                 </div>
                 <div>
                   <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Nilai Kontrak (Rp)</label>
-                  <input 
-                    type="number" 
+                  <input
+                    type="number"
                     required
                     value={commitmentForm.commitment}
-                    onChange={e => setCommitmentForm({...commitmentForm, commitment: Number(e.target.value)})}
-                    className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none"
+                    onChange={e => {
+                      const val = Number(e.target.value);
+                      setCommitmentForm({...commitmentForm, commitment: val});
+                      if (commitmentForm.pagu > 0 && val > commitmentForm.pagu) {
+                        setCommitmentError(`Nilai Kontrak tidak boleh melebihi Pagu (${formatRupiah(commitmentForm.pagu)})`);
+                      } else {
+                        setCommitmentError(null);
+                      }
+                    }}
+                    className={`w-full p-3 rounded-xl border dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none ${
+                      commitmentError ? 'border-red-400 bg-red-50 dark:bg-red-900/20' : 'border-slate-200 dark:border-slate-700'
+                    }`}
                   />
+                  {commitmentError && (
+                    <p className="mt-1 text-xs text-red-600 dark:text-red-400 font-semibold flex items-center gap-1">
+                      <AlertCircle size={12} /> {commitmentError}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="pt-4 flex justify-end gap-3">
-                <button 
+                <button
                   type="button"
                   onClick={() => setIsCommitmentModalOpen(false)}
                   className="px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 transition-all"
                 >
                   Batal
                 </button>
-                <button 
+                <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 flex items-center gap-2"
+                  disabled={isSubmitting || !!commitmentError}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={14} />}
                   Simpan
@@ -1219,7 +1267,7 @@ const Reports: React.FC = () => {
           </div>
         </div>
       )}
-    </AdminLayout>
+    </>
   );
 };
 

@@ -21,6 +21,7 @@ import {
   Activity
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
+import { useAuth } from './AuthContext';
 
 interface AdminSidebarProps {
   isCollapsed: boolean;
@@ -30,20 +31,21 @@ interface AdminSidebarProps {
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
+  const { signOut, hasPermission } = useAuth();
 
   const menuItems = [
-    { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} /> },
-    { name: 'Daftar Aduan', path: '/admin/complaints', icon: <ClipboardList size={20} /> },
-    { name: 'Peta Sebaran', path: '/admin/map', icon: <Map size={20} /> },
-    { name: 'Stok Material', path: '/admin/inventory', icon: <Package size={20} /> },
-    { name: 'Armada & Peralatan', path: '/admin/equipment', icon: <Truck size={20} /> },
-    { name: 'Tenaga Kerja', path: '/admin/workforce', icon: <Users size={20} /> },
-    { name: 'Laporan & Biaya', path: '/admin/reports', icon: <BarChart3 size={20} /> },
-    { name: 'CMS Landing Page', path: '/admin/cms', icon: <Settings size={20} /> },
-    { name: 'Manajemen User', path: '/admin/users', icon: <Users size={20} /> },
-    { name: 'Manajemen Role', path: '/admin/roles', icon: <Shield size={20} /> },
-    { name: 'Manajemen Izin', path: '/admin/permissions', icon: <Key size={20} /> },
-    { name: 'Audit Log', path: '/admin/audit-logs', icon: <Activity size={20} /> },
+    { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} />, permission: 'DASHBOARD_READ' },
+    { name: 'Daftar Aduan', path: '/admin/complaints', icon: <ClipboardList size={20} />, permission: 'COMPLAINTS_READ' },
+    { name: 'Peta Sebaran', path: '/admin/map', icon: <Map size={20} />, permission: 'MAP_READ' },
+    { name: 'Stok Material', path: '/admin/inventory', icon: <Package size={20} />, permission: 'INVENTORY_READ' },
+    { name: 'Armada & Peralatan', path: '/admin/equipment', icon: <Truck size={20} />, permission: 'EQUIPMENT_READ' },
+    { name: 'Tenaga Kerja', path: '/admin/workforce', icon: <Users size={20} />, permission: 'WORKFORCE_READ' },
+    { name: 'Laporan & Biaya', path: '/admin/reports', icon: <BarChart3 size={20} />, permission: 'REPORTS_READ' },
+    { name: 'CMS Landing Page', path: '/admin/cms', icon: <Settings size={20} />, permission: 'CMS_READ' },
+    { name: 'Manajemen User', path: '/admin/users', icon: <Users size={20} />, permission: 'USERS_READ' },
+    { name: 'Manajemen Role', path: '/admin/roles', icon: <Shield size={20} />, permission: 'ROLES_READ' },
+    { name: 'Manajemen Izin', path: '/admin/permissions', icon: <Key size={20} />, permission: 'PERMISSIONS_READ' },
+    { name: 'Audit Log', path: '/admin/audit-logs', icon: <Activity size={20} />, permission: 'AUDIT_LOG_READ' },
   ];
 
   const isActive = (path: string) => {
@@ -57,9 +59,9 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
       {/* Sidebar Header & Logo */}
       <div className="flex items-center justify-between h-16 flex-shrink-0 bg-blue-600 dark:bg-slate-950 px-4 border-b border-blue-500 dark:border-slate-800 shadow-sm">
         {!isCollapsed && (
-          <h1 className="text-sm font-black tracking-widest text-white uppercase animate-in fade-in duration-300">
+          <Link to="/" className="text-sm font-black tracking-widest text-white uppercase animate-in fade-in duration-300 hover:text-blue-200 transition-colors">
             Bepadah
-          </h1>
+          </Link>
         )}
         {isCollapsed && (
            <div className="mx-auto bg-white/20 p-1.5 rounded-lg text-white">
@@ -76,7 +78,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
       
       <div className="flex-1 flex flex-col overflow-y-auto pt-5 pb-4 custom-scrollbar">
         <nav className="mt-2 flex-1 px-4 space-y-2">
-          {menuItems.map((item) => (
+          {menuItems.filter(item => hasPermission(item.permission)).map((item) => (
             <Link
               key={item.path}
               to={item.path}
@@ -121,10 +123,13 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
              <Settings size={20} className={`${isCollapsed ? 'mx-auto' : 'mr-3'} text-slate-500 dark:text-slate-300`} />
              {!isCollapsed && <span>Pengaturan</span>}
           </Link>
-          <Link to="/" className="flex items-center px-3 py-3 text-sm font-medium rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+          <button 
+            onClick={() => signOut()}
+            className="w-full flex items-center px-3 py-3 text-sm font-medium rounded-xl text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          >
              <LogOut size={20} className={`${isCollapsed ? 'mx-auto' : 'mr-3'}`} />
              {!isCollapsed && <span>Keluar</span>}
-          </Link>
+          </button>
         </div>
       </div>
     </div>
