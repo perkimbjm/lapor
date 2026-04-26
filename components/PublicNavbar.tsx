@@ -1,4 +1,4 @@
-// components/PublicNavbar.tsx — migrated to Supabase
+// components/PublicNavbar.tsx
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Activity, Home, Search, Sun, Moon, LayoutDashboard } from 'lucide-react';
@@ -10,7 +10,8 @@ const PublicNavbar: React.FC = () => {
   const [isOpen, setIsOpen] = React.useState(false);
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
+
   const [config, setConfig] = React.useState({
     navbarBrand: 'Bepadah',
     navbarLogoUrl: '',
@@ -21,23 +22,29 @@ const PublicNavbar: React.FC = () => {
   });
 
   React.useEffect(() => {
-    // Fetch CMS config
     const fetchConfig = async () => {
       const { data } = await supabase
         .from('cms')
         .select('data')
         .eq('id', 'site_config')
         .single();
-      if (data?.data) setConfig(prev => ({ ...prev, ...data.data }));
+
+      if (data?.data) {
+        setConfig(prev => ({ ...prev, ...data.data }));
+      }
     };
+
     fetchConfig();
   }, []);
 
+  // FIX: gunakan env, bukan window.location
   const handleLogin = async () => {
+    const redirectUrl = `${import.meta.env.VITE_SITE_URL}/admin`;
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/admin`
+        redirectTo: redirectUrl
       }
     });
 
@@ -59,44 +66,59 @@ const PublicNavbar: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-4">
         <div className="bg-white/10 dark:bg-slate-900/40 backdrop-blur-xl border border-white/20 dark:border-slate-800/50 rounded-2xl shadow-2xl overflow-hidden">
           <div className="flex justify-between items-center h-16 px-6">
+
             <Link to="/" className="flex items-center group">
               <div className="h-10 w-10 rounded-xl flex items-center justify-center mr-3 shadow-lg group-hover:scale-110 transition-transform overflow-hidden">
                 {config.navbarLogoUrl ? (
-                  <img src={config.navbarLogoUrl} alt="Logo" className="w-full h-full object-contain max-w-full max-h-full" />
-                ) : <Activity className="text-white" size={24} />}
+                  <img src={config.navbarLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+                ) : (
+                  <Activity className="text-white" size={24} />
+                )}
               </div>
-              <span className="font-bold text-2xl text-slate-900 dark:text-white tracking-tight">{config.navbarBrand}</span>
+              <span className="font-bold text-2xl text-slate-900 dark:text-white">
+                {config.navbarBrand}
+              </span>
             </Link>
 
             <div className="hidden md:flex items-center space-x-1">
               {navLinks.map((link) => (
-                <Link key={link.path} to={link.path} className={`flex items-center px-4 py-2 rounded-xl text-sm font-semibold transition-all ${isActive(link.path) ? 'text-blue-600 bg-blue-50/80 dark:bg-blue-900/40 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:bg-white/50 dark:hover:bg-slate-800/50'}`}>
-                  <span className="mr-2 opacity-70">{link.icon}</span>{link.name}
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  className={`flex items-center px-4 py-2 rounded-xl text-sm font-semibold ${
+                    isActive(link.path)
+                      ? 'text-blue-600 bg-blue-50/80 dark:bg-blue-900/40'
+                      : 'text-slate-600 dark:text-slate-300 hover:text-blue-600'
+                  }`}
+                >
+                  <span className="mr-2">{link.icon}</span>
+                  {link.name}
                 </Link>
               ))}
+
               <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-4" />
-              <button onClick={toggleTheme} className="p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 mr-2">
+
+              <button onClick={toggleTheme}>
                 {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
               </button>
+
               {user ? (
-                <Link to="/admin" className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-lg flex items-center gap-2">
+                <Link to="/admin" className="px-6 py-2 text-white bg-blue-600 rounded-xl flex items-center gap-2">
                   <LayoutDashboard size={18} /> Dashboard
                 </Link>
               ) : (
-                <button 
-                  onClick={handleLogin}
-                  className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-all shadow-lg flex items-center gap-2"
-                >
+                <button onClick={handleLogin} className="px-6 py-2 text-white bg-blue-600 rounded-xl">
                   {config.loginButtonText}
                 </button>
               )}
             </div>
 
-            <div className="flex items-center md:hidden gap-3">
-              <button onClick={toggleTheme} className="p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
+            <div className="md:hidden flex items-center gap-3">
+              <button onClick={toggleTheme}>
                 {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
               </button>
-              <button onClick={() => setIsOpen(!isOpen)} className="inline-flex items-center justify-center p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
+
+              <button onClick={() => setIsOpen(!isOpen)}>
                 {isOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
             </div>
@@ -106,27 +128,23 @@ const PublicNavbar: React.FC = () => {
 
       {isOpen && (
         <div className="md:hidden mx-4 mt-2">
-          <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-2xl border border-white/20 dark:border-slate-800/50 rounded-2xl shadow-2xl overflow-hidden">
-            <div className="px-4 pt-4 pb-6 space-y-2">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow">
+            <div className="p-4 space-y-2">
               {navLinks.map((link) => (
-                <Link key={link.path} to={link.path} onClick={() => setIsOpen(false)} className={`flex items-center px-4 py-3 rounded-xl text-base font-bold transition-all ${isActive(link.path) ? 'text-blue-600 bg-blue-50 dark:bg-blue-900/40 dark:text-blue-400' : 'text-slate-600 dark:text-slate-300 hover:text-blue-600 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                  <span className="mr-4 opacity-70">{link.icon}</span>{link.name}
+                <Link key={link.path} to={link.path} onClick={() => setIsOpen(false)}>
+                  {link.name}
                 </Link>
               ))}
-              <div className="pt-4">
-                {user ? (
-                  <Link to="/admin" onClick={() => setIsOpen(false)} className="flex items-center justify-center w-full px-4 py-4 rounded-xl font-black text-white bg-blue-600 shadow-lg gap-2">
-                    <LayoutDashboard size={18} /> Dashboard
-                  </Link>
-                ) : (
-                  <button 
-                    onClick={() => { setIsOpen(false); handleLogin(); }}
-                    className="flex items-center justify-center w-full px-4 py-4 rounded-xl font-black text-white bg-blue-600 shadow-lg gap-2"
-                  >
-                    {config.loginButtonText}
-                  </button>
-                )}
-              </div>
+
+              {user ? (
+                <Link to="/admin" onClick={() => setIsOpen(false)}>
+                  Dashboard
+                </Link>
+              ) : (
+                <button onClick={() => { setIsOpen(false); handleLogin(); }}>
+                  {config.loginButtonText}
+                </button>
+              )}
             </div>
           </div>
         </div>
