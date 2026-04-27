@@ -9,7 +9,17 @@ if (!supabaseUrl || !supabaseKey) {
   console.error('Supabase URL atau Key tidak ditemukan di .env');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const supabase = createClient(supabaseUrl, supabaseKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+  realtime: {
+    heartbeatIntervalMs: 25000,
+    reconnectAfterMs: (tries: number) => Math.min(tries * 1000, 10000),
+  },
+});
 
 // Auth shortcut
 export const auth = supabase.auth;

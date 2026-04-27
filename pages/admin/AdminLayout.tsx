@@ -55,30 +55,53 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
 
   const channelRef = useRef<any>(null);
 
-  useEffect(() => {
+  const subscribeNotifications = useCallback(() => {
     if (!user?.id || !isAdmin) return;
 
-    fetchNotifications();
-
-    if (channelRef.current) return;
+    // Hapus channel lama sebelum membuat yang baru
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
 
     const channel = supabase
       .channel(`admin-layout-notifs-${user.id}`)
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-        },
-        () => {
-          fetchNotifications();
-        }
+        { event: '*', schema: 'public', table: 'notifications' },
+        () => fetchNotifications()
       )
       .subscribe();
 
+    channelRef.current = channel;
+  }, [user?.id, isAdmin, fetchNotifications]);
+
+  useEffect(() => {
+    if (!user?.id || !isAdmin) return;
+
+    fetchNotifications();
+    subscribeNotifications();
+
+    // Reconnect channel dan refetch saat tab kembali aktif atau jaringan kembali
+    const handleRecover = () => {
+      fetchNotifications();
+      subscribeNotifications();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') handleRecover();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('online', handleRecover);
+
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('online', handleRecover);
     };
   }, [user?.id, isAdmin]);
 

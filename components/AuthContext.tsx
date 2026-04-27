@@ -120,18 +120,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Safety timeout: jika loading masih true setelah 10 detik, paksa berhenti
+    const loadingTimeout = setTimeout(() => {
+      setLoading(false);
+    }, 10000);
+
     // Initial session check
     const initAuth = async () => {
       setLoading(true);
       const { data: { session: initialSession } } = await supabase.auth.getSession();
-      
+
       setSession(initialSession);
       setUser(initialSession?.user ?? null);
-      
+
       if (initialSession?.user) {
         await checkAdminStatus(initialSession.user);
       }
-      
+
+      clearTimeout(loadingTimeout);
       setLoading(false);
     };
 
@@ -139,7 +145,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      // If we got a potential sign-in or session update, ensure loading is true while we re-verify admin
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         setLoading(true);
       }
@@ -153,12 +158,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsAdmin(false);
       }
 
-      // Always stop loading after processing event
       setLoading(false);
     });
 
+    // Refresh session saat tab kembali aktif agar token tidak kedaluwarsa diam-diam
+    const handleVisibilityChange = async () => {
+      if (document.visibilityState === 'visible') {
+        const { data: { session: currentSession } } = await supabase.auth.getSession();
+        if (currentSession) {
+          setSession(currentSession);
+          setUser(currentSession.user);
+          // Refresh token jika hampir expired (< 60 detik tersisa)
+          const expiresAt = currentSession.expires_at ?? 0;
+          const secondsLeft = expiresAt - Math.floor(Date.now() / 1000);
+          if (secondsLeft < 60) {
+            await supabase.auth.refreshSession();
+          }
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     return () => {
+      clearTimeout(loadingTimeout);
       subscription.unsubscribe();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

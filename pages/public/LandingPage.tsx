@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ShieldCheck, CheckCircle2, Camera, ClipboardCheck, Activity, Search } from 'lucide-react';
 import PublicNavbar from '../../components/PublicNavbar';
 import { supabase } from '../../src/supabase';
 import { ComplaintStatus } from '../../types';
+import { useConnectionRecovery } from '../../src/hooks/useConnectionRecovery';
 
 const LandingPage: React.FC = () => {
   const [stats, setStats] = useState({
@@ -27,50 +28,52 @@ const LandingPage: React.FC = () => {
     footerText: 'Dinas PUPR Kota Banjarmasin. Banjarmasin Maju Sejahtera. Didesain untuk kenyamanan warga.'
   });
   
-  useEffect(() => {
-    const fetchContent = async () => {
-      try {
-        // Fetch CMS Config
-        const { data: cmsData } = await supabase
-          .from('cms')
-          .select('*')
-          .eq('id', 'site_config')
-          .single();
-          
-        if (cmsData && cmsData.data) {
-          setConfig(prev => ({ ...prev, ...cmsData.data }));
-        }
+  const fetchContent = useCallback(async () => {
+    try {
+      const { data: cmsData } = await supabase
+        .from('cms')
+        .select('*')
+        .eq('id', 'site_config')
+        .single();
 
-        // Fetch Stats
-        const { count: total } = await supabase
-          .from('complaints')
-          .select('*', { count: 'exact', head: true });
-        
-        const { count: processing } = await supabase
-          .from('complaints')
-          .select('*', { count: 'exact', head: true })
-          .in('status', [
-            ComplaintStatus.PENDING, 
-            ComplaintStatus.RECEIVED, 
-            ComplaintStatus.SURVEY
-          ]);
-        
-        const { count: completed } = await supabase
-          .from('complaints')
-          .select('*', { count: 'exact', head: true })
-          .eq('status', ComplaintStatus.COMPLETED);
-
-        setStats({ 
-          total: total || 0, 
-          processing: processing || 0, 
-          completed: completed || 0 
-        });
-      } catch (error) {
-        console.error("Error fetching content:", error);
+      if (cmsData && cmsData.data) {
+        setConfig(prev => ({ ...prev, ...cmsData.data }));
       }
-    };
-    fetchContent();
+
+      const { count: total } = await supabase
+        .from('complaints')
+        .select('*', { count: 'exact', head: true });
+
+      const { count: processing } = await supabase
+        .from('complaints')
+        .select('*', { count: 'exact', head: true })
+        .in('status', [
+          ComplaintStatus.PENDING,
+          ComplaintStatus.RECEIVED,
+          ComplaintStatus.SURVEY
+        ]);
+
+      const { count: completed } = await supabase
+        .from('complaints')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', ComplaintStatus.COMPLETED);
+
+      setStats({
+        total: total || 0,
+        processing: processing || 0,
+        completed: completed || 0
+      });
+    } catch (error) {
+      console.error("Error fetching content:", error);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchContent();
+  }, [fetchContent]);
+
+  // Refetch saat tab kembali aktif atau jaringan tersambung kembali
+  useConnectionRecovery(fetchContent);
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-blue-500 selection:text-white transition-colors duration-500">
