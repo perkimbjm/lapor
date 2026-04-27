@@ -38,6 +38,7 @@ const UserManagement: React.FC = () => {
 
   const [users, setUsers] = useState<AppUser[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [workers, setWorkers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,7 +49,8 @@ const UserManagement: React.FC = () => {
     display_name: '',
     username: '',
     phone: '',
-    role_id: ''
+    role_id: '',
+    worker_id: ''
   });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
@@ -156,12 +158,23 @@ const UserManagement: React.FC = () => {
       }
     };
 
+    const fetchWorkers = async () => {
+      const { data, error } = await supabase.from('workers').select('id, name');
+      if (error) {
+        console.error("Error fetching workers:", error);
+      } else if (data) {
+        setWorkers(data);
+      }
+    };
+
     fetchUsers();
     fetchRoles();
+    fetchWorkers();
 
     const interval = setInterval(() => {
       fetchUsers();
       fetchRoles();
+      fetchWorkers();
     }, 10000);
 
     return () => {
@@ -234,16 +247,24 @@ const UserManagement: React.FC = () => {
       }
 
       if (isEditing && currentId) {
+        const updateData: any = {
+          display_name: formData.display_name,
+          username: usernameLower,
+          phone: formData.phone,
+          role_id: formData.role_id
+        };
+
+        if (formData.worker_id) {
+          updateData.worker_id = formData.worker_id;
+        } else {
+          updateData.worker_id = null;
+        }
+
         const { error } = await supabase
           .from('users')
-          .update({
-            display_name: formData.display_name,
-            username: usernameLower,
-            phone: formData.phone,
-            role_id: formData.role_id
-          })
+          .update(updateData)
           .eq('id', currentId);
-          
+
         if (error) {
           console.error("Update error:", error);
         } else {
@@ -251,18 +272,24 @@ const UserManagement: React.FC = () => {
         }
         triggerToast('Pengguna berhasil diperbarui');
       } else {
+        const insertData: any = {
+          email: emailLower,
+          username: usernameLower,
+          phone: formData.phone,
+          display_name: formData.display_name,
+          role_id: formData.role_id,
+          is_banned: false,
+          created_at: new Date().toISOString()
+        };
+
+        if (formData.worker_id) {
+          insertData.worker_id = formData.worker_id;
+        }
+
         const { error } = await supabase
           .from('users')
-          .insert([{
-            email: emailLower,
-            username: usernameLower,
-            phone: formData.phone,
-            display_name: formData.display_name,
-            role_id: formData.role_id,
-            is_banned: false,
-            created_at: new Date().toISOString()
-          }]);
-          
+          .insert([insertData]);
+
         if (error) {
           console.error("Create error:", error);
         } else {
@@ -271,7 +298,7 @@ const UserManagement: React.FC = () => {
         triggerToast('Pengguna berhasil ditambahkan');
       }
       setIsModalOpen(false);
-      setFormData({ email: '', display_name: '', username: '', phone: '', role_id: '' });
+      setFormData({ email: '', display_name: '', username: '', phone: '', role_id: '', worker_id: '' });
     } catch (error) {
       console.error('Error saving user:', error);
       triggerToast('Gagal menyimpan pengguna', 'error');
@@ -334,7 +361,8 @@ const UserManagement: React.FC = () => {
       display_name: user.display_name || '',
       username: user.username || '',
       phone: user.phone || '',
-      role_id: user.role_id || ''
+      role_id: user.role_id || '',
+      worker_id: (user as any).worker_id || ''
     });
     setIsModalOpen(true);
   };
@@ -393,10 +421,10 @@ const UserManagement: React.FC = () => {
           >
             <FileSpreadsheet size={18} /> Export Excel
           </button>
-          <button 
+          <button
             onClick={() => {
               setIsEditing(false);
-              setFormData({ email: '', display_name: '', username: '', phone: '', role_id: '' });
+              setFormData({ email: '', display_name: '', username: '', phone: '', role_id: '', worker_id: '' });
               setIsModalOpen(true);
             }}
             className="flex-1 sm:flex-none px-6 py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-blue-500/20 active:scale-95 transition-all flex items-center justify-center gap-2"
@@ -609,9 +637,9 @@ const UserManagement: React.FC = () => {
                       <span className="text-blue-600">{formData.role_id ? '1' : '0'} Terpilih</span>
                     </label>
                     <div className="relative">
-                      <select 
+                      <select
                         value={formData.role_id}
-                        onChange={e => setFormData({...formData, role_id: e.target.value})}
+                        onChange={e => setFormData({...formData, role_id: e.target.value, worker_id: ''})}
                         className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
                       >
                         <option value="">Pilih Peran</option>
@@ -621,6 +649,27 @@ const UserManagement: React.FC = () => {
                       </select>
                     </div>
                   </div>
+
+                  {(() => {
+                    const selectedRole = roles.find(r => r.id === formData.role_id);
+                    return selectedRole && selectedRole.name && selectedRole.name.toLowerCase() === 'petugas' ? (
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Pilih Pekerja</label>
+                        <div className="relative">
+                          <select
+                            value={formData.worker_id}
+                            onChange={e => setFormData({...formData, worker_id: e.target.value})}
+                            className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all"
+                          >
+                            <option value="">Pilih Pekerja</option>
+                            {workers.map(w => (
+                              <option key={w.id} value={w.id}>{w.name}</option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </div>
 

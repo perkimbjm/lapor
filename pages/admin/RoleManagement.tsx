@@ -30,6 +30,7 @@ const FEATURES = [
   { id: 'USERS', name: 'Manajemen User' },
   { id: 'ROLES', name: 'Manajemen Role' },
   { id: 'PERMISSIONS', name: 'Manajemen Izin' },
+  { id: 'NOTIFICATIONS', name: 'Notifikasi' },
   { id: 'AUDIT_LOG', name: 'Audit Log' },
 ];
 
