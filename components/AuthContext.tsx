@@ -198,20 +198,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const signOut = async () => {
+    // Bulletproof signOut: meskipun supabase.auth.signOut() hang (auth lock
+    // tersangkut setelah throttle), localStorage tetap dibersihkan dan
+    // user tetap dipaksa redirect ke landing page.
+    setLoading(true);
+
+    // Bersihkan storage SEKARANG sebelum await apapun, agar refresh halaman
+    // tidak akan auto-login dengan token rusak.
     try {
-      setLoading(true);
-      await supabase.auth.signOut();
-      localStorage.clear();
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('sb-') || key.includes('supabase')) {
+          localStorage.removeItem(key);
+        }
+      });
       sessionStorage.clear();
-      toast.success('Berhasil keluar sistem.');
-      window.location.href = '/';
-    } catch (err) {
-      console.error('Logout failed:', err);
-      localStorage.clear();
-      window.location.href = '/';
-    } finally {
-      setLoading(false);
+    } catch (e) {
+      console.error('Storage clear failed:', e);
     }
+
+    // Coba signOut ke server dengan timeout 3 detik — kalau hang, abaikan
+    Promise.race([
+      supabase.auth.signOut(),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ]).catch((err) => console.error('Logout error (ignored):', err));
+
+    toast.success('Berhasil keluar sistem.');
+    // Hard redirect — paling reliable untuk reset semua state
+    window.location.href = '/';
   };
 
   const refreshProfile = async () => {
