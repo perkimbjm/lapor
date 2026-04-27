@@ -8,6 +8,9 @@ interface AuthContextType {
   session: Session | null;
   isAdmin: boolean;
   permissions: string[];
+  workerId: string | null;
+  userPhone: string | null;
+  roleName: string | null;
   loading: boolean;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -21,6 +24,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [permissions, setPermissions] = useState<string[]>([]);
+  const [workerId, setWorkerId] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState<string | null>(null);
+  const [roleName, setRoleName] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   const checkAdminStatus = async (u: User) => {
@@ -33,7 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const { data: profile, error } = await supabase
         .from('users')
-        .select('role_id, is_banned, roles(name)')
+        .select('role_id, is_banned, worker_id, phone, roles(name)')
         .eq('id', u.id)
         .maybeSingle();
 
@@ -80,14 +86,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Pengguna baru tidak pernah admin secara default
         setIsAdmin(false);
         setPermissions([]);
+        setWorkerId(null);
+        setUserPhone(null);
+        setRoleName('user');
         return;
       }
 
       // Hitung semua nilai TERLEBIH DAHULU sebelum set state
       // agar tidak ada jeda di mana permissions kosong sementara isAdmin sudah false
       // yang menyebabkan ProtectedRoute redirect.
-      const roleName = (profile as any).roles?.name?.toLowerCase() || '';
-      const newIsAdmin = roleName.includes('admin') || u.email === 'denip23147@gmail.com';
+      const profileRoleName = (profile as any).roles?.name?.toLowerCase() || '';
+      const newIsAdmin = profileRoleName.includes('admin') || u.email === 'denip23147@gmail.com';
 
       let newPermissions: string[] = [];
       if (profile.role_id) {
@@ -105,9 +114,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Set kedua nilai sekaligus — React memproses ini dalam satu batch render
+      // Set semua nilai sekaligus — React memproses ini dalam satu batch render
       setIsAdmin(newIsAdmin);
       setPermissions(newPermissions);
+      setWorkerId((profile as any).worker_id ?? null);
+      setUserPhone((profile as any).phone ?? null);
+      setRoleName(profileRoleName);
     } catch (err) {
       console.error('Admin check failed:', err);
       setIsAdmin(false);
@@ -238,7 +250,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider
-      value={{ user, session, isAdmin, permissions, loading, signOut, refreshProfile, hasPermission }}
+      value={{ user, session, isAdmin, permissions, workerId, userPhone, roleName, loading, signOut, refreshProfile, hasPermission }}
     >
       {children}
     </AuthContext.Provider>

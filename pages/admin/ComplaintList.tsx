@@ -32,7 +32,10 @@ const VALID_STATUSES   = Object.values(ComplaintStatus);
 
 const ComplaintList: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
-  const { hasPermission, isAdmin, user } = useAuth();
+  const { hasPermission, isAdmin, user, userPhone, roleName } = useAuth();
+  const canCreate = hasPermission('COMPLAINTS_CREATE');
+  const canUpdate = hasPermission('COMPLAINTS_UPDATE');
+  const canDelete = hasPermission('COMPLAINTS_DELETE');
 
   useEffect(() => { setPageTitle('Daftar Aduan Masuk'); }, [setPageTitle]);
 
@@ -42,22 +45,17 @@ const ComplaintList: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
-    let userPhone: string | null = null;
     let channel: any = null;
+
+    // Aturan filter:
+    // - admin/super_admin/petugas (READ tanpa CREATE) → lihat SEMUA aduan
+    // - user (CREATE tanpa UPDATE) → filter by reporter_phone (hanya aduannya sendiri)
+    const filterByPhone = roleName === 'user' || (canCreate && !canUpdate && !isAdmin);
 
     const fetchComplaints = async () => {
       let query = supabase.from('complaints').select('*');
 
-      // Non-admin hanya boleh melihat aduan miliknya berdasarkan reporter_phone
-      if (!isAdmin) {
-        if (!userPhone) {
-          const { data: profileData } = await supabase
-            .from('users')
-            .select('phone')
-            .eq('id', user.id)
-            .maybeSingle();
-          userPhone = profileData?.phone ?? null;
-        }
+      if (filterByPhone) {
         if (!userPhone) {
           setComplaints([]);
           return;
@@ -101,7 +99,7 @@ const ComplaintList: React.FC = () => {
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('online', handleRecover);
     };
-  }, [user, isAdmin]);
+  }, [user, isAdmin, roleName, userPhone, canCreate, canUpdate]);
 
   // ── Toast ────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
@@ -456,11 +454,6 @@ const ComplaintList: React.FC = () => {
     }
   };
 
-  // ── Permission flags ─────────────────────────────────────────────────────
-  const canCreate = hasPermission('COMPLAINTS_CREATE');
-  const canUpdate = hasPermission('COMPLAINTS_UPDATE');
-  const canDelete = hasPermission('COMPLAINTS_DELETE');
-
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <>
@@ -637,12 +630,14 @@ const ComplaintList: React.FC = () => {
                       >
                         Detail
                       </button>
-                      <button
-                        onClick={() => handleProcessClick(complaint)}
-                        className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 font-semibold transition-colors"
-                      >
-                        Proses
-                      </button>
+                      {canUpdate && (
+                        <button
+                          onClick={() => handleProcessClick(complaint)}
+                          className="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-300 font-semibold transition-colors"
+                        >
+                          Proses
+                        </button>
+                      )}
                       {canUpdate && (
                         <button
                           onClick={() => handleEditComplaintClick(complaint)}
@@ -782,12 +777,14 @@ const ComplaintList: React.FC = () => {
             </div>
             <div className="p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex justify-end gap-3">
               <button onClick={() => setIsDetailOpen(false)} className="px-4 py-2 rounded-xl text-sm font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">Tutup</button>
-              <button
-                onClick={() => { setIsDetailOpen(false); handleProcessClick(selectedComplaint); }}
-                className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
-              >
-                Tindak Lanjuti
-              </button>
+              {canUpdate && (
+                <button
+                  onClick={() => { setIsDetailOpen(false); handleProcessClick(selectedComplaint); }}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+                >
+                  Tindak Lanjuti
+                </button>
+              )}
             </div>
           </div>
         </div>

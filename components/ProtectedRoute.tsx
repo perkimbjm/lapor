@@ -6,10 +6,11 @@ import { Loader2 } from 'lucide-react';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  requirePermission?: string;
 }
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin = true }) => {
-  const { user, isAdmin, permissions, loading } = useAuth();
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin = true, requirePermission }) => {
+  const { user, isAdmin, permissions, loading, hasPermission } = useAuth();
   const location = useLocation();
 
   // Grace period: jangan redirect karena permissions kosong sebelum
@@ -44,6 +45,18 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, requireAdmin 
       );
     }
     return <Navigate to="/" replace />;
+  }
+
+  // Check specific permission required for this route (e.g. WORKFORCE_READ)
+  if (requirePermission && !hasPermission(requirePermission)) {
+    if (!graceExpired) {
+      return (
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+          <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
+        </div>
+      );
+    }
+    return <Navigate to="/admin" replace />;
   }
 
   return <>{children}</>;

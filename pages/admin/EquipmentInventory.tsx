@@ -18,9 +18,14 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
+import { useAuth } from '../../components/AuthContext';
 
 const EquipmentInventory: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('EQUIPMENT_CREATE');
+  const canUpdate = hasPermission('EQUIPMENT_UPDATE');
+  const canDelete = hasPermission('EQUIPMENT_DELETE');
 
   useEffect(() => {
     setPageTitle("Armada & Peralatan");
@@ -159,11 +164,13 @@ const EquipmentInventory: React.FC = () => {
           >
             <FileSpreadsheet size={16} /> Export Excel
           </button>
-          <button onClick={() => {
-            setIsEditing(false);
-            setFormData({ name: '', type: '', category: activeTab, status: 'Tersedia' });
-            setIsModalOpen(true);
-          }} className="flex-1 md:flex-none px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-blue-600 rounded-xl shadow-lg shadow-blue-600/20"><Plus className="inline mr-2" size={14}/> Tambah Alat</button>
+          {canCreate && (
+            <button onClick={() => {
+              setIsEditing(false);
+              setFormData({ name: '', type: '', category: activeTab, status: 'Tersedia' });
+              setIsModalOpen(true);
+            }} className="flex-1 md:flex-none px-6 py-3 text-[10px] font-black uppercase tracking-widest text-white bg-blue-600 rounded-xl shadow-lg shadow-blue-600/20"><Plus className="inline mr-2" size={14}/> Tambah Alat</button>
+          )}
         </div>
       </div>
 
@@ -187,8 +194,12 @@ const EquipmentInventory: React.FC = () => {
             </div>
             
             <div className="mt-6 flex gap-2 justify-end border-t border-slate-50 dark:border-slate-700 pt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button onClick={() => openEditModal(item)} className="p-2 text-slate-400 hover:text-blue-600"><Pencil size={14}/></button>
-              <button onClick={() => executeDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
+              {canUpdate && (
+                <button onClick={() => openEditModal(item)} className="p-2 text-slate-400 hover:text-blue-600"><Pencil size={14}/></button>
+              )}
+              {canDelete && (
+                <button onClick={() => executeDelete(item.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
+              )}
             </div>
           </div>
         ))}

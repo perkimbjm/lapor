@@ -50,20 +50,20 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             >
-              <Route index element={<Dashboard />} />
-              <Route path="complaints" element={<ComplaintList />} />
-              <Route path="inventory" element={<MaterialInventory />} />
-              <Route path="equipment" element={<EquipmentInventory />} />
-              <Route path="workforce" element={<WorkforceManagement />} />
-              <Route path="map" element={<MapDistribution />} />
-              <Route path="reports" element={<Reports />} />
+              <Route index element={<ProtectedRoute requirePermission="DASHBOARD_READ"><Dashboard /></ProtectedRoute>} />
+              <Route path="complaints" element={<ProtectedRoute requirePermission="COMPLAINTS_READ"><ComplaintList /></ProtectedRoute>} />
+              <Route path="inventory" element={<ProtectedRoute requirePermission="INVENTORY_READ"><MaterialInventory /></ProtectedRoute>} />
+              <Route path="equipment" element={<ProtectedRoute requirePermission="EQUIPMENT_READ"><EquipmentInventory /></ProtectedRoute>} />
+              <Route path="workforce" element={<ProtectedRoute requirePermission="WORKFORCE_READ"><WorkforceManagement /></ProtectedRoute>} />
+              <Route path="map" element={<ProtectedRoute requirePermission="MAP_READ"><MapDistribution /></ProtectedRoute>} />
+              <Route path="reports" element={<ProtectedRoute requirePermission="REPORTS_READ"><Reports /></ProtectedRoute>} />
               <Route path="settings" element={<Settings />} />
-              <Route path="cms" element={<CMS />} />
-              <Route path="users" element={<UserManagement />} />
-              <Route path="roles" element={<RoleManagement />} />
-              <Route path="permissions" element={<PermissionManagement />} />
+              <Route path="cms" element={<ProtectedRoute requirePermission="CMS_READ"><CMS /></ProtectedRoute>} />
+              <Route path="users" element={<ProtectedRoute requirePermission="USERS_READ"><UserManagement /></ProtectedRoute>} />
+              <Route path="roles" element={<ProtectedRoute requirePermission="ROLES_READ"><RoleManagement /></ProtectedRoute>} />
+              <Route path="permissions" element={<ProtectedRoute requirePermission="PERMISSIONS_READ"><PermissionManagement /></ProtectedRoute>} />
               <Route path="activities" element={<ActivityLog />} />
-              <Route path="audit-logs" element={<AuditLog />} />
+              <Route path="audit-logs" element={<ProtectedRoute requirePermission="AUDIT_LOG_READ"><AuditLog /></ProtectedRoute>} />
             </Route>
             
             {/* Fallback */}

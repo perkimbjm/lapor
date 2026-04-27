@@ -22,9 +22,17 @@ import {
   // Fix: Corrected import source from 'lucide-center' to 'lucide-react'
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
+import { useAuth } from '../../components/AuthContext';
 
 const Inventory: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+  const { hasPermission } = useAuth();
+  const canMatCreate = hasPermission('INVENTORY_CREATE');
+  const canMatUpdate = hasPermission('INVENTORY_UPDATE');
+  const canMatDelete = hasPermission('INVENTORY_DELETE');
+  const canEqCreate = hasPermission('EQUIPMENT_CREATE');
+  const canEqUpdate = hasPermission('EQUIPMENT_UPDATE');
+  const canEqDelete = hasPermission('EQUIPMENT_DELETE');
 
   useEffect(() => {
     setPageTitle("Manajemen Stok & Peralatan");
@@ -406,12 +414,14 @@ const Inventory: React.FC = () => {
                  {materials.length} Item
                </span>
              </div>
-             <button 
-               onClick={openAddModal}
-               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
-             >
-               <Plus className="mr-2 h-4 w-4" /> Tambah Stok
-             </button>
+             {canMatCreate && (
+               <button
+                 onClick={openAddModal}
+                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+               >
+                 <Plus className="mr-2 h-4 w-4" /> Tambah Stok
+               </button>
+             )}
           </div>
           <ul className="divide-y divide-slate-100 dark:divide-slate-700">
             {materials.length > 0 ? materials.map((item) => {
@@ -450,20 +460,24 @@ const Inventory: React.FC = () => {
                      )}
 
                      <div className="flex items-center gap-1 pl-4 border-l border-slate-200 dark:border-slate-700">
-                        <button 
-                          onClick={() => openEditModal(item)}
-                          className="p-2.5 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all active:scale-90"
-                          title="Edit"
-                        >
-                          <Pencil className="w-4 h-4" />
-                        </button>
-                        <button 
-                          onClick={() => confirmDelete(item)}
-                          className="p-2.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all active:scale-90"
-                          title="Hapus"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        {canMatUpdate && (
+                          <button
+                            onClick={() => openEditModal(item)}
+                            className="p-2.5 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all active:scale-90"
+                            title="Edit"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                        )}
+                        {canMatDelete && (
+                          <button
+                            onClick={() => confirmDelete(item)}
+                            className="p-2.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all active:scale-90"
+                            title="Hapus"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
                      </div>
                   </div>
                 </div>
@@ -477,12 +491,14 @@ const Inventory: React.FC = () => {
         <div className="bg-white dark:bg-slate-800 shadow-sm rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in fade-in duration-300">
           <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
              <h3 className="text-lg leading-6 font-bold text-slate-900 dark:text-white">Daftar Alat Berat & Kendaraan</h3>
-             <button 
-               onClick={openAddModal}
-               className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
-             >
-               <Plus className="mr-2 h-4 w-4" /> Tambah Alat
-             </button>
+             {canEqCreate && (
+               <button
+                 onClick={openAddModal}
+                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-bold rounded-xl text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-lg shadow-blue-600/20"
+               >
+                 <Plus className="mr-2 h-4 w-4" /> Tambah Alat
+               </button>
+             )}
           </div>
            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 p-6">
              {equipment.length > 0 ? equipment.map((item) => (
@@ -501,8 +517,12 @@ const Inventory: React.FC = () => {
                     </span>
                     
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => openEditModal(item)} className="p-1.5 text-slate-400 hover:text-blue-600"><Pencil size={14}/></button>
-                        <button onClick={() => confirmDelete(item)} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
+                        {canEqUpdate && (
+                          <button onClick={() => openEditModal(item)} className="p-1.5 text-slate-400 hover:text-blue-600"><Pencil size={14}/></button>
+                        )}
+                        {canEqDelete && (
+                          <button onClick={() => confirmDelete(item)} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
+                        )}
                     </div>
                  </div>
                </div>

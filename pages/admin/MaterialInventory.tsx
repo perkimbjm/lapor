@@ -23,9 +23,14 @@ import {
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
 import { GoogleGenAI } from "@google/genai";
+import { useAuth } from '../../components/AuthContext';
 
 const MaterialInventory: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+  const { hasPermission } = useAuth();
+  const canCreate = hasPermission('INVENTORY_CREATE');
+  const canUpdate = hasPermission('INVENTORY_UPDATE');
+  const canDelete = hasPermission('INVENTORY_DELETE');
 
   useEffect(() => {
     setPageTitle("Manajemen Stok Material");
@@ -247,9 +252,11 @@ const MaterialInventory: React.FC = () => {
              >
                <FileSpreadsheet size={14} /> Export Excel
              </button>
-             <button onClick={openAddModal} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white bg-blue-600 rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2">
-               <Plus size={14}/> Tambah Stok
-             </button>
+             {canCreate && (
+               <button onClick={openAddModal} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white bg-blue-600 rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2">
+                 <Plus size={14}/> Tambah Stok
+               </button>
+             )}
            </div>
         </div>
         <ul className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -268,8 +275,12 @@ const MaterialInventory: React.FC = () => {
                        <p className="text-[9px] text-slate-400 dark:text-slate-200 font-black uppercase tracking-widest">{item.unit}</p>
                     </div>
                     <div className="flex gap-2">
-                       <button onClick={() => openEditModal(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><Pencil size={14}/></button>
-                       <button onClick={() => setItemToDelete({id: item.id, name: item.name})} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={14}/></button>
+                       {canUpdate && (
+                         <button onClick={() => openEditModal(item)} className="p-2 text-slate-400 hover:text-blue-600 transition-colors"><Pencil size={14}/></button>
+                       )}
+                       {canDelete && (
+                         <button onClick={() => setItemToDelete({id: item.id, name: item.name})} className="p-2 text-slate-400 hover:text-red-600 transition-colors"><Trash2 size={14}/></button>
+                       )}
                     </div>
                   </div>
                 </div>

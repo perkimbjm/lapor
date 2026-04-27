@@ -37,9 +37,16 @@ import {
 } from 'recharts';
 import * as XLSX from 'xlsx';
 import { toast } from 'sonner';
+import { useAuth } from '../../components/AuthContext';
 
 const WorkforceManagement: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
+  const { isAdmin, hasPermission, workerId } = useAuth();
+  const canCreate = hasPermission('WORKFORCE_CREATE');
+  const canUpdate = hasPermission('WORKFORCE_UPDATE');
+  const canDelete = hasPermission('WORKFORCE_DELETE');
+  // Petugas (non-admin tanpa CREATE) → hanya boleh lihat data dirinya berdasarkan worker_id
+  const restrictToOwn = !isAdmin && !canCreate && !!workerId;
 
   useEffect(() => {
     setPageTitle("Manajemen Tenaga Kerja");
@@ -73,12 +80,20 @@ const WorkforceManagement: React.FC = () => {
 
   useEffect(() => {
     const fetchWorkers = async () => {
-      const { data } = await supabase.from('workers').select('*');
+      let query = supabase.from('workers').select('*');
+      if (restrictToOwn && workerId) {
+        query = query.eq('id', workerId);
+      }
+      const { data } = await query;
       if (data) setWorkers(data as Worker[]);
     };
 
     const fetchAttendance = async () => {
-      const { data } = await supabase.from('attendance').select('*');
+      let query = supabase.from('attendance').select('*');
+      if (restrictToOwn && workerId) {
+        query = query.eq('worker_id', workerId);
+      }
+      const { data } = await query;
       if (data) {
         setAttendance(data.map((row: any) => ({
           id: row.id,
@@ -130,7 +145,7 @@ const WorkforceManagement: React.FC = () => {
     return () => {
       clearInterval(interval);
     };
-  }, []);
+  }, [restrictToOwn, workerId]);
 
   const getWeekDates = (year: number, month: number, weekIndex: number) => {
     const firstDayOfMonth = new Date(year, month - 1, 1);
@@ -825,13 +840,15 @@ const WorkforceManagement: React.FC = () => {
           >
             <Calendar size={16}/> Kelola Hari Libur
           </button>
-          <button 
-            onClick={() => openModal()}
-            disabled={selectedMonth === 'all' || selectedWeek === 'all'}
-            className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 active:scale-95 transition-all w-full lg:w-auto disabled:opacity-50"
-          >
-            <Plus size={16}/> Tambah Pekerja
-          </button>
+          {canCreate && (
+            <button
+              onClick={() => openModal()}
+              disabled={selectedMonth === 'all' || selectedWeek === 'all'}
+              className="flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-blue-600/20 active:scale-95 transition-all w-full lg:w-auto disabled:opacity-50"
+            >
+              <Plus size={16}/> Tambah Pekerja
+            </button>
+          )}
         </div>
       </div>
 
@@ -973,20 +990,24 @@ const WorkforceManagement: React.FC = () => {
                          >
                             <FileText size={14}/>
                          </button>
-                         <button 
-                            onClick={() => openModal(worker)} 
-                            className="p-2 text-slate-400 hover:text-blue-600 transition-all bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm" 
-                            title="Edit Presensi"
-                         >
-                            <Pencil size={14}/>
-                         </button>
-                         <button 
-                            onClick={() => setDeleteConfirm({ id: worker.id, name: worker.name })} 
-                            className="p-2 text-slate-400 hover:text-red-600 transition-all bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm" 
-                            title="Hapus"
-                         >
-                            <Trash2 size={14}/>
-                         </button>
+                         {canUpdate && (
+                           <button
+                              onClick={() => openModal(worker)}
+                              className="p-2 text-slate-400 hover:text-blue-600 transition-all bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm"
+                              title="Edit Presensi"
+                           >
+                              <Pencil size={14}/>
+                           </button>
+                         )}
+                         {canDelete && (
+                           <button
+                              onClick={() => setDeleteConfirm({ id: worker.id, name: worker.name })}
+                              className="p-2 text-slate-400 hover:text-red-600 transition-all bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm"
+                              title="Hapus"
+                           >
+                              <Trash2 size={14}/>
+                           </button>
+                         )}
                       </div>
                     </td>
                   </tr>

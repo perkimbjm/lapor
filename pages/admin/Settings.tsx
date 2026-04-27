@@ -3,6 +3,7 @@ import { useOutletContext } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 
 import { useTheme } from '../../components/ThemeContext';
+import { useAuth } from '../../components/AuthContext';
 import { supabase } from '../../src/supabase';
 import {
   User,
@@ -30,6 +31,8 @@ const Settings: React.FC = () => {
   }, [setPageTitle]);
 
   const { theme, toggleTheme } = useTheme();
+  const { hasPermission } = useAuth();
+  const canSeeNotifications = hasPermission('NOTIFICATIONS_READ');
   const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(true);
@@ -242,7 +245,7 @@ const Settings: React.FC = () => {
         <div className="w-full lg:w-64 flex-shrink-0">
           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-700 p-2 space-y-1 sticky top-4">
             {renderTabNav('profile', 'Profil Pengguna', <User size={18} />)}
-            {renderTabNav('notifications', 'Notifikasi', <Bell size={18} />)}
+            {canSeeNotifications && renderTabNav('notifications', 'Notifikasi', <Bell size={18} />)}
             {renderTabNav('appearance', 'Tampilan', <Palette size={18} />)}
             {renderTabNav('security', 'Keamanan', <Lock size={18} />)}
           </div>
