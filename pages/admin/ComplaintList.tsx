@@ -43,6 +43,7 @@ const ComplaintList: React.FC = () => {
     if (!user) return;
 
     let userPhone: string | null = null;
+    let channel: any = null;
 
     const fetchComplaints = async () => {
       let query = supabase.from('complaints').select('*');
@@ -69,14 +70,37 @@ const ComplaintList: React.FC = () => {
       else if (data) setComplaints(data as Complaint[]);
     };
 
+    const subscribe = () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+        channel = null;
+      }
+      channel = supabase
+        .channel(`complaint-list-realtime-${user.id}`)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, fetchComplaints)
+        .subscribe();
+    };
+
     fetchComplaints();
+    subscribe();
 
-    const channel = supabase
-      .channel('complaint-list-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, fetchComplaints)
-      .subscribe();
+    // Refetch + reconnect channel saat tab kembali aktif atau jaringan kembali
+    const handleRecover = () => {
+      fetchComplaints();
+      subscribe();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') handleRecover();
+    };
 
-    return () => { supabase.removeChannel(channel); };
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('online', handleRecover);
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('online', handleRecover);
+    };
   }, [user, isAdmin]);
 
   // ── Toast ────────────────────────────────────────────────────────────────

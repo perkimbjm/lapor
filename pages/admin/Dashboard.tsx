@@ -75,7 +75,9 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Initial full load
+    let channel: any = null;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     const fetchAll = async () => {
       const [c, m, eq, w, n] = await Promise.all([
         supabase.from('complaints').select('*'),
@@ -92,10 +94,6 @@ const Dashboard: React.FC = () => {
       setLoading(false);
     };
 
-    fetchAll();
-
-    // Debounce to avoid hammering on batch Excel imports (many rows at once)
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const refetchComplaints = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
@@ -104,14 +102,36 @@ const Dashboard: React.FC = () => {
       }, 400);
     };
 
-    const channel = supabase
-      .channel('dashboard-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, refetchComplaints)
-      .subscribe();
+    const subscribe = () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+        channel = null;
+      }
+      channel = supabase
+        .channel('dashboard-realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, refetchComplaints)
+        .subscribe();
+    };
+
+    fetchAll();
+    subscribe();
+
+    const handleRecover = () => {
+      fetchAll();
+      subscribe();
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') handleRecover();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('online', handleRecover);
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      supabase.removeChannel(channel);
+      if (channel) supabase.removeChannel(channel);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('online', handleRecover);
     };
   }, []);
 

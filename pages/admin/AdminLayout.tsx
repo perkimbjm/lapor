@@ -56,7 +56,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
   const channelRef = useRef<any>(null);
 
   const subscribeNotifications = useCallback(() => {
-    if (!user?.id || !isAdmin) return;
+    if (!user?.id) return;
 
     // Hapus channel lama sebelum membuat yang baru
     if (channelRef.current) {
@@ -74,10 +74,10 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
       .subscribe();
 
     channelRef.current = channel;
-  }, [user?.id, isAdmin, fetchNotifications]);
+  }, [user?.id, fetchNotifications]);
 
   useEffect(() => {
-    if (!user?.id || !isAdmin) return;
+    if (!user?.id) return;
 
     fetchNotifications();
     subscribeNotifications();
@@ -103,7 +103,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('online', handleRecover);
     };
-  }, [user?.id, isAdmin]);
+  }, [user?.id]);
 
   const handleLogout = async () => {
     await signOut();
