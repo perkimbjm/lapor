@@ -28,7 +28,7 @@ const LandingPage: React.FC = () => {
     footerText: 'Dinas PUPR Kota Banjarmasin. Banjarmasin Maju Sejahtera. Didesain untuk kenyamanan warga.'
   });
   
-  const fetchContent = useCallback(async () => {
+  const fetchContent = useCallback(async (isRetry = false) => {
     try {
       const { data: cmsData } = await supabase
         .from('cms')
@@ -65,6 +65,10 @@ const LandingPage: React.FC = () => {
       });
     } catch (error) {
       console.error("Error fetching content:", error);
+      // Retry sekali setelah 2 detik — memberi waktu token refresh selesai
+      if (!isRetry) {
+        setTimeout(() => fetchContent(true), 2000);
+      }
     }
   }, []);
 

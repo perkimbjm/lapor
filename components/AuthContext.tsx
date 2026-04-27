@@ -152,29 +152,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(currentSession);
       setUser(currentSession?.user ?? null);
 
-      if (currentSession?.user) {
-        await checkAdminStatus(currentSession.user);
-      } else {
-        setIsAdmin(false);
+      // try/finally agar loading tidak stuck jika checkAdminStatus lambat
+      const eventTimeout = setTimeout(() => setLoading(false), 8000);
+      try {
+        if (currentSession?.user) {
+          await checkAdminStatus(currentSession.user);
+        } else {
+          setIsAdmin(false);
+        }
+      } finally {
+        clearTimeout(eventTimeout);
+        setLoading(false);
       }
-
-      setLoading(false);
     });
 
-    // Refresh session saat tab kembali aktif agar token tidak kedaluwarsa diam-diam
+    // Periksa dan pulihkan sesi saat tab kembali aktif
     const handleVisibilityChange = async () => {
-      if (document.visibilityState === 'visible') {
-        const { data: { session: currentSession } } = await supabase.auth.getSession();
-        if (currentSession) {
-          setSession(currentSession);
-          setUser(currentSession.user);
-          // Refresh token jika hampir expired (< 60 detik tersisa)
-          const expiresAt = currentSession.expires_at ?? 0;
-          const secondsLeft = expiresAt - Math.floor(Date.now() / 1000);
-          if (secondsLeft < 60) {
-            await supabase.auth.refreshSession();
-          }
+      if (document.visibilityState !== 'visible') return;
+
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+
+      if (currentSession) {
+        setSession(currentSession);
+        setUser(currentSession.user);
+        // Refresh jika token tersisa < 5 menit (buffer lebih besar karena throttling browser)
+        const secondsLeft = (currentSession.expires_at ?? 0) - Math.floor(Date.now() / 1000);
+        if (secondsLeft < 300) {
+          await supabase.auth.refreshSession();
         }
+      } else {
+        // Token expired/tidak valid dan tidak bisa diperbarui — bersihkan state lokal
+        // Ini penyebab utama "logged in di UI tapi data gagal dimuat"
+        await supabase.auth.signOut({ scope: 'local' });
+        setSession(null);
+        setUser(null);
+        setIsAdmin(false);
+        setPermissions([]);
       }
     };
 
