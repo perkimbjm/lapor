@@ -45,8 +45,6 @@ const ComplaintList: React.FC = () => {
   useEffect(() => {
     if (!user) return;
 
-    let channel: any = null;
-
     // Aturan filter:
     // - admin/super_admin/petugas (READ tanpa CREATE) → lihat SEMUA aduan
     // - user (CREATE tanpa UPDATE) → filter by reporter_phone (hanya aduannya sendiri)
@@ -68,36 +66,18 @@ const ComplaintList: React.FC = () => {
       else if (data) setComplaints(data as Complaint[]);
     };
 
-    const subscribe = () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-        channel = null;
-      }
-      channel = supabase
-        .channel(`complaint-list-realtime-${user.id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, fetchComplaints)
-        .subscribe();
-    };
-
     fetchComplaints();
-    subscribe();
 
-    // Refetch + reconnect channel saat tab kembali aktif atau jaringan kembali
-    const handleRecover = () => {
-      fetchComplaints();
-      subscribe();
-    };
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') handleRecover();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('online', handleRecover);
+    // Subscribe sekali. Supabase Realtime auto-reconnect saat tab kembali aktif
+    // (via reconnectAfterMs di src/supabase.ts). Tidak ada manual refetch on
+    // visibility agar tab switch tidak memicu loading.
+    const channel = supabase
+      .channel(`complaint-list-realtime-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, fetchComplaints)
+      .subscribe();
 
     return () => {
-      if (channel) supabase.removeChannel(channel);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('online', handleRecover);
+      supabase.removeChannel(channel);
     };
   }, [user, isAdmin, roleName, userPhone, canCreate, canUpdate]);
 

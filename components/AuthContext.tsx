@@ -190,22 +190,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Visibility handler: pasif — hanya "membangunkan" supabase auth client
-    // agar memeriksa token yang mungkin perlu diperbarui.
-    // Hasilnya ditangani otomatis via onAuthStateChange (TOKEN_REFRESHED/SIGNED_OUT).
-    // Tidak ada signOut manual di sini untuk mencegah logout palsu saat ganti tab.
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        supabase.auth.getSession(); // fire-and-forget: wake up auth client
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Tidak ada visibility handler — supabase-js v2 sudah otomatis menangani
+    // refresh token via internal timer + onAuthStateChange. Menambahkan handler
+    // di sini hanya menyebabkan loading flicker yang tidak perlu saat ganti tab.
 
     return () => {
       clearTimeout(loadingTimeout);
       subscription.unsubscribe();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, []);
 

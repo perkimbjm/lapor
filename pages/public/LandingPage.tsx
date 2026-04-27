@@ -4,7 +4,6 @@ import { ArrowRight, ShieldCheck, CheckCircle2, Camera, ClipboardCheck, Activity
 import PublicNavbar from '../../components/PublicNavbar';
 import { supabase } from '../../src/supabase';
 import { ComplaintStatus } from '../../types';
-import { useConnectionRecovery } from '../../src/hooks/useConnectionRecovery';
 
 const LandingPage: React.FC = () => {
   const [stats, setStats] = useState({
@@ -76,8 +75,8 @@ const LandingPage: React.FC = () => {
     fetchContent();
   }, [fetchContent]);
 
-  // Refetch saat tab kembali aktif atau jaringan tersambung kembali
-  useConnectionRecovery(fetchContent);
+  // Tidak ada visibility-based refetch — agar ganti tab tidak memicu loading.
+  // Data hanya di-fetch saat mount; user bisa refresh manual jika perlu.
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 font-sans selection:bg-blue-500 selection:text-white transition-colors duration-500">

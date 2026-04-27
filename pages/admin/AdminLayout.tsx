@@ -55,14 +55,15 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
 
   const channelRef = useRef<any>(null);
 
-  const subscribeNotifications = useCallback(() => {
+  useEffect(() => {
     if (!user?.id) return;
 
-    // Hapus channel lama sebelum membuat yang baru
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
+    // Initial fetch + subscribe sekali. Tidak ada refetch saat ganti tab —
+    // Supabase Realtime auto-reconnect (lihat reconnectAfterMs di src/supabase.ts)
+    // dan akan push perubahan baru via websocket saat reconnect.
+    fetchNotifications();
+
+    if (channelRef.current) return; // StrictMode guard
 
     const channel = supabase
       .channel(`admin-layout-notifs-${user.id}`)
@@ -74,36 +75,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
       .subscribe();
 
     channelRef.current = channel;
-  }, [user?.id, fetchNotifications]);
-
-  useEffect(() => {
-    if (!user?.id) return;
-
-    fetchNotifications();
-    subscribeNotifications();
-
-    // Reconnect channel dan refetch saat tab kembali aktif atau jaringan kembali
-    const handleRecover = () => {
-      fetchNotifications();
-      subscribeNotifications();
-    };
-
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') handleRecover();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('online', handleRecover);
 
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('online', handleRecover);
     };
-  }, [user?.id]);
+  }, [user?.id, fetchNotifications]);
 
   const handleLogout = async () => {
     await signOut();

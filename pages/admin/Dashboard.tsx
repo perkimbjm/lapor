@@ -75,7 +75,6 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    let channel: any = null;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     const fetchAll = async () => {
@@ -102,36 +101,19 @@ const Dashboard: React.FC = () => {
       }, 400);
     };
 
-    const subscribe = () => {
-      if (channel) {
-        supabase.removeChannel(channel);
-        channel = null;
-      }
-      channel = supabase
-        .channel('dashboard-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, refetchComplaints)
-        .subscribe();
-    };
-
     fetchAll();
-    subscribe();
 
-    const handleRecover = () => {
-      fetchAll();
-      subscribe();
-    };
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') handleRecover();
-    };
-
-    document.addEventListener('visibilitychange', handleVisibility);
-    window.addEventListener('online', handleRecover);
+    // Subscribe sekali. Supabase Realtime akan auto-reconnect saat tab kembali
+    // aktif (via reconnectAfterMs config). Tidak ada manual refetch on visibility
+    // agar tab switch tidak memicu loading flicker.
+    const channel = supabase
+      .channel('dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, refetchComplaints)
+      .subscribe();
 
     return () => {
       if (debounceTimer) clearTimeout(debounceTimer);
-      if (channel) supabase.removeChannel(channel);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      window.removeEventListener('online', handleRecover);
+      supabase.removeChannel(channel);
     };
   }, []);
 
