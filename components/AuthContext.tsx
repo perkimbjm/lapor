@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../src/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
@@ -22,30 +22,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const checkAdminDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const checkAdminStatus = async (u: User) => {
     try {
-      // Reset permissions
-      setPermissions([]);
-
-      // 1. Superadmin check (Hardcoded or Env based)
+      // Superadmin hardcoded
       if (u.email === 'denip23147@gmail.com') {
         setIsAdmin(true);
         return;
       }
 
-      // 2. Database profile check with Role Name join
-      // Gunakan maybeSingle() agar 0 rows mengembalikan null (bukan error 406)
       const { data: profile, error } = await supabase
         .from('users')
         .select('role_id, is_banned, roles(name)')
         .eq('id', u.id)
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching profile:', error);
-      }
+      if (error) console.error('Error fetching profile:', error);
 
       if (profile?.is_banned) {
         toast.error('Akun Anda telah diblokir.');
@@ -53,23 +45,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
-      // Upsert profile if not exists
+      // Buat profil baru jika belum ada
       if (!profile) {
-        // Fetch default role ID dynamically ('user')
         const { data: rolesData } = await supabase
           .from('roles')
           .select('id')
           .ilike('name', 'user');
 
         let defaultRoleId = rolesData?.[0]?.id;
-        
         if (!defaultRoleId) {
           const { data: allRoles } = await supabase.from('roles').select('id').limit(1);
           defaultRoleId = allRoles?.[0]?.id;
         }
 
-        const generatedUsername = u.email ? u.email.split('@')[0] : `user_${Math.floor(Math.random() * 10000)}`;
-        
+        const generatedUsername = u.email
+          ? u.email.split('@')[0]
+          : `user_${Math.floor(Math.random() * 10000)}`;
+
         const { error: upsertError } = await supabase.from('users').upsert({
           id: u.id,
           email: u.email ?? '',
@@ -77,57 +69,56 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           username: generatedUsername,
           role_id: defaultRoleId,
           created_at: new Date().toISOString(),
-          is_banned: false
+          is_banned: false,
         });
-        
+
         if (upsertError) {
           console.error('CRITICAL: Failed to create user profile:', upsertError);
           toast.error('Gagal sinkronisasi profil.');
-        } 
-        
-        // NEW USERS are NEVER admins by default
+        }
+
+        // Pengguna baru tidak pernah admin secara default
         setIsAdmin(false);
-      } else {
-        // Check if role name contains 'admin'
-        const roleName = (profile as any).roles?.name?.toLowerCase() || '';
-        const isUserAdmin = roleName.includes('admin') || u.email === 'denip23147@gmail.com';
-        setIsAdmin(isUserAdmin);
+        setPermissions([]);
+        return;
+      }
 
-        // Fetch permissions for the role via role_permissions pivot table
-        if (profile.role_id) {
-          const { data: rolePerms, error: rpError } = await supabase
-            .from('role_permissions')
-            .select(`
-              permissions (
-                code
-              )
-            `)
-            .eq('role_id', profile.role_id);
+      // Hitung semua nilai TERLEBIH DAHULU sebelum set state
+      // agar tidak ada jeda di mana permissions kosong sementara isAdmin sudah false
+      // yang menyebabkan ProtectedRoute redirect.
+      const roleName = (profile as any).roles?.name?.toLowerCase() || '';
+      const newIsAdmin = roleName.includes('admin') || u.email === 'denip23147@gmail.com';
 
-          if (rpError) {
-            console.error('Error fetching role permissions:', rpError);
-          } else if (rolePerms) {
-            const codes = rolePerms
-              .map((rp: any) => rp.permissions?.code)
-              .filter(Boolean);
-            setPermissions(codes);
-          }
+      let newPermissions: string[] = [];
+      if (profile.role_id) {
+        const { data: rolePerms, error: rpError } = await supabase
+          .from('role_permissions')
+          .select('permissions(code)')
+          .eq('role_id', profile.role_id);
+
+        if (rpError) {
+          console.error('Error fetching role permissions:', rpError);
+        } else if (rolePerms) {
+          newPermissions = rolePerms
+            .map((rp: any) => rp.permissions?.code)
+            .filter(Boolean);
         }
       }
+
+      // Set kedua nilai sekaligus — React memproses ini dalam satu batch render
+      setIsAdmin(newIsAdmin);
+      setPermissions(newPermissions);
     } catch (err) {
       console.error('Admin check failed:', err);
       setIsAdmin(false);
-      setPermissions([]);
+      // Tidak reset permissions agar tidak memicu redirect sementara
     }
   };
 
   useEffect(() => {
-    // Safety timeout: jika loading masih true setelah 10 detik, paksa berhenti
-    const loadingTimeout = setTimeout(() => {
-      setLoading(false);
-    }, 10000);
+    // Safety timeout: paksa berhenti loading setelah 10 detik
+    const loadingTimeout = setTimeout(() => setLoading(false), 10000);
 
-    // Initial session check
     const initAuth = async () => {
       setLoading(true);
       const { data: { session: initialSession } } = await supabase.auth.getSession();
@@ -145,62 +136,55 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     initAuth();
 
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
-      // USER_UPDATED = user menyimpan profil sendiri (nama, hp, bio, dll.)
-      // Role tidak berubah saat ini — skip checkAdminStatus agar permissions
-      // tidak sempat dikosongkan sesaat yang menyebabkan ProtectedRoute redirect.
-      if (event === 'USER_UPDATED') {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, currentSession) => {
+        // USER_UPDATED: user menyimpan profil sendiri — role tidak berubah,
+        // skip checkAdminStatus agar permissions tidak dikosongkan sesaat.
+        if (event === 'USER_UPDATED') {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          return;
+        }
+
+        // TOKEN_REFRESHED: token diperbarui otomatis — role tidak berubah,
+        // tidak perlu re-check admin status (menghindari flicker redirect).
+        if (event === 'TOKEN_REFRESHED') {
+          setSession(currentSession);
+          setUser(currentSession?.user ?? null);
+          return;
+        }
+
+        // SIGNED_IN: login baru — perlu check admin + loading spinner
+        if (event === 'SIGNED_IN') {
+          setLoading(true);
+        }
+
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
-        return;
-      }
 
-      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-        setLoading(true);
-      }
-
-      setSession(currentSession);
-      setUser(currentSession?.user ?? null);
-
-      // try/finally agar loading tidak stuck jika checkAdminStatus lambat
-      const eventTimeout = setTimeout(() => setLoading(false), 8000);
-      try {
-        if (currentSession?.user) {
-          // Debounce 250ms: cegah 3+ panggilan bersamaan saat TOKEN_REFRESHED
-          // muncul berulang (misalnya dari getSession + refreshSession berurutan)
-          clearTimeout(checkAdminDebounceRef.current);
-          await new Promise<void>((resolve) => {
-            checkAdminDebounceRef.current = setTimeout(async () => {
-              await checkAdminStatus(currentSession.user);
-              resolve();
-            }, 250);
-          });
-        } else {
-          setIsAdmin(false);
+        // Safety: maksimal 8 detik loading per event
+        const eventTimeout = setTimeout(() => setLoading(false), 8000);
+        try {
+          if (currentSession?.user) {
+            await checkAdminStatus(currentSession.user);
+          } else {
+            setIsAdmin(false);
+            setPermissions([]);
+          }
+        } finally {
+          clearTimeout(eventTimeout);
+          setLoading(false);
         }
-      } finally {
-        clearTimeout(eventTimeout);
-        setLoading(false);
       }
-    });
+    );
 
-    // Periksa dan pulihkan sesi saat tab kembali aktif
-    const handleVisibilityChange = async () => {
-      if (document.visibilityState !== 'visible') return;
-
-      // getSession() sudah menangani refresh token secara internal jika perlu,
-      // dan memecat TOKEN_REFRESHED via onAuthStateChange jika berhasil.
-      // Jangan panggil refreshSession() terpisah — itu memicu TOKEN_REFRESHED ganda.
-      const { data: { session: currentSession } } = await supabase.auth.getSession();
-
-      if (!currentSession) {
-        // Token expired dan tidak bisa diperbarui — bersihkan state lokal
-        await supabase.auth.signOut({ scope: 'local' });
-        setSession(null);
-        setUser(null);
-        setIsAdmin(false);
-        setPermissions([]);
+    // Visibility handler: pasif — hanya "membangunkan" supabase auth client
+    // agar memeriksa token yang mungkin perlu diperbarui.
+    // Hasilnya ditangani otomatis via onAuthStateChange (TOKEN_REFRESHED/SIGNED_OUT).
+    // Tidak ada signOut manual di sini untuk mencegah logout palsu saat ganti tab.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        supabase.auth.getSession(); // fire-and-forget: wake up auth client
       }
     };
 
@@ -219,15 +203,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       await supabase.auth.signOut();
       localStorage.clear();
       sessionStorage.clear();
-      // Optional: Clear specific Supabase keys if localStorage.clear() is too aggressive
-      // Object.keys(localStorage).forEach(key => {
-      //   if (key.startsWith('sb-')) localStorage.removeItem(key);
-      // });
       toast.success('Berhasil keluar sistem.');
-      window.location.href = '/'; // Hard redirect to clear all states reliably
+      window.location.href = '/';
     } catch (err) {
       console.error('Logout failed:', err);
-      // If Supabase fail, still try to clear local data
       localStorage.clear();
       window.location.href = '/';
     } finally {
@@ -240,12 +219,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const hasPermission = (code: string) => {
-    if (isAdmin) return true; // Admins have all permissions for now
+    if (isAdmin) return true;
     return permissions.includes(code);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isAdmin, permissions, loading, signOut, refreshProfile, hasPermission }}>
+    <AuthContext.Provider
+      value={{ user, session, isAdmin, permissions, loading, signOut, refreshProfile, hasPermission }}
+    >
       {children}
     </AuthContext.Provider>
   );
