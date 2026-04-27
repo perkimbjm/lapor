@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { supabase } from '../src/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
@@ -22,6 +22,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [permissions, setPermissions] = useState<string[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  const checkAdminDebounceRef = useRef<ReturnType<typeof setTimeout>>();
 
   const checkAdminStatus = async (u: User) => {
     try {
@@ -35,13 +36,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
 
       // 2. Database profile check with Role Name join
+      // Gunakan maybeSingle() agar 0 rows mengembalikan null (bukan error 406)
       const { data: profile, error } = await supabase
         .from('users')
         .select('role_id, is_banned, roles(name)')
         .eq('id', u.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') {
+      if (error) {
         console.error('Error fetching profile:', error);
       }
 
@@ -145,6 +147,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
+      // USER_UPDATED = user menyimpan profil sendiri (nama, hp, bio, dll.)
+      // Role tidak berubah saat ini — skip checkAdminStatus agar permissions
+      // tidak sempat dikosongkan sesaat yang menyebabkan ProtectedRoute redirect.
+      if (event === 'USER_UPDATED') {
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
+        return;
+      }
+
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
         setLoading(true);
       }
@@ -156,7 +167,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const eventTimeout = setTimeout(() => setLoading(false), 8000);
       try {
         if (currentSession?.user) {
-          await checkAdminStatus(currentSession.user);
+          // Debounce 250ms: cegah 3+ panggilan bersamaan saat TOKEN_REFRESHED
+          // muncul berulang (misalnya dari getSession + refreshSession berurutan)
+          clearTimeout(checkAdminDebounceRef.current);
+          await new Promise<void>((resolve) => {
+            checkAdminDebounceRef.current = setTimeout(async () => {
+              await checkAdminStatus(currentSession.user);
+              resolve();
+            }, 250);
+          });
         } else {
           setIsAdmin(false);
         }
@@ -170,19 +189,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const handleVisibilityChange = async () => {
       if (document.visibilityState !== 'visible') return;
 
+      // getSession() sudah menangani refresh token secara internal jika perlu,
+      // dan memecat TOKEN_REFRESHED via onAuthStateChange jika berhasil.
+      // Jangan panggil refreshSession() terpisah — itu memicu TOKEN_REFRESHED ganda.
       const { data: { session: currentSession } } = await supabase.auth.getSession();
 
-      if (currentSession) {
-        setSession(currentSession);
-        setUser(currentSession.user);
-        // Refresh jika token tersisa < 5 menit (buffer lebih besar karena throttling browser)
-        const secondsLeft = (currentSession.expires_at ?? 0) - Math.floor(Date.now() / 1000);
-        if (secondsLeft < 300) {
-          await supabase.auth.refreshSession();
-        }
-      } else {
-        // Token expired/tidak valid dan tidak bisa diperbarui — bersihkan state lokal
-        // Ini penyebab utama "logged in di UI tapi data gagal dimuat"
+      if (!currentSession) {
+        // Token expired dan tidak bisa diperbarui — bersihkan state lokal
         await supabase.auth.signOut({ scope: 'local' });
         setSession(null);
         setUser(null);

@@ -32,7 +32,7 @@ const VALID_STATUSES   = Object.values(ComplaintStatus);
 
 const ComplaintList: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
-  const { hasPermission } = useAuth();
+  const { hasPermission, isAdmin, user } = useAuth();
 
   useEffect(() => { setPageTitle('Daftar Aduan Masuk'); }, [setPageTitle]);
 
@@ -40,8 +40,31 @@ const ComplaintList: React.FC = () => {
   const [complaints, setComplaints] = useState<Complaint[]>([]);
 
   useEffect(() => {
+    if (!user) return;
+
+    let userPhone: string | null = null;
+
     const fetchComplaints = async () => {
-      const { data, error } = await supabase.from('complaints').select('*');
+      let query = supabase.from('complaints').select('*');
+
+      // Non-admin hanya boleh melihat aduan miliknya berdasarkan reporter_phone
+      if (!isAdmin) {
+        if (!userPhone) {
+          const { data: profileData } = await supabase
+            .from('users')
+            .select('phone')
+            .eq('id', user.id)
+            .maybeSingle();
+          userPhone = profileData?.phone ?? null;
+        }
+        if (!userPhone) {
+          setComplaints([]);
+          return;
+        }
+        query = query.eq('reporter_phone', userPhone);
+      }
+
+      const { data, error } = await query;
       if (error) console.error('Error fetching complaints:', error);
       else if (data) setComplaints(data as Complaint[]);
     };
@@ -54,7 +77,7 @@ const ComplaintList: React.FC = () => {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [user, isAdmin]);
 
   // ── Toast ────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);
