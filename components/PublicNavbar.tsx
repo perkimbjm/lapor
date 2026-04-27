@@ -99,7 +99,7 @@ const PublicNavbar: React.FC = () => {
               <div className="h-6 w-px bg-slate-200 dark:bg-slate-800 mx-4" />
 
               <button onClick={toggleTheme}>
-                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                {theme === 'light' ? <Moon size={20} className="text-slate-700 dark:text-slate-200" /> : <Sun size={20} className="text-slate-700 dark:text-slate-200" />}
               </button>
 
               {user ? (
@@ -115,40 +115,75 @@ const PublicNavbar: React.FC = () => {
 
             <div className="md:hidden flex items-center gap-3">
               <button onClick={toggleTheme}>
-                {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                {theme === 'light' ? <Moon size={20} className="text-slate-700 dark:text-slate-200" /> : <Sun size={20} className="text-slate-700 dark:text-slate-200" />}
               </button>
 
               <button onClick={() => setIsOpen(!isOpen)}>
-                {isOpen ? <X size={24} /> : <Menu size={24} />}
+                {isOpen ? <X size={24} className="text-slate-700 dark:text-slate-200" /> : <Menu size={24} className="text-slate-700 dark:text-slate-200" />}
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {isOpen && (
-        <div className="md:hidden mx-4 mt-2">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow">
-            <div className="p-4 space-y-2">
+      {/* Mobile Menu */}
+      <div className="md:hidden overflow-hidden">
+        <div
+          style={{
+            maxHeight: isOpen ? '400px' : '0px',
+            opacity: isOpen ? 1 : 0,
+            transition: 'max-height 300ms ease-out, opacity 300ms ease-out',
+          }}
+        >
+          <div className="mx-4 mt-2 bg-white dark:bg-slate-900 rounded-2xl shadow-lg overflow-hidden">
+            <div className="p-0">
+              {/* Navigation Links */}
               {navLinks.map((link) => (
-                <Link key={link.path} to={link.path} onClick={() => setIsOpen(false)}>
-                  {link.name}
+                <Link
+                  key={link.path}
+                  to={link.path}
+                  onClick={() => setIsOpen(false)}
+                  className={`flex items-center px-4 py-3 border-b border-slate-100 dark:border-slate-800 transition-colors ${
+                    isActive(link.path)
+                      ? 'bg-blue-50/80 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400'
+                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <span className="mr-3 flex-shrink-0">{link.icon}</span>
+                  <span className="font-semibold text-sm">{link.name}</span>
                 </Link>
               ))}
 
-              {user ? (
-                <Link to="/admin" onClick={() => setIsOpen(false)}>
-                  Dashboard
-                </Link>
-              ) : (
-                <button onClick={() => { setIsOpen(false); handleLogin(); }}>
-                  {config.loginButtonText}
-                </button>
-              )}
+              {/* Divider */}
+              <div className="border-t border-slate-200 dark:border-slate-700" />
+
+              {/* Auth Section */}
+              <div className="p-3">
+                {user ? (
+                  <Link
+                    to="/admin"
+                    onClick={() => setIsOpen(false)}
+                    className="flex items-center justify-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors gap-2"
+                  >
+                    <LayoutDashboard size={18} />
+                    Dashboard
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      handleLogin();
+                    }}
+                    className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold text-sm transition-colors"
+                  >
+                    {config.loginButtonText}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
-      )}
+      </div>
     </nav>
   );
 };
