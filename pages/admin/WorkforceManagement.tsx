@@ -508,6 +508,61 @@ const WorkforceManagement: React.FC = () => {
     }
   };
 
+  // ── Bulk select ──────────────────────────────────────────────────────────
+  const [selectedWorkerIds, setSelectedWorkerIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  const toggleSelectWorker = (id: string) => {
+    setSelectedWorkerIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllWorkers = (ids: string[]) => {
+    setSelectedWorkerIds(prev => {
+      const allSelected = ids.every(id => prev.has(id));
+      if (allSelected) {
+        const next = new Set(prev);
+        ids.forEach(id => next.delete(id));
+        return next;
+      }
+      return new Set([...prev, ...ids]);
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedWorkerIds.size;
+    if (count === 0) return;
+    try {
+      const { error: workerError } = await supabase.from('workers').delete().in('id', [...selectedWorkerIds]);
+      if (workerError) throw workerError;
+      const { error: attError } = await supabase.from('attendance').delete().in('worker_id', [...selectedWorkerIds]);
+      if (attError) console.error('Error deleting attendance:', attError);
+      await logAuditActivity(AuditAction.DELETE, 'Tenaga Kerja', `Menghapus ${count} tenaga kerja secara massal`);
+      toast.success(`${count} pekerja berhasil dihapus`);
+      setSelectedWorkerIds(new Set());
+      setShowBulkDeleteModal(false);
+    } catch (error) {
+      console.error('Error bulk deleting workers:', error);
+      toast.error('Gagal menghapus data pekerja');
+      setShowBulkDeleteModal(false);
+    }
+  };
+
+  useEffect(() => {
+    setSelectedWorkerIds(new Set());
+  }, [activeTab, selectedYear, selectedMonth]);
+
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    const pageIds = paginatedWorkers.map(w => w.id);
+    const selectedCount = pageIds.filter(id => selectedWorkerIds.has(id)).length;
+    selectAllRef.current.indeterminate = selectedCount > 0 && selectedCount < pageIds.length;
+  }, [selectedWorkerIds, paginatedWorkers]);
+
   const handleSaveRates = async () => {
     if (!canManageRates) return;
     setIsSavingRates(true);
@@ -916,6 +971,17 @@ const WorkforceManagement: React.FC = () => {
           <table className="w-full text-left relative">
             <thead className="sticky top-0 z-10">
               <tr className="bg-slate-50 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-700 shadow-sm">
+                {canDelete && (
+                  <th className="px-4 py-4 w-12 bg-slate-50 dark:bg-slate-900">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 dark:bg-slate-700 cursor-pointer"
+                      checked={paginatedWorkers.length > 0 && paginatedWorkers.every(w => selectedWorkerIds.has(w.id))}
+                      onChange={() => toggleSelectAllWorkers(paginatedWorkers.map(w => w.id))}
+                    />
+                  </th>
+                )}
                 <th className="px-4 py-4 text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-200 w-16 bg-slate-50 dark:bg-slate-900">No</th>
                 <th className="px-4 py-4 text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-200 bg-slate-50 dark:bg-slate-900">Nama Pekerja</th>
                 {selectedWeek !== 'all' && currentWeekDates.length > 0 ? (
@@ -967,7 +1033,17 @@ const WorkforceManagement: React.FC = () => {
                 const actualIndex = (currentPage - 1) * itemsPerPage + index + 1;
 
                 return (
-                  <tr key={worker.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group">
+                  <tr key={worker.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors group ${selectedWorkerIds.has(worker.id) ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                    {canDelete && (
+                      <td className="px-4 py-4 w-12">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 dark:bg-slate-700 cursor-pointer"
+                          checked={selectedWorkerIds.has(worker.id)}
+                          onChange={() => toggleSelectWorker(worker.id)}
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-4 text-xs font-bold text-slate-400 dark:text-slate-300">{actualIndex}</td>
                     <td className="px-4 py-4">
                       <div className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{worker.name}</div>
@@ -1030,7 +1106,7 @@ const WorkforceManagement: React.FC = () => {
               })}
               {filteredWorkers.length === 0 && (
                 <tr>
-                   <td colSpan={11} className="px-6 py-12 text-center text-slate-400 dark:text-slate-300 text-xs italic">Belum ada data pekerja untuk kategori ini.</td>
+                   <td colSpan={canDelete ? 12 : 11} className="px-6 py-12 text-center text-slate-400 dark:text-slate-300 text-xs italic">Belum ada data pekerja untuk kategori ini.</td>
                 </tr>
               )}
             </tbody>
@@ -1211,6 +1287,57 @@ const WorkforceManagement: React.FC = () => {
         </div>
       )}
 
+      {/* ── Floating Bulk Action Bar ── */}
+      {canDelete && selectedWorkerIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 px-6 py-3.5 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <CheckCircle2 size={18} className="text-blue-400" />
+          <span className="text-sm font-bold">{selectedWorkerIds.size} pekerja dipilih</span>
+          <div className="w-px h-6 bg-slate-600" />
+          <button
+            onClick={() => setSelectedWorkerIds(new Set())}
+            className="px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-300 hover:text-white transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            onClick={() => setShowBulkDeleteModal(true)}
+            className="flex items-center gap-2 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-colors shadow-lg shadow-red-600/30"
+          >
+            <Trash2 size={14} />
+            Hapus
+          </button>
+        </div>
+      )}
+
+      {/* ── Bulk Delete Confirmation Modal ── */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowBulkDeleteModal(false)} />
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 p-8 text-center">
+            <div className="w-20 h-20 bg-red-50 dark:bg-red-900/30 text-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <Trash2 size={40} />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-2">Hapus {selectedWorkerIds.size} Pekerja?</h3>
+            <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-8">
+              Anda akan menghapus <span className="text-slate-900 dark:text-white">{selectedWorkerIds.size} pekerja</span> beserta data presensinya. Aksi ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowBulkDeleteModal(false)}
+                className="flex-1 px-6 py-4 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                className="flex-1 px-6 py-4 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 shadow-lg shadow-red-600/20 transition-all"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

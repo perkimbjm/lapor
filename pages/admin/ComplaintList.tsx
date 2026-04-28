@@ -89,6 +89,44 @@ const ComplaintList: React.FC = () => {
     setTimeout(() => setToast(null), 3000);
   };
 
+  // ── Bulk select ──────────────────────────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (ids: string[]) => {
+    setSelectedIds(prev => {
+      const allSelected = ids.every(id => prev.has(id));
+      if (allSelected) return new Set();
+      return new Set(ids);
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const count = selectedIds.size;
+    if (count === 0) return;
+    try {
+      const { error } = await supabase.from('complaints').delete().in('id', [...selectedIds]);
+      if (error) throw error;
+      await logAuditActivity(AuditAction.DELETE, 'Aduan', `Menghapus ${count} aduan secara massal`);
+      triggerToast(`${count} aduan berhasil dihapus`);
+      setSelectedIds(new Set());
+      setShowBulkDeleteModal(false);
+    } catch (err) {
+      console.error('Error bulk deleting complaints:', err);
+      triggerToast('Gagal menghapus aduan');
+      setShowBulkDeleteModal(false);
+    }
+  };
+
   // ── Filters & sorting ───────────────────────────────────────────────────
   const [searchTerm, setSearchTerm]     = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -104,6 +142,7 @@ const ComplaintList: React.FC = () => {
     setSearchTerm('');
     setStatusFilter('ALL');
     setSortDirection(null);
+    setSelectedIds(new Set());
   };
 
   const filteredComplaints = useMemo(() => {
@@ -135,6 +174,17 @@ const ComplaintList: React.FC = () => {
   }, [complaints, searchTerm, statusFilter, sortDirection]);
 
   const isFiltered = searchTerm !== '' || statusFilter !== 'ALL' || sortDirection !== null;
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [searchTerm, statusFilter]);
+
+  useEffect(() => {
+    if (!selectAllRef.current) return;
+    const allIds = filteredComplaints.map(c => c.id);
+    const selectedCount = allIds.filter(id => selectedIds.has(id)).length;
+    selectAllRef.current.indeterminate = selectedCount > 0 && selectedCount < allIds.length;
+  }, [selectedIds, filteredComplaints]);
 
   // ── Detail modal ─────────────────────────────────────────────────────────
   const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
@@ -569,6 +619,17 @@ const ComplaintList: React.FC = () => {
           <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 relative">
             <thead className="bg-slate-50 dark:bg-slate-900/50 sticky top-0 z-10 shadow-sm">
               <tr>
+                {canDelete && (
+                  <th className="px-4 py-3 w-12 bg-slate-50 dark:bg-slate-900/50">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 dark:bg-slate-700 cursor-pointer"
+                      checked={filteredComplaints.length > 0 && filteredComplaints.every(c => selectedIds.has(c.id))}
+                      onChange={() => toggleSelectAll(filteredComplaints.map(c => c.id))}
+                    />
+                  </th>
+                )}
                 <th
                   className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider cursor-pointer group hover:text-blue-600 dark:hover:text-blue-400 transition-colors select-none"
                   onClick={handleSortByDate}
@@ -587,7 +648,17 @@ const ComplaintList: React.FC = () => {
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
               {filteredComplaints.length > 0 ? filteredComplaints.map(complaint => (
-                <tr key={complaint.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors">
+                <tr key={complaint.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/30 transition-colors ${selectedIds.has(complaint.id) ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}>
+                  {canDelete && (
+                    <td className="px-4 py-4 w-12">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500 dark:bg-slate-700 cursor-pointer"
+                        checked={selectedIds.has(complaint.id)}
+                        onChange={() => toggleSelectOne(complaint.id)}
+                      />
+                    </td>
+                  )}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-bold text-blue-600 dark:text-blue-400 font-mono">{complaint.ticket_number}</div>
                     <div className="text-xs text-slate-500 dark:text-slate-300 mt-1 flex items-center">
@@ -641,7 +712,7 @@ const ComplaintList: React.FC = () => {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center">
+                  <td colSpan={canDelete ? 5 : 4} className="px-6 py-12 text-center">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
                       <Search className="h-6 w-6 text-slate-400" />
                     </div>
@@ -1008,6 +1079,57 @@ const ComplaintList: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ── Floating Bulk Action Bar ── */}
+      {canDelete && selectedIds.size > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] flex items-center gap-4 px-6 py-3.5 bg-slate-900 dark:bg-slate-700 text-white rounded-2xl shadow-2xl animate-in slide-in-from-bottom duration-300">
+          <CheckCircle2 size={18} className="text-blue-400" />
+          <span className="text-sm font-bold">{selectedIds.size} aduan dipilih</span>
+          <div className="w-px h-6 bg-slate-600" />
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            className="px-4 py-1.5 text-xs font-bold uppercase tracking-widest text-slate-300 hover:text-white transition-colors"
+          >
+            Batal
+          </button>
+          <button
+            onClick={() => setShowBulkDeleteModal(true)}
+            className="flex items-center gap-2 px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase tracking-widest rounded-xl transition-colors shadow-lg shadow-red-600/30"
+          >
+            <Trash2 size={14} />
+            Hapus
+          </button>
+        </div>
+      )}
+
+      {/* ── Bulk Delete Confirmation Modal ── */}
+      {showBulkDeleteModal && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowBulkDeleteModal(false)} />
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 p-8 text-center">
+            <div className="w-20 h-20 bg-red-50 dark:bg-red-900/30 text-red-600 rounded-3xl flex items-center justify-center mx-auto mb-6">
+              <Trash2 size={40} />
+            </div>
+            <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-2">Hapus {selectedIds.size} Aduan?</h3>
+            <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-8">
+              Anda akan menghapus <span className="text-slate-900 dark:text-white">{selectedIds.size} aduan</span> yang dipilih. Aksi ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex gap-4">
+              <button
+                onClick={() => setShowBulkDeleteModal(false)}
+                className="flex-1 px-6 py-4 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-slate-600 transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                className="flex-1 px-6 py-4 bg-red-600 text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 shadow-lg shadow-red-600/20 transition-all"
+              >
+                Ya, Hapus
+              </button>
+            </div>
           </div>
         </div>
       )}
