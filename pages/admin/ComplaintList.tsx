@@ -79,7 +79,7 @@ const ComplaintList: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user, isAdmin, roleName, userPhone, canCreate, canUpdate]);
+  }, [user?.id, isAdmin, roleName, userPhone, canCreate, canUpdate]);
 
   // ── Toast ────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);

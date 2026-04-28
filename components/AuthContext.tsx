@@ -131,68 +131,60 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Safety timeout: paksa berhenti loading setelah 10 detik
     const loadingTimeout = setTimeout(() => setLoading(false), 10000);
 
-    const initAuth = async () => {
-      setLoading(true);
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-
-      setSession(initialSession);
-      setUser(initialSession?.user ?? null);
-
-      if (initialSession?.user) {
-        await checkAdminStatus(initialSession.user);
-      }
-
-      clearTimeout(loadingTimeout);
-      setLoading(false);
-    };
-
-    initAuth();
-
+    // Hanya pakai onAuthStateChange — INITIAL_SESSION event akan otomatis
+    // fire saat mount dengan session dari localStorage. TIDAK panggil
+    // initAuth() terpisah karena akan double-execute checkAdminStatus.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, currentSession) => {
-        // USER_UPDATED: user menyimpan profil sendiri — role tidak berubah,
-        // skip checkAdminStatus agar permissions tidak dikosongkan sesaat.
-        if (event === 'USER_UPDATED') {
-          setSession(currentSession);
-          setUser(currentSession?.user ?? null);
-          return;
-        }
+        // === KUNCI: cegah re-render saat token refresh ===
+        // TOKEN_REFRESHED memberikan objek user BARU (reference berbeda) tapi
+        // user ID tetap sama. Update setUser dengan reference baru memicu
+        // semua useEffect dengan dep [user] di komponen anak untuk re-run
+        // → cleanup channel → fetch ulang → terlihat seperti "refresh".
+        // Solusi: hanya update setUser jika user ID berbeda dari sebelumnya.
+        const newUserId = currentSession?.user?.id ?? null;
 
-        // TOKEN_REFRESHED: token diperbarui otomatis — role tidak berubah,
-        // tidak perlu re-check admin status (menghindari flicker redirect).
-        if (event === 'TOKEN_REFRESHED') {
-          setSession(currentSession);
-          setUser(currentSession?.user ?? null);
-          return;
-        }
-
-        // SIGNED_IN: login baru — perlu check admin + loading spinner
-        if (event === 'SIGNED_IN') {
-          setLoading(true);
-        }
-
+        // Update session selalu (token data baru)
         setSession(currentSession);
-        setUser(currentSession?.user ?? null);
 
-        // Safety: maksimal 8 detik loading per event
+        // Update user HANYA jika ID berubah, untuk menjaga reference stability
+        setUser((prev) => {
+          const prevUserId = prev?.id ?? null;
+          if (prevUserId === newUserId) return prev; // jangan ubah reference
+          return currentSession?.user ?? null;
+        });
+
+        // SIGNED_OUT: bersihkan semua state
+        if (event === 'SIGNED_OUT' || !currentSession?.user) {
+          setIsAdmin(false);
+          setPermissions([]);
+          setWorkerId(null);
+          setUserPhone(null);
+          setRoleName(null);
+          clearTimeout(loadingTimeout);
+          setLoading(false);
+          return;
+        }
+
+        // TOKEN_REFRESHED & USER_UPDATED: silent — tidak panggil checkAdminStatus
+        // (role/permissions tidak berubah saat token refresh atau profile update)
+        if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+          clearTimeout(loadingTimeout);
+          setLoading(false);
+          return;
+        }
+
+        // INITIAL_SESSION (mount) atau SIGNED_IN (login baru): full check
         const eventTimeout = setTimeout(() => setLoading(false), 8000);
         try {
-          if (currentSession?.user) {
-            await checkAdminStatus(currentSession.user);
-          } else {
-            setIsAdmin(false);
-            setPermissions([]);
-          }
+          await checkAdminStatus(currentSession.user);
         } finally {
           clearTimeout(eventTimeout);
+          clearTimeout(loadingTimeout);
           setLoading(false);
         }
       }
     );
-
-    // Tidak ada visibility handler — supabase-js v2 sudah otomatis menangani
-    // refresh token via internal timer + onAuthStateChange. Menambahkan handler
-    // di sini hanya menyebabkan loading flicker yang tidak perlu saat ganti tab.
 
     return () => {
       clearTimeout(loadingTimeout);

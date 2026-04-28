@@ -9,20 +9,12 @@ if (!supabaseUrl || !supabaseKey) {
   console.error('Supabase URL atau Key tidak ditemukan di .env');
 }
 
-// Custom lock: navigator.locks default supabase bisa nyangkut setelah
-// browser throttle background tab → semua auth call (getSession, signOut,
-// refreshSession) hang selamanya. Lock ini timeout 5s lalu skip — aman
-// untuk single-tab usage dan jauh lebih tahan banting.
-const safeLock = async <R>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => {
-  return await Promise.race([
-    fn(),
-    new Promise<R>((_, reject) =>
-      setTimeout(() => reject(new Error('Auth lock timeout')), 5000)
-    ),
-  ]).catch(async () => {
-    // Lock timeout / lock error — eksekusi tanpa lock
-    return await fn();
-  });
+// No-op lock: bypass navigator.locks API yang sering nyangkut setelah
+// browser throttle background tab. Untuk aplikasi single-tab ini aman —
+// Supabase server sendiri sudah handle race condition di sisi backend.
+// Mencegah deadlock pada getSession/signOut/refreshSession.
+const noOpLock = async <R>(_name: string, _acquireTimeout: number, fn: () => Promise<R>): Promise<R> => {
+  return await fn();
 };
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
@@ -30,7 +22,7 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    lock: safeLock,
+    lock: noOpLock,
   },
   realtime: {
     heartbeatIntervalMs: 25000,
