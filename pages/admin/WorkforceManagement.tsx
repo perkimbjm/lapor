@@ -45,6 +45,9 @@ const WorkforceManagement: React.FC = () => {
   const canCreate = hasPermission('WORKFORCE_CREATE');
   const canUpdate = hasPermission('WORKFORCE_UPDATE');
   const canDelete = hasPermission('WORKFORCE_DELETE');
+  const canManageRates = hasPermission('WORKFORCE_MANAGE_RATES');
+  const canManageExcel = hasPermission('WORKFORCE_MANAGE_EXCEL');
+  const canManageHolidays = hasPermission('WORKFORCE_MANAGE_HOLIDAYS');
   // Petugas (non-admin tanpa CREATE) → hanya boleh lihat data dirinya berdasarkan worker_id
   const restrictToOwn = !isAdmin && !canCreate && !!workerId;
 
@@ -287,6 +290,7 @@ const WorkforceManagement: React.FC = () => {
 
   // --- Excel Operations ---
   const handleExport = () => {
+    if (!canManageExcel) return;
     const dataToExport = filteredWorkers.map((worker, index) => {
       const records = getAttendanceRecordsForWorker(worker.id);
       const totalPresence = records.reduce((acc, r) => acc + Object.values(r.presence).filter(d => d === 1).length, 0);
@@ -351,6 +355,7 @@ const WorkforceManagement: React.FC = () => {
   };
 
   const downloadTemplate = () => {
+    if (!canManageExcel) return;
     const template = [
       {
         'Pekan': 1,
@@ -366,6 +371,7 @@ const WorkforceManagement: React.FC = () => {
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!canManageExcel) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -503,6 +509,7 @@ const WorkforceManagement: React.FC = () => {
   };
 
   const handleSaveRates = async () => {
+    if (!canManageRates) return;
     setIsSavingRates(true);
     try {
       const { error } = await supabase.from('cms').upsert({
@@ -594,6 +601,7 @@ const WorkforceManagement: React.FC = () => {
   };
 
   const handleDeleteHoliday = async () => {
+    if (!canManageHolidays) return;
     if (!deleteHolidayConfirm) return;
     try {
       const { error } = await supabase.from('holidays').delete().eq('id', deleteHolidayConfirm.id);
@@ -611,6 +619,7 @@ const WorkforceManagement: React.FC = () => {
 
   const handleAddHoliday = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageHolidays) return;
     const form = e.target as HTMLFormElement;
     const date = (form.elements.namedItem('date') as HTMLInputElement).value;
     const name = (form.elements.namedItem('name') as HTMLInputElement).value;
@@ -632,7 +641,7 @@ const WorkforceManagement: React.FC = () => {
 
   return (
     <>
-      {isHolidayModalOpen && (
+      {isHolidayModalOpen && canManageHolidays && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center px-4 animate-in fade-in duration-300">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsHolidayModalOpen(false)}></div>
           <div className="relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl max-w-2xl w-full p-8 overflow-hidden border border-slate-200 dark:border-slate-800">
@@ -698,7 +707,7 @@ const WorkforceManagement: React.FC = () => {
 
       
       {/* Metrics Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className={`grid grid-cols-1 ${canManageRates ? 'md:grid-cols-3' : 'md:grid-cols-1'} gap-6 mb-8`}>
         <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:rotate-12 transition-transform"><Banknote size={80} /></div>
           <div className="relative z-10">
@@ -716,6 +725,7 @@ const WorkforceManagement: React.FC = () => {
           </div>
         </div>
 
+        {canManageRates && (
         <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 md:col-span-2">
            <div className="flex justify-between items-center mb-4">
               <h4 className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
@@ -759,15 +769,16 @@ const WorkforceManagement: React.FC = () => {
               </div>
               <div>
                 <label className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1 block">Bonus Lembur 3</label>
-                <input 
-                  type="number" 
-                  value={globalRates?.otRate3 ?? 0} 
+                <input
+                  type="number"
+                  value={globalRates?.otRate3 ?? 0}
                   onChange={e => setGlobalRates({...globalRates, otRate3: Number(e.target.value)})}
                   className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs font-bold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
            </div>
         </div>
+        )}
       </div>
 
       {/* Tabs & Filters */}
@@ -834,12 +845,14 @@ const WorkforceManagement: React.FC = () => {
             </select>
             <ChevronDown size={14} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
           </div>
-          <button 
+          {canManageHolidays && (
+          <button
             onClick={() => setIsHolidayModalOpen(true)}
             className="flex items-center justify-center gap-2 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-sm active:scale-95 transition-all w-full lg:w-auto"
           >
             <Calendar size={16}/> Kelola Hari Libur
           </button>
+          )}
           {canCreate && (
             <button
               onClick={() => openModal()}
@@ -853,6 +866,7 @@ const WorkforceManagement: React.FC = () => {
       </div>
 
       {/* Data Operations Toolbar */}
+      {canManageExcel && (
       <div className="mb-6 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50 dark:bg-slate-900/50 p-4 rounded-3xl border border-slate-200 dark:border-slate-700">
          <div className="flex items-center gap-3">
             <div className="p-2 bg-white dark:bg-slate-800 rounded-xl shadow-sm text-blue-600">
@@ -894,6 +908,7 @@ const WorkforceManagement: React.FC = () => {
             </button>
          </div>
       </div>
+      )}
 
       {/* Grid Table */}
       <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden animate-in fade-in duration-500">

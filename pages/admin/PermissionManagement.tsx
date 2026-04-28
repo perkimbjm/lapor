@@ -28,7 +28,9 @@ import {
   BarChart3,
   Settings,
   FileSpreadsheet,
-  Activity
+  Activity,
+  Banknote,
+  Calendar
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
 
@@ -55,7 +57,13 @@ const ACTIONS = [
   { id: 'delete', label: 'Menghapus Data', icon: <Trash2 size={14} />, color: 'text-red-600 bg-red-50 dark:bg-red-900/30' },
   { id: 'reset_password', label: 'Reset Password', icon: <Key size={14} />, color: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30' },
   { id: 'ban_user', label: 'Banned User', icon: <XCircle size={14} />, color: 'text-slate-600 bg-slate-50 dark:bg-slate-900/30' },
+  { id: 'manage_rates', label: 'Kelola Tarif Upah', icon: <Banknote size={14} />, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30' },
+  { id: 'manage_excel', label: 'Kelola Excel & Template', icon: <FileSpreadsheet size={14} />, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30' },
+  { id: 'manage_holidays', label: 'Kelola Hari Libur', icon: <Calendar size={14} />, color: 'text-rose-600 bg-rose-50 dark:bg-rose-900/30' },
 ];
+
+const WORKFORCE_ONLY_ACTIONS = ['manage_rates', 'manage_excel', 'manage_holidays'];
+const USERS_ONLY_ACTIONS = ['reset_password', 'ban_user'];
 
 const PermissionManagement: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
@@ -394,9 +402,8 @@ const PermissionManagement: React.FC = () => {
               </div>
               <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {ACTIONS.filter(action => {
-                  if (action.id === 'reset_password' || action.id === 'ban_user') {
-                    return feature.id === 'USERS';
-                  }
+                  if (USERS_ONLY_ACTIONS.includes(action.id)) return feature.id === 'USERS';
+                  if (WORKFORCE_ONLY_ACTIONS.includes(action.id)) return feature.id === 'WORKFORCE';
                   return true;
                 }).map(action => {
                   const perm = feature.perms.find(p => p.action === action.id);
@@ -504,9 +511,8 @@ const PermissionManagement: React.FC = () => {
                   <label className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Pilih Hak Akses (CRUD)</label>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {ACTIONS.filter(action => {
-                      if (action.id === 'reset_password' || action.id === 'ban_user') {
-                        return selectedFeature === 'USERS';
-                      }
+                      if (USERS_ONLY_ACTIONS.includes(action.id)) return selectedFeature === 'USERS';
+                      if (WORKFORCE_ONLY_ACTIONS.includes(action.id)) return selectedFeature === 'WORKFORCE';
                       return true;
                     }).map(action => {
                       const isExisting = permissions.some(p => p.feature === selectedFeature && p.action === action.id);

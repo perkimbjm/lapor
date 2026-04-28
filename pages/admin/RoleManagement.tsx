@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Role, Permission, RolePermission } from '../../types';
 import { supabase } from '../../src/supabase';
-import { 
-  Shield, 
-  Plus, 
-  Pencil, 
-  Trash2, 
+import {
+  Shield,
+  Plus,
+  Pencil,
+  Trash2,
   Search,
   CheckCircle2,
   XCircle,
@@ -14,7 +14,9 @@ import {
   Check,
   Info,
   Eye,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Banknote,
+  Calendar
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
 
@@ -39,7 +41,12 @@ const ACTIONS = [
   { id: 'create', label: 'C', fullLabel: 'Menambahkan Data', icon: <Plus size={10} /> },
   { id: 'update', label: 'U', fullLabel: 'Update/Edit Data', icon: <Pencil size={10} /> },
   { id: 'delete', label: 'D', fullLabel: 'Menghapus Data', icon: <Trash2 size={10} /> },
+  { id: 'manage_rates', label: 'MR', fullLabel: 'Kelola Tarif Upah', icon: <Banknote size={10} /> },
+  { id: 'manage_excel', label: 'MX', fullLabel: 'Kelola Excel & Template', icon: <FileSpreadsheet size={10} /> },
+  { id: 'manage_holidays', label: 'MH', fullLabel: 'Kelola Hari Libur', icon: <Calendar size={10} /> },
 ];
+
+const WORKFORCE_ONLY_ACTIONS = ['manage_rates', 'manage_excel', 'manage_holidays'];
 
 const RoleManagement: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (t: string) => void }>();
@@ -454,6 +461,14 @@ const RoleManagement: React.FC = () => {
                                 <span className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight">{feature.name}</span>
                               </td>
                               {ACTIONS.map(action => {
+                                const isWorkforceOnly = WORKFORCE_ONLY_ACTIONS.includes(action.id);
+                                if (isWorkforceOnly && feature.id !== 'WORKFORCE') {
+                                  return (
+                                    <td key={action.id} className="px-2 py-3 text-center">
+                                      <div className="w-6 h-6 rounded-lg bg-slate-50 dark:bg-slate-900/30 mx-auto opacity-20"></div>
+                                    </td>
+                                  );
+                                }
                                 const perm = permissions.find(p => p.feature === feature.id && p.action === action.id);
                                 return (
                                   <td key={action.id} className="px-2 py-3 text-center">
