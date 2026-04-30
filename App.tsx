@@ -3,6 +3,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './components/ThemeContext';
 import { Toaster } from 'sonner';
+import PWAUpdatePrompt from './components/PWAUpdatePrompt';
 
 // Public Pages
 import LandingPage from './pages/public/LandingPage';
@@ -34,6 +35,7 @@ const App: React.FC = () => {
     <AuthProvider>
       <ThemeProvider>
         <Toaster position="top-center" richColors />
+        <PWAUpdatePrompt />
         <Router>
           <Routes>
             {/* Public Routes */}

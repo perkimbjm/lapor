@@ -3,9 +3,53 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- PWA -->
+    <meta name="theme-color" content="#1d4ed8" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Bepadah" />
+
+    <!-- SEO & Description -->
+    <meta
+      name="description"
+      content="Bepadah — Sistem Informasi Pelaporan Kerusakan Jalan dan Jembatan Kota Banjarmasin. Laporkan kerusakan jalan di sekitar Anda dengan mudah dan pantau statusnya secara real-time."
+    />
+    <meta name="application-name" content="Bepadah" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
     <title>Bepadah</title>
 
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Resource Hints for third-party domains -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preload" as="image" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="preload" as="style" href="/assets/index.css" />
+
+    <!-- Async Google Fonts loading (non-blocking) -->
+    <script>
+      // Load Google Fonts asynchronously - non-blocking render
+      const fontLink = document.createElement('link');
+      fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap';
+      fontLink.rel = 'stylesheet';
+      fontLink.media = 'print';
+      fontLink.onload = () => fontLink.media = 'all'; // Swap to all after load
+      document.head.appendChild(fontLink);
+
+      // Fallback: apply system fonts immediately (no FOIT/FOUT)
+      if (!document.fonts.check('12px Inter')) {
+        document.documentElement.style.fontFamily = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      }
+    </script>
+
+    <!-- Preload Inter font weights (300, 400, 500, 600, 700) to reduce FOUT -->
+    <link rel="preload" as="font" href="https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHAPMtISVlfAA.woff2" type="font/woff2" crossorigin />
+    <link rel="preload" as="font" href="https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHAPMtIQUtLAA.woff2" type="font/woff2" crossorigin />
   </head>
 
   <body>
