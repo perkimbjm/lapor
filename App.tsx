@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './components/ThemeContext';
 import { Toaster } from 'sonner';
@@ -10,14 +10,12 @@ import LandingPage from './pages/public/LandingPage';
 import ReportForm from './pages/public/ReportForm';
 import TrackComplaint from './pages/public/TrackComplaint';
 
-// Admin Pages
+// Admin Pages (static import - loaded immediately)
 import Dashboard from './pages/admin/Dashboard';
 import ComplaintList from './pages/admin/ComplaintList';
 import MaterialInventory from './pages/admin/MaterialInventory';
 import EquipmentInventory from './pages/admin/EquipmentInventory';
 import WorkforceManagement from './pages/admin/WorkforceManagement';
-import MapDistribution from './pages/admin/MapDistribution';
-import Reports from './pages/admin/Reports';
 import Settings from './pages/admin/Settings';
 import CMS from './pages/admin/CMS';
 import UserManagement from './pages/admin/UserManagement';
@@ -26,9 +24,23 @@ import PermissionManagement from './pages/admin/PermissionManagement';
 import ActivityLog from './pages/admin/ActivityLog';
 import AuditLog from './pages/admin/AuditLog';
 
+// Lazy-loaded Pages (loaded on-demand with their vendor chunks)
+const MapDistribution = React.lazy(() => import('./pages/admin/MapDistribution'));
+const Reports = React.lazy(() => import('./pages/admin/Reports'));
+
 import { AuthProvider } from './components/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminLayout from './pages/admin/AdminLayout';
+
+// Loading fallback component for lazy routes
+const LazyLoadingFallback = () => (
+  <div className="flex items-center justify-center w-full h-full min-h-screen">
+    <div className="text-center">
+      <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <p className="mt-4 text-gray-600">Memuat halaman...</p>
+    </div>
+  </div>
+);
 
 const App: React.FC = () => {
   return (
@@ -57,8 +69,8 @@ const App: React.FC = () => {
               <Route path="inventory" element={<ProtectedRoute requirePermission="INVENTORY_READ"><MaterialInventory /></ProtectedRoute>} />
               <Route path="equipment" element={<ProtectedRoute requirePermission="EQUIPMENT_READ"><EquipmentInventory /></ProtectedRoute>} />
               <Route path="workforce" element={<ProtectedRoute requirePermission="WORKFORCE_READ"><WorkforceManagement /></ProtectedRoute>} />
-              <Route path="map" element={<ProtectedRoute requirePermission="MAP_READ"><MapDistribution /></ProtectedRoute>} />
-              <Route path="reports" element={<ProtectedRoute requirePermission="REPORTS_READ"><Reports /></ProtectedRoute>} />
+              <Route path="map" element={<ProtectedRoute requirePermission="MAP_READ"><Suspense fallback={<LazyLoadingFallback />}><MapDistribution /></Suspense></ProtectedRoute>} />
+              <Route path="reports" element={<ProtectedRoute requirePermission="REPORTS_READ"><Suspense fallback={<LazyLoadingFallback />}><Reports /></Suspense></ProtectedRoute>} />
               <Route path="settings" element={<Settings />} />
               <Route path="cms" element={<ProtectedRoute requirePermission="CMS_READ"><CMS /></ProtectedRoute>} />
               <Route path="users" element={<ProtectedRoute requirePermission="USERS_READ"><UserManagement /></ProtectedRoute>} />

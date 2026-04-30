@@ -72,8 +72,16 @@ export default defineConfig(({ mode }) => {
         workbox: {
           // Naikkan limit dari default 2 MiB → 5 MiB (bundle masih besar sebelum code-splitting)
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
-          // Pre-cache semua static assets yang di-build Vite
-          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          // Pre-cache hanya critical assets yang dibutuhkan untuk initial load
+          globPatterns: [
+            '**/*.{html,ico,png,svg,woff2}',  // static assets
+            '**/index-*.css',  // main CSS
+            '**/index-*.js',   // main app JS
+            '**/vendor-react-*.js',      // React (needed immediately)
+            '**/vendor-supabase-*.js',   // Supabase (needed immediately)
+            '**/vendor-recharts-*.js',   // recharts (used in initial Dashboard)
+            '**/workbox-window*.js',     // PWA workbox
+          ],
           // Jangan cache route supabase — selalu fresh dari network
           navigateFallback: 'index.html',
           navigateFallbackDenylist: [/^\/rest\/v1/, /^\/auth\/v1/, /^\/storage\/v1/],
