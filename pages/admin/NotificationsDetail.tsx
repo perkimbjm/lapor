@@ -172,7 +172,7 @@ const NotificationDetail: React.FC = () => {
           <div className="flex items-start justify-between gap-4 flex-col sm:flex-row">
             <div className="space-y-3 flex-1">
               <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
-                {notification.ticket_number || 'N/A'}
+                {notification.title || 'N/A'}
               </h1>
 
               <div className="flex flex-wrap gap-2">
