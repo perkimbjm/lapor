@@ -1,18 +1,10 @@
-export enum ComplaintStatus {
-  PENDING = 'Belum dikerjakan',
-  RECEIVED = 'Diterima',
-  REJECTED = 'Tidak diterima',
-  SURVEY = 'Disurvey',
-  COMPLETED = 'Selesai dikerjakan',
-}
-
-export const ComplaintStatusLabel = {
-  pending: 'Belum dikerjakan',
-  received: 'Diterima',
-  rejected: 'Tidak diterima',
-  survey: 'Disurvey',
-  completed: 'Selesai dikerjakan',
-};
+export const ComplaintStatus = {
+  PENDING: 'Belum dikerjakan',
+  RECEIVED: 'Diterima',
+  REJECTED: 'Tidak diterima',
+  SURVEY: 'Disurvey',
+  COMPLETED: 'Selesai dikerjakan',
+} as const;
 
 export enum PriorityLevel {
   LOW = 'low',

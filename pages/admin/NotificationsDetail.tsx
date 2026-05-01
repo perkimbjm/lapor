@@ -4,8 +4,8 @@ import { useOutletContext } from 'react-router-dom';
 import {
   Notification,
   RoadTypeLabel,
-  ComplaintStatusLabel,
   PriorityLabel,
+  ComplaintStatus,
 } from '../../types';
 import { supabase } from '../../src/supabase';
 import { useAuth } from '../../components/AuthContext';
@@ -198,7 +198,7 @@ const NotificationDetail: React.FC = () => {
 
                 {notification.status && (
                   <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-sm rounded-full">
-                    {safeLabel(ComplaintStatusLabel, notification.status)}
+                    {safeLabel(ComplaintStatus, notification.status)}
                   </span>
                 )}
               </div>

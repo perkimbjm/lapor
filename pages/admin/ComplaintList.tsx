@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Complaint, ComplaintStatus, ComplaintStatusLabel, RoadType, RoadTypeLabel } from '../../types';
+import { Complaint, ComplaintStatus, RoadType, RoadTypeLabel } from '../../types';
 import { parseFirestoreDate, formatIndonesianDate } from '../../src/lib/dateUtils';
 import StatusBadge from '../../components/StatusBadge';
 import { supabase } from '../../src/supabase';
@@ -612,7 +612,7 @@ const ComplaintList: React.FC = () => {
                 <option value="ALL">Semua Status</option>
                 {Object.values(ComplaintStatus).map(s => (
                   <option key={s} value={s}>
-                    {ComplaintStatusLabel[s as keyof typeof ComplaintStatusLabel]}
+                    {s}
                   </option>
                 ))}
               </select>
@@ -991,7 +991,7 @@ const ComplaintList: React.FC = () => {
                   >
                     {Object.values(ComplaintStatus).map(s => (
                       <option key={s} value={s}>
-                        {ComplaintStatusLabel[s as keyof typeof ComplaintStatusLabel]}
+                        {s}
                       </option>
                     ))}
                   </select>
