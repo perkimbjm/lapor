@@ -128,20 +128,27 @@ const ComplaintList: React.FC = () => {
   };
 
   // ── Filters & sorting ───────────────────────────────────────────────────
+  const STATUS_PRIORITY = {
+    [ComplaintStatus.PENDING]: 0,
+    [ComplaintStatus.RECEIVED]: 1,
+    [ComplaintStatus.SURVEY]: 2,
+    [ComplaintStatus.COMPLETED]: 3,
+    [ComplaintStatus.REJECTED]: 4,
+  };
+
+  type SortMode = 'newest' | 'oldest';
   const [searchTerm, setSearchTerm]     = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc' | null>(null);
+  const [sortMode, setSortMode] = useState<SortMode>('newest');
 
-  const handleSortByDate = () => {
-    if (sortDirection === null)    setSortDirection('desc');
-    else if (sortDirection === 'desc') setSortDirection('asc');
-    else setSortDirection(null);
+  const handleSortToggle = () => {
+    setSortMode((prev) => (prev === 'newest' ? 'oldest' : 'newest'));
   };
 
   const resetFilters = () => {
     setSearchTerm('');
     setStatusFilter('ALL');
-    setSortDirection(null);
+    setSortMode('newest');
     setSelectedIds(new Set());
   };
 
@@ -162,18 +169,27 @@ const ComplaintList: React.FC = () => {
       return matchesSearch && isStatusMatch(item.status, statusFilter);
     });
 
-    if (sortDirection) {
-      result = [...result].sort((a, b) => {
-        const da = parseFirestoreDate(a.date_submitted || a.created_at)?.getTime() || 0;
-        const db = parseFirestoreDate(b.date_submitted || b.created_at)?.getTime() || 0;
-        return sortDirection === 'asc' ? da - db : db - da;
+    // Pre-compute timestamps and sort with status priority
+    return result
+      .map(item => ({
+        ...item,
+        _ts: parseFirestoreDate(item.date_submitted || item.created_at)?.getTime() || null
+      }))
+      .sort((a, b) => {
+        // Primary: status priority
+        const statusDiff = (STATUS_PRIORITY[a.status as ComplaintStatus] ?? 99) - (STATUS_PRIORITY[b.status as ComplaintStatus] ?? 99);
+        if (statusDiff !== 0) return statusDiff;
+
+        // Secondary: date sorting with edge case handling
+        if (!a._ts && !b._ts) return 0;
+        if (!a._ts) return 1;  // items without dates go to end
+        if (!b._ts) return -1;
+
+        return sortMode === 'newest' ? b._ts - a._ts : a._ts - b._ts;
       });
-    }
+  }, [complaints, searchTerm, statusFilter, sortMode, STATUS_PRIORITY]);
 
-    return result;
-  }, [complaints, searchTerm, statusFilter, sortDirection]);
-
-  const isFiltered = searchTerm !== '' || statusFilter !== 'ALL' || sortDirection !== null;
+  const isFiltered = searchTerm !== '' || statusFilter !== 'ALL' || sortMode !== 'newest';
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -632,13 +648,12 @@ const ComplaintList: React.FC = () => {
                 )}
                 <th
                   className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider cursor-pointer group hover:text-blue-600 dark:hover:text-blue-400 transition-colors select-none"
-                  onClick={handleSortByDate}
+                  onClick={handleSortToggle}
                 >
                   <div className="flex items-center gap-1.5">
                     Tiket / Tanggal
-                    {sortDirection === 'asc'  ? <ArrowUp size={14} className="text-blue-600 dark:text-blue-400" /> :
-                     sortDirection === 'desc' ? <ArrowDown size={14} className="text-blue-600 dark:text-blue-400" /> :
-                     <ArrowUpDown size={14} className="text-slate-300 dark:text-slate-600 group-hover:text-slate-400" />}
+                    {sortMode === 'newest' ? <ArrowDown size={14} className="text-blue-600 dark:text-blue-400" /> :
+                     <ArrowUp size={14} className="text-blue-600 dark:text-blue-400" />}
                   </div>
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Lokasi & Kategori</th>
