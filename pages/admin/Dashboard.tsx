@@ -322,7 +322,7 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex flex-wrap gap-2 sm:gap-3 w-full md:w-auto">
+        <div className="flex flex-wrap gap-2 sm:gap-3 w-full md:w-auto z-[9997]">
           <div className="relative flex-1 md:flex-none md:min-w-[160px]">
             <select 
               value={selectedMonth}

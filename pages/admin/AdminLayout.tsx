@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import AdminSidebar from '../../components/AdminSidebar';
 import { useTheme } from '../../components/ThemeContext';
 import {
@@ -74,8 +75,8 @@ const NotificationDropdown = ({
         )}
       </button>
 
-      {show && (
-        <div className="fixed inset-x-0 top-[4.5rem] bottom-0 sm:absolute sm:inset-x-auto sm:top-auto sm:bottom-auto sm:right-0 sm:mt-3 sm:w-96 bg-white dark:bg-slate-800 border sm:rounded-xl shadow-xl z-[9998] flex flex-col">
+      {show && createPortal(
+        <div className="fixed inset-x-0 top-20 bottom-0 sm:inset-x-auto sm:bottom-auto sm:right-4 sm:w-96 bg-white dark:bg-slate-800 border sm:rounded-xl shadow-xl z-[9998] flex flex-col">
           <div className="p-3 border-b flex justify-between shrink-0">
             <span className="text-sm font-bold dark:text-white">Notifikasi</span>
 
@@ -104,7 +105,8 @@ const NotificationDropdown = ({
               </div>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
