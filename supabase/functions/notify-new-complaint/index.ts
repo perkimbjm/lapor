@@ -1,149 +1,145 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+// Setup type definitions for built-in Supabase Runtime APIs
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
-};
+console.info("notify-new-complaint function started");
 
-serve(async (req) => {
-  // Handle CORS
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
+Deno.serve(async (req: Request) => {
   try {
-    // Get authorization header (optional for public complaint submissions)
-    const authHeader = req.headers.get("authorization") || "";
-    const token = authHeader.replace("Bearer ", "");
+    const body = await req.json();
+    const record = body?.record;
 
-    // Create Supabase client
-    // If token provided, use it; otherwise use anon key (for public submissions)
-    const clientHeaders = token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : {};
+    if (!record) {
+      return new Response("No record found", { status: 400 });
+    }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") || "",
-      Deno.env.get("SUPABASE_ANON_KEY") || "",
-      {
-        global: {
-          headers: clientHeaders,
+    // =========================
+    // 📦 Extract fields
+    // =========================
+    const {
+      ticket_number,
+      reporter_name,
+      reporter_phone,
+      description,
+      category,
+      location,
+      status,
+      priority,
+      lat,
+      lng
+    } = record;
+
+    // =========================
+    // ⚠️ FILTER STATUS (WAJIB SESUAI ENUM)
+    // =========================
+    const STATUS_PENDING = "Belum dikerjakan";
+
+    if (status !== STATUS_PENDING) {
+      return new Response(
+        JSON.stringify({ message: "Ignored (not pending)" }),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // =========================
+    // 🔐 ENV
+    // =========================
+    const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+    const ADMIN_EMAILS = Deno.env.get("ADMIN_EMAILS");
+    const ADMIN_PHONES = Deno.env.get("ADMIN_PHONES");
+    const FROM_EMAIL = Deno.env.get("FROM_EMAIL");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+    if (!RESEND_API_KEY || !ADMIN_EMAILS || !FROM_EMAIL) {
+      throw new Error("Missing email ENV");
+    }
+
+    if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ADMIN_PHONES) {
+      throw new Error("Missing supabase ENV");
+    }
+
+    const emailList = ADMIN_EMAILS.split(",");
+    const phoneList = ADMIN_PHONES.split(",");
+
+    // =========================
+    // 🧠 SAFE DATA
+    // =========================
+    const safeDescription = description ?? "-";
+    const safeLocation = location ?? "-";
+    const safeCategory = category ?? "-";
+    const safePriority = priority ?? "Normal";
+    const safePhone = reporter_phone ?? "-";
+
+    const mapsUrl =
+      lat && lng ? `https://www.google.com/maps?q=${lat},${lng}` : null;
+
+    // =========================
+    // 📧 SEND EMAIL
+    // =========================
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${RESEND_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        from: FROM_EMAIL,
+        to: emailList,
+        subject: `🚨 [${safePriority}] Aduan: ${ticket_number}`,
+        html: `
+          <h2>Aduan Baru Masuk</h2>
+          <p><strong>Ticket:</strong> ${ticket_number}</p>
+          <p><strong>Pelapor:</strong> ${reporter_name}</p>
+          <p><strong>No HP:</strong> ${safePhone}</p>
+          <p><strong>Kategori:</strong> ${safeCategory}</p>
+          <p><strong>Status:</strong> ${status}</p>
+          <p><strong>Lokasi:</strong> ${safeLocation}</p>
+          ${
+            mapsUrl
+              ? `<p><a href="${mapsUrl}">📍 Lihat di Maps</a></p>`
+              : ""
+          }
+          <p><strong>Deskripsi:</strong></p>
+          <p>${safeDescription}</p>
+          <hr/>
+          <small>Sistem Notifikasi Otomatis</small>
+        `
+      })
+    });
+
+    // =========================
+    // 🔔 INSERT NOTIFICATIONS
+    // =========================
+    for (const phone of phoneList) {
+      await fetch(`${SUPABASE_URL}/rest/v1/notifications`, {
+        method: "POST",
+        headers: {
+          apikey: SERVICE_ROLE_KEY,
+          Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+          "Content-Type": "application/json"
         },
-      }
-    );
-
-    // Parse request body
-    const { complaintId, ticketNumber } = await req.json();
-
-    if (!complaintId || !ticketNumber) {
-      return new Response(
-        JSON.stringify({
-          error: "Missing complaintId or ticketNumber",
-        }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Query all users with target roles: super_admin, admin, pengawas, petugas
-    // Using relationship to join with roles table
-    const { data: users, error: usersError } = await supabase
-      .from("users")
-      .select("id, roles(name)")
-      .not("role_id", "is", null);
-
-    // Filter users by target roles
-    const targetRoles = ["super_admin", "admin", "pengawas", "petugas"];
-    const filteredUsers = users?.filter((user: any) => {
-      const roleName = user.roles?.name;
-      return roleName && targetRoles.includes(roleName);
-    }) || [];
-
-    if (usersError) {
-      console.error("Error fetching users:", usersError);
-      return new Response(
-        JSON.stringify({
-          error: "Failed to fetch users",
-          details: usersError.message,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // If no users found, return success (no notifications needed)
-    if (!filteredUsers || filteredUsers.length === 0) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "No users found for notification",
-          count: 0,
-        }),
-        {
-          status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Create notification records for all users
-    const notifications = filteredUsers.map((user: any) => ({
-      user_id: user.id,
-      title: `Aduan Baru #${ticketNumber}`,
-      desc: `Aduan baru telah masuk. Nomor tiket: ${ticketNumber}`,
-      type: "warning",
-      read: false,
-      timestamp: new Date().toISOString(),
-    }));
-
-    const { error: insertError } = await supabase
-      .from("notifications")
-      .insert(notifications);
-
-    if (insertError) {
-      console.error("Error inserting notifications:", insertError);
-      return new Response(
-        JSON.stringify({
-          error: "Failed to create notifications",
-          details: insertError.message,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
+        body: JSON.stringify({
+          title: "Aduan Baru",
+          description: `Aduan ${ticket_number} (${safeCategory})`,
+          time: new Date().toISOString(),
+          type: "complaint",
+          read: false,
+          user_phone: phone.trim()
+        })
+      });
     }
 
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: `Created ${notifications.length} notifications`,
-        count: notifications.length,
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ success: true }),
+      { headers: { "Content-Type": "application/json" } }
     );
-  } catch (error: any) {
-    console.error("Function error:", error);
+
+  } catch (err) {
+    console.error("ERROR:", err);
+
     return new Response(
-      JSON.stringify({
-        error: "Internal server error",
-        details: error.message,
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: err.message }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 });

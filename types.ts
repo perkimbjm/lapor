@@ -1,23 +1,42 @@
-
 export enum ComplaintStatus {
-  PENDING = 'Belum dikerjakan',
-  RECEIVED = 'Diterima',
-  REJECTED = 'Tidak diterima',
-  SURVEY = 'Disurvey',
-  COMPLETED = 'Selesai dikerjakan',
+  PENDING = 'pending',
+  RECEIVED = 'received',
+  REJECTED = 'rejected',
+  SURVEY = 'survey',
+  COMPLETED = 'completed',
 }
+
+export const ComplaintStatusLabel = {
+  pending: 'Belum dikerjakan',
+  received: 'Diterima',
+  rejected: 'Tidak diterima',
+  survey: 'Disurvey',
+  completed: 'Selesai dikerjakan',
+};
 
 export enum PriorityLevel {
-  LOW = 'Rendah',
-  MEDIUM = 'Sedang',
-  HIGH = 'Tinggi',
-  CRITICAL = 'Darurat',
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  CRITICAL = 'critical',
 }
 
+export const PriorityLabel = {
+  low: 'Rendah',
+  medium: 'Sedang',
+  high: 'Tinggi',
+  critical: 'Darurat',
+};
+
 export enum RoadType {
-  JALAN = 'Jalan',
-  JEMBATAN = 'Jembatan',
+  JALAN = 'jalan',
+  JEMBATAN = 'jembatan',
 }
+
+export const RoadTypeLabel = {
+  jalan: 'Jalan',
+  jembatan: 'Jembatan',
+};
 
 export interface Complaint {
   id: string;
