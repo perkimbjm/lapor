@@ -620,7 +620,7 @@ const ComplaintList: React.FC = () => {
                 <option value="ALL">Semua Status</option>
                 {Object.values(ComplaintStatus).map(s => (
                   <option key={s} value={s}>
-                    {status}
+                    {s}
                   </option>
                 ))}
               </select>
@@ -999,7 +999,7 @@ const ComplaintList: React.FC = () => {
                   >
                     {Object.values(ComplaintStatus).map(s => (
                       <option key={s} value={s}>
-                        {status}
+                        {s}
                       </option>
                     ))}
                   </select>
