@@ -16,6 +16,7 @@ Deno.serve(async (req: Request) => {
     // 📦 Extract fields
     // =========================
     const {
+      id,
       ticket_number,
       reporter_name,
       reporter_phone,
@@ -25,17 +26,28 @@ Deno.serve(async (req: Request) => {
       status,
       priority,
       lat,
-      lng
+      lng,
+      is_bulk // ✅ tambahan
     } = record;
 
     // =========================
-    // ⚠️ FILTER STATUS (WAJIB SESUAI ENUM)
+    // ⚠️ FILTER STATUS
     // =========================
     const STATUS_PENDING = "Belum dikerjakan";
 
     if (status !== STATUS_PENDING) {
       return new Response(
         JSON.stringify({ message: "Ignored (not pending)" }),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // =========================
+    // ❌ SKIP BULK IMPORT (EXCEL)
+    // =========================
+    if (is_bulk) {
+      return new Response(
+        JSON.stringify({ message: "Ignored (bulk import)" }),
         { headers: { "Content-Type": "application/json" } }
       );
     }
@@ -69,6 +81,7 @@ Deno.serve(async (req: Request) => {
     const safeCategory = category ?? "-";
     const safePriority = priority ?? "Normal";
     const safePhone = reporter_phone ?? "-";
+    const safeReporter = reporter_name ?? "-";
 
     const mapsUrl =
       lat && lng ? `https://www.google.com/maps?q=${lat},${lng}` : null;
@@ -85,24 +98,34 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: emailList,
-        subject: `🚨 [${safePriority}] Aduan: ${ticket_number}`,
+        subject: `🚨 [${safePriority}] Aduan Baru: ${ticket_number}`,
         html: `
-          <h2>Aduan Baru Masuk</h2>
-          <p><strong>Ticket:</strong> ${ticket_number}</p>
-          <p><strong>Pelapor:</strong> ${reporter_name}</p>
-          <p><strong>No HP:</strong> ${safePhone}</p>
-          <p><strong>Kategori:</strong> ${safeCategory}</p>
-          <p><strong>Status:</strong> ${status}</p>
-          <p><strong>Lokasi:</strong> ${safeLocation}</p>
-          ${
-            mapsUrl
-              ? `<p><a href="${mapsUrl}">📍 Lihat di Maps</a></p>`
-              : ""
-          }
-          <p><strong>Deskripsi:</strong></p>
-          <p>${safeDescription}</p>
-          <hr/>
-          <small>Sistem Notifikasi Otomatis</small>
+          <div style="font-family:Arial,sans-serif">
+            <h2 style="color:#dc2626;">🚨 Aduan Baru Masuk</h2>
+
+            <table style="border-collapse:collapse;">
+              <tr><td><strong>Ticket</strong></td><td>: ${ticket_number}</td></tr>
+              <tr><td><strong>Pelapor</strong></td><td>: ${safeReporter}</td></tr>
+              <tr><td><strong>No HP</strong></td><td>: ${safePhone}</td></tr>
+              <tr><td><strong>Kategori</strong></td><td>: ${safeCategory}</td></tr>
+              <tr><td><strong>Status</strong></td><td>: ${status}</td></tr>
+              <tr><td><strong>Lokasi</strong></td><td>: ${safeLocation}</td></tr>
+            </table>
+
+            ${
+              mapsUrl
+                ? `<p><a href="${mapsUrl}" target="_blank">📍 Lihat Lokasi di Google Maps</a></p>`
+                : ""
+            }
+
+            <p><strong>Deskripsi:</strong></p>
+            <blockquote style="background:#f3f4f6;padding:10px;border-radius:8px;">
+              ${safeDescription}
+            </blockquote>
+
+            <hr/>
+            <small>Sistem Notifikasi Otomatis</small>
+          </div>
         `
       })
     });
@@ -119,12 +142,23 @@ Deno.serve(async (req: Request) => {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          title: "Aduan Baru",
-          description: `Aduan ${ticket_number} (${safeCategory})`,
-          time: new Date().toISOString(),
+          title: "🚨 Aduan Baru",
+          description: `${safeCategory} - ${safeLocation}`,
+          timestamp: new Date().toISOString(),
           type: "complaint",
           read: false,
-          user_phone: phone.trim()
+
+          user_phone: phone.trim(),
+
+          complaint_id: id,
+          ticket_number,
+          category: safeCategory,
+          priority: safePriority,
+          location: safeLocation,
+          lat: lat ?? null,
+          lng: lng ?? null,
+          reporter_name: safeReporter,
+          status
         })
       });
     }

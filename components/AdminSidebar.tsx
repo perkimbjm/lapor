@@ -1,12 +1,12 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  ClipboardList, 
-  Package, 
-  Truck, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  ClipboardList,
+  Package,
+  Truck,
+  BarChart3,
   Settings,
   LogOut,
   Map,
@@ -18,7 +18,8 @@ import {
   Users,
   Shield,
   Key,
-  Activity
+  Activity,
+  Bell
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import { useAuth } from './AuthContext';
@@ -36,6 +37,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
   const menuItems = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} />, permission: 'DASHBOARD_READ' },
     { name: 'Daftar Aduan', path: '/admin/complaints', icon: <ClipboardList size={20} />, permission: 'COMPLAINTS_READ' },
+    { name: 'Notifikasi', path: '/admin/notifications', icon: <Bell size={20} />, permission: 'NOTIFICATIONS_READ' },
     { name: 'Peta Sebaran', path: '/admin/map', icon: <Map size={20} />, permission: 'MAP_READ' },
     { name: 'Stok Material', path: '/admin/inventory', icon: <Package size={20} />, permission: 'INVENTORY_READ' },
     { name: 'Armada & Peralatan', path: '/admin/equipment', icon: <Truck size={20} />, permission: 'EQUIPMENT_READ' },

@@ -61,6 +61,25 @@ export interface Complaint {
   notes?: string;
 }
 
+export interface Notification {
+  id: string;
+  title: string;
+  description: string;
+  timestamp: string;
+  type: 'complaint' | 'warning' | 'success' | 'info';
+  read: boolean;
+  user_phone: string;
+  complaint_id?: string;
+  ticket_number?: string;
+  category?: RoadType;
+  priority?: PriorityLevel;
+  location?: string;
+  lat?: number;
+  lng?: number;
+  reporter_name?: string;
+  status?: ComplaintStatus;
+}
+
 export interface Material {
   id: string;
   name: string;
