@@ -151,7 +151,6 @@ export interface Notification {
 
   category?: RoadType;
   status?: ComplaintStatus;
-  priority?: PriorityLevel;
 
   description?: string;
 
@@ -165,8 +164,6 @@ export interface Notification {
   read: boolean;
 
   timestamp: string;
-
-  type?: 'complaint' | 'system' | string;
 
   created_at?: string;
 }

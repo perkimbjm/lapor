@@ -3,7 +3,6 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import {
   Notification,
   RoadTypeLabel,
-  PriorityLabel,
 } from '../../types';
 import { supabase } from '../../src/supabase';
 import { useAuth } from '../../components/AuthContext';
@@ -41,20 +40,6 @@ const safeLabel = <T extends Record<string, string>>(map: T, key?: string) => {
   return map[key as keyof T] ?? key;
 };
 
-const getPriorityStyle = (priority?: string) => {
-  switch (priority) {
-    case 'low':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
-    case 'medium':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
-    case 'high':
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300';
-    case 'critical':
-      return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-  }
-};
 
 /* ===================== COMPONENT ===================== */
 
@@ -70,7 +55,6 @@ const NotificationsList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [priorityFilter, setPriorityFilter] = useState<string>('all');
 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -140,12 +124,11 @@ const NotificationsList: React.FC = () => {
     if (readFilter === 'read') result = result.filter((n) => n.read);
 
     if (categoryFilter !== 'all') result = result.filter((n) => n.category === categoryFilter);
-    if (priorityFilter !== 'all') result = result.filter((n) => n.priority === priorityFilter);
 
     setFiltered(result);
     setCurrentPage(1);
     setSelectedIds(new Set());
-  }, [notifications, searchTerm, readFilter, categoryFilter, priorityFilter]);
+  }, [notifications, searchTerm, readFilter, categoryFilter]);
 
   /* ===================== PAGINATION ===================== */
 
@@ -234,21 +217,13 @@ const NotificationsList: React.FC = () => {
             <option value="jembatan">Jembatan</option>
           </select>
 
-          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="px-3 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-700 dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="all">Semua Prioritas</option>
-            <option value="low">Rendah</option>
-            <option value="medium">Sedang</option>
-            <option value="high">Tinggi</option>
-            <option value="critical">Darurat</option>
-          </select>
 
-          {(searchTerm || readFilter !== 'all' || categoryFilter !== 'all' || priorityFilter !== 'all') && (
+          {(searchTerm || readFilter !== 'all' || categoryFilter !== 'all' ) && (
             <button
               onClick={() => {
                 setSearchTerm('');
                 setReadFilter('all');
                 setCategoryFilter('all');
-                setPriorityFilter('all');
               }}
               className="border border-slate-200 dark:border-slate-600 rounded-xl flex items-center gap-2 justify-center hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
             >
@@ -324,12 +299,6 @@ const NotificationsList: React.FC = () => {
                     {n.category && (
                       <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-lg">
                         {safeLabel(RoadTypeLabel, n.category)}
-                      </span>
-                    )}
-
-                    {n.priority && (
-                      <span className={`text-xs px-2 py-0.5 rounded-lg ${getPriorityStyle(n.priority)}`}>
-                        {safeLabel(PriorityLabel, n.priority)}
                       </span>
                     )}
                   </div>

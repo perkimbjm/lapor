@@ -77,7 +77,7 @@ const NotificationDropdown = ({
       {show && (
         <div className="absolute right-0 mt-3 w-96 bg-white dark:bg-slate-800 border rounded-xl shadow-xl z-50">
           <div className="p-3 border-b flex justify-between">
-            <span className="text-sm font-bold">Notifikasi</span>
+            <span className="text-sm font-bold dark:text-white">Notifikasi</span>
 
             {unreadCount > 0 && (
               <button

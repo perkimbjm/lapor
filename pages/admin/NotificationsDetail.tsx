@@ -4,7 +4,6 @@ import { useOutletContext } from 'react-router-dom';
 import {
   Notification,
   RoadTypeLabel,
-  PriorityLabel,
   ComplaintStatus,
 } from '../../types';
 import { supabase } from '../../src/supabase';
@@ -41,20 +40,7 @@ const NotificationDetail: React.FC = () => {
     return map[key as keyof T] ?? key;
   };
 
-  const getPriorityStyle = (priority?: string) => {
-    switch (priority) {
-      case 'low':
-        return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
-      case 'high':
-        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300';
-      case 'critical':
-        return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
-      default:
-        return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
-    }
-  };
+  
 
   useEffect(() => {
     if (!id) return;
@@ -196,16 +182,6 @@ const NotificationDetail: React.FC = () => {
                   </span>
                 )}
 
-                {notification.priority && (
-                  <span
-                    className={`px-3 py-1 text-sm rounded-lg font-medium ${getPriorityStyle(
-                      notification.priority
-                    )}`}
-                  >
-                    {safeLabel(PriorityLabel, notification.priority)}
-                  </span>
-                )}
-
                 {notification.status && (
                   <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 text-sm rounded-lg font-medium">
                     {safeLabel(ComplaintStatus, notification.status)}
@@ -252,7 +228,7 @@ const NotificationDetail: React.FC = () => {
           <div>
             <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">Pelapor</h2>
             <p className="text-slate-900 dark:text-white">
-              {notification.reporter_name || '-'}
+              {notification.reporter_name || '-'} {notification.reporter_phone|| '-'}
             </p>
           </div>
 
@@ -269,15 +245,6 @@ const NotificationDetail: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
-              <div>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Tipe</p>
-                <p className="text-slate-900 dark:text-white capitalize">
-                  {notification.type || '-'}
-                </p>
-              </div>
-            </div>
           </div>
         </div>
       </div>
