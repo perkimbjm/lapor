@@ -146,6 +146,7 @@ export interface AppUser {
 
 export interface Notification {
   id: string;
+  title: string;
 
   ticket_number?: string;
 

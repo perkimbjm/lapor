@@ -75,8 +75,8 @@ const NotificationDropdown = ({
       </button>
 
       {show && (
-        <div className="absolute right-0 mt-3 w-96 bg-white dark:bg-slate-800 border rounded-xl shadow-xl z-50">
-          <div className="p-3 border-b flex justify-between">
+        <div className="fixed inset-x-0 top-[4.5rem] bottom-0 sm:absolute sm:inset-x-auto sm:top-auto sm:bottom-auto sm:right-0 sm:mt-3 sm:w-96 bg-white dark:bg-slate-800 border sm:rounded-xl shadow-xl z-[9998] flex flex-col">
+          <div className="p-3 border-b flex justify-between shrink-0">
             <span className="text-sm font-bold dark:text-white">Notifikasi</span>
 
             {unreadCount > 0 && (
@@ -89,7 +89,7 @@ const NotificationDropdown = ({
             )}
           </div>
 
-          <div className="max-h-[400px] overflow-y-auto">
+          <div className="flex-1 overflow-y-auto sm:max-h-[400px]">
             {notifications.length ? (
               notifications.map((n: any) => (
                 <NotificationItem

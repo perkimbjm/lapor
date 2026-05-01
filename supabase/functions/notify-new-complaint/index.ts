@@ -79,7 +79,6 @@ Deno.serve(async (req: Request) => {
     const safeDescription = description ?? "-";
     const safeLocation = location ?? "-";
     const safeCategory = category ?? "-";
-    const safePriority = priority ?? "Normal";
     const safePhone = reporter_phone ?? "-";
     const safeReporter = reporter_name ?? "-";
 
@@ -98,7 +97,7 @@ Deno.serve(async (req: Request) => {
       body: JSON.stringify({
         from: FROM_EMAIL,
         to: emailList,
-        subject: `🚨 [${safePriority}] Aduan Baru: ${ticket_number}`,
+        subject: `🚨 Aduan Baru: ${ticket_number}`,
         html: `
           <div style="font-family:Arial,sans-serif">
             <h2 style="color:#dc2626;">🚨 Aduan Baru Masuk</h2>
@@ -153,7 +152,6 @@ Deno.serve(async (req: Request) => {
           complaint_id: id,
           ticket_number,
           category: safeCategory,
-          priority: safePriority,
           location: safeLocation,
           lat: lat ?? null,
           lng: lng ?? null,
