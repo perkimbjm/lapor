@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useOutletContext } from 'react-router-dom';
-import { Notification, RoadTypeLabel, ComplaintStatusLabel, PriorityLabel } from '../../types';
+import {
+  Notification,
+  RoadTypeLabel,
+  ComplaintStatusLabel,
+  PriorityLabel,
+} from '../../types';
 import { supabase } from '../../src/supabase';
 import { useAuth } from '../../components/AuthContext';
 import { formatIndonesianDate } from '../../src/lib/dateUtils';
-import StatusBadge from '../../components/StatusBadge';
-import { ArrowLeft, Loader2, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+} from 'lucide-react';
 
 const NotificationDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,13 +33,36 @@ const NotificationDetail: React.FC = () => {
     setPageTitle('Detail Notifikasi');
   }, [setPageTitle]);
 
-  // Fetch notification detail
+  const safeLabel = <T extends Record<string, string>>(
+    map: T,
+    key?: string
+  ) => {
+    if (!key) return '-';
+    return map[key as keyof T] ?? key;
+  };
+
+  const getPriorityStyle = (priority?: string) => {
+    switch (priority) {
+      case 'low':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
+      case 'medium':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
+      case 'high':
+        return 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300';
+      case 'critical':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+    }
+  };
+
   useEffect(() => {
     if (!id) return;
 
     const fetchNotification = async () => {
       try {
         setLoading(true);
+
         const { data, error } = await supabase
           .from('notifications')
           .select('*')
@@ -38,7 +71,6 @@ const NotificationDetail: React.FC = () => {
 
         if (error) throw error;
 
-        // Role-based access check
         const isUserRole = roleName?.toLowerCase() === 'user';
         if (isUserRole && data.user_phone !== userPhone) {
           setError('Anda tidak memiliki akses untuk melihat notifikasi ini');
@@ -48,7 +80,7 @@ const NotificationDetail: React.FC = () => {
         setNotification(data as Notification);
         setError(null);
       } catch (err) {
-        console.error('Error fetching notification:', err);
+        console.error(err);
         setError('Gagal memuat notifikasi');
       } finally {
         setLoading(false);
@@ -57,7 +89,6 @@ const NotificationDetail: React.FC = () => {
 
     fetchNotification();
 
-    // Subscribe to real-time updates
     const channel = supabase
       .channel(`notification-detail-${id}`)
       .on(
@@ -84,6 +115,7 @@ const NotificationDetail: React.FC = () => {
 
     try {
       setMarking(true);
+
       const { error } = await supabase
         .from('notifications')
         .update({ read: true })
@@ -93,7 +125,7 @@ const NotificationDetail: React.FC = () => {
 
       setNotification({ ...notification, read: true });
     } catch (err) {
-      console.error('Error marking as read:', err);
+      console.error(err);
       alert('Gagal menandai sebagai dibaca');
     } finally {
       setMarking(false);
@@ -111,7 +143,9 @@ const NotificationDetail: React.FC = () => {
   if (error || !notification) {
     return (
       <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <p className="text-red-700 dark:text-red-200">{error || 'Notifikasi tidak ditemukan'}</p>
+        <p className="text-red-700 dark:text-red-200">
+          {error || 'Notifikasi tidak ditemukan'}
+        </p>
         <button
           onClick={() => navigate('/admin/notifications')}
           className="mt-4 text-blue-600 hover:text-blue-800 underline"
@@ -122,35 +156,9 @@ const NotificationDetail: React.FC = () => {
     );
   }
 
-  const getPriorityColor = (priority?: string) => {
-    if (!priority) return 'gray';
-    const colors: Record<string, string> = {
-      low: 'green',
-      medium: 'yellow',
-      high: 'orange',
-      critical: 'red',
-    };
-    return colors[priority] || 'gray';
-  };
-
-  const getCategoryLabel = (category?: string) => {
-    if (!category) return '-';
-    return RoadTypeLabel[category as keyof typeof RoadTypeLabel] || category;
-  };
-
-  const getStatusLabel = (status?: string) => {
-    if (!status) return '-';
-    return ComplaintStatusLabel[status as keyof typeof ComplaintStatusLabel] || status;
-  };
-
-  const getPriorityLabel = (priority?: string) => {
-    if (!priority) return '-';
-    return PriorityLabel[priority as keyof typeof PriorityLabel] || priority;
-  };
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
+      {/* Back */}
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={() => navigate('/admin/notifications')}
@@ -161,50 +169,46 @@ const NotificationDetail: React.FC = () => {
         </button>
       </div>
 
-      {/* Main Card */}
+      {/* Card */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden">
-        {/* Hero Section */}
+        {/* Header */}
         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  {notification.ticket_number || 'N/A'}
-                </h1>
-                {!notification.read && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 bg-blue-500 text-white text-sm font-medium rounded-full">
-                    <span className="w-2 h-2 bg-white rounded-full"></span>
-                    Belum dibaca
-                  </span>
-                )}
-              </div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                {notification.ticket_number || 'N/A'}
+              </h1>
+
               <div className="flex flex-wrap gap-2">
                 {notification.category && (
-                  <span className="inline-block px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm font-medium rounded-full">
-                    {getCategoryLabel(notification.category)}
+                  <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm rounded-full">
+                    {safeLabel(RoadTypeLabel, notification.category)}
                   </span>
                 )}
+
                 {notification.priority && (
                   <span
-                    className={`inline-block px-3 py-1 bg-${getPriorityColor(notification.priority)}-100 dark:bg-${getPriorityColor(notification.priority)}-900 text-${getPriorityColor(notification.priority)}-800 dark:text-${getPriorityColor(notification.priority)}-200 text-sm font-medium rounded-full`}
+                    className={`px-3 py-1 text-sm rounded-full ${getPriorityStyle(
+                      notification.priority
+                    )}`}
                   >
-                    {getPriorityLabel(notification.priority)}
+                    {safeLabel(PriorityLabel, notification.priority)}
                   </span>
                 )}
+
                 {notification.status && (
-                  <span className="inline-block px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-sm font-medium rounded-full">
-                    {getStatusLabel(notification.status)}
+                  <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-sm rounded-full">
+                    {safeLabel(ComplaintStatusLabel, notification.status)}
                   </span>
                 )}
               </div>
             </div>
 
-            {/* Mark as read button */}
             {!notification.read && (
               <button
                 onClick={handleMarkAsRead}
                 disabled={marking}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-lg transition"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
               >
                 {marking ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -217,75 +221,51 @@ const NotificationDetail: React.FC = () => {
           </div>
         </div>
 
-        {/* Content */}
+        {/* Body */}
         <div className="p-6 space-y-6">
-          {/* Description */}
           <div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-              Deskripsi Aduan
-            </h2>
+            <h2 className="text-lg font-semibold mb-2">Deskripsi</h2>
             <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
               {notification.description || '-'}
             </p>
           </div>
 
-          {/* Location */}
           {notification.location && (
             <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                Lokasi
-              </h2>
-              <div className="flex items-start gap-2">
-                <span className="text-gray-700 dark:text-gray-300">{notification.location}</span>
-                {notification.lat && notification.lng && (
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
-                    ({notification.lat.toFixed(4)}, {notification.lng.toFixed(4)})
-                  </span>
-                )}
-              </div>
+              <h2 className="text-lg font-semibold mb-2">Lokasi</h2>
+              <p className="text-gray-700 dark:text-gray-300">
+                {notification.location}
+              </p>
             </div>
           )}
 
-          {/* Reporter Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">
-                Nama Pelapor
-              </h3>
-              <p className="text-gray-900 dark:text-white">{notification.reporter_name || '-'}</p>
-            </div>
+          <div>
+            <h2 className="text-lg font-semibold mb-2">Pelapor</h2>
+            <p className="text-gray-900 dark:text-white">
+              {notification.reporter_name || '-'}
+            </p>
           </div>
 
-          {/* Metadata */}
-          <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Informasi Tambahan
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex items-start gap-3">
-                <Clock className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Waktu Notifikasi
-                  </p>
-                  <p className="text-gray-900 dark:text-white font-medium">
-                    {notification.timestamp
-                      ? formatIndonesianDate(notification.timestamp, true)
-                      : '-'}
-                  </p>
-                </div>
+          <div className="border-t pt-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <Clock className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-500">Waktu</p>
+                <p className="text-gray-900 dark:text-white">
+                  {notification.timestamp
+                    ? formatIndonesianDate(notification.timestamp, true)
+                    : '-'}
+                </p>
               </div>
+            </div>
 
-              <div className="flex items-start gap-3">
-                <AlertTriangle className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Tipe Notifikasi
-                  </p>
-                  <p className="text-gray-900 dark:text-white font-medium capitalize">
-                    {notification.type || '-'}
-                  </p>
-                </div>
+            <div className="flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 text-gray-400" />
+              <div>
+                <p className="text-sm text-gray-500">Tipe</p>
+                <p className="text-gray-900 dark:text-white capitalize">
+                  {notification.type || '-'}
+                </p>
               </div>
             </div>
           </div>

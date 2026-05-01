@@ -34,8 +34,8 @@ export enum RoadType {
 }
 
 export const RoadTypeLabel = {
-  jalan: 'Jalan',
-  jembatan: 'Jembatan',
+  Jalan: 'Jalan',
+  Jembatan: 'Jembatan',
 };
 
 export interface Complaint {
@@ -150,3 +150,31 @@ export interface AppUser {
   created_at: string;
 }
 
+export interface Notification {
+  id: string;
+
+  ticket_number?: string;
+
+  category?: RoadType;
+  status?: ComplaintStatus;
+  priority?: PriorityLevel;
+
+  description?: string;
+
+  location?: string;
+  lat?: number;
+  lng?: number;
+
+  reporter_name?: string;
+  reporter_phone?: string;
+
+  user_phone?: string;
+
+  read: boolean;
+
+  timestamp: string;
+
+  type?: 'complaint' | 'system' | string;
+
+  created_at?: string;
+}

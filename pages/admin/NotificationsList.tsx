@@ -1,15 +1,26 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { Notification, RoadTypeLabel, PriorityLabel, ComplaintStatusLabel } from '../../types';
+import {
+  Notification,
+  RoadTypeLabel,
+  PriorityLabel,
+} from '../../types';
 import { supabase } from '../../src/supabase';
 import { useAuth } from '../../components/AuthContext';
-import { formatIndonesianDate } from '../../src/lib/dateUtils';
 import {
-  Search, Filter, ChevronLeft, ChevronRight, Loader2, X,
-  AlertTriangle, CheckCircle2, Info, Clock, CheckCircle
+  Search,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  X,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
 } from 'lucide-react';
 
 const ITEMS_PER_PAGE = 50;
+
+/* ===================== UTIL ===================== */
 
 const getRelativeTime = (timestamp: string): string => {
   const date = new Date(timestamp);
@@ -25,64 +36,84 @@ const getRelativeTime = (timestamp: string): string => {
   return `${days} hari lalu`;
 };
 
+const safeLabel = <T extends Record<string, string>>(map: T, key?: string) => {
+  if (!key) return '-';
+  return map[key as keyof T] ?? key;
+};
+
+const getPriorityStyle = (priority?: string) => {
+  switch (priority) {
+    case 'low':
+      return 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300';
+    case 'medium':
+      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300';
+    case 'high':
+      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/40 dark:text-orange-300';
+    case 'critical':
+      return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
+    default:
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+  }
+};
+
+/* ===================== COMPONENT ===================== */
+
 const NotificationsList: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
   const navigate = useNavigate();
   const { userPhone, roleName, user } = useAuth();
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [filteredNotifications, setFilteredNotifications] = useState<Notification[]>([]);
+  const [filteredNotifications, setFiltered] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+
   const [searchTerm, setSearchTerm] = useState('');
   const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [marking, setMarking] = useState(false);
+
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setPageTitle('Daftar Notifikasi');
   }, [setPageTitle]);
 
-  // Fetch notifications
+  /* ===================== FETCH ===================== */
+
   useEffect(() => {
     if (!user) return;
 
-    const fetchNotifications = async () => {
-      try {
-        setLoading(true);
+    const fetch = async () => {
+      setLoading(true);
 
-        // Role-based filtering
-        const isUserRole = roleName?.toLowerCase() === 'user';
-        let query = supabase.from('notifications').select('*');
+      const isUser = roleName?.toLowerCase() === 'user';
+      let query = supabase.from('notifications').select('*');
 
-        if (isUserRole && userPhone) {
-          query = query.eq('user_phone', userPhone);
-        }
-
-        const { data, error } = await query.order('timestamp', { ascending: false });
-
-        if (error) throw error;
-
-        setNotifications(data as Notification[]);
-        setCurrentPage(1);
-      } catch (err) {
-        console.error('Error fetching notifications:', err);
-      } finally {
-        setLoading(false);
+      if (isUser && userPhone) {
+        query = query.eq('user_phone', userPhone);
       }
+
+      const { data, error } = await query.order('timestamp', { ascending: false });
+
+      if (error) {
+        console.error(error);
+      } else {
+        setNotifications(data as Notification[]);
+      }
+
+      setLoading(false);
+      setCurrentPage(1);
     };
 
-    fetchNotifications();
+    fetch();
 
-    // Subscribe to real-time updates
     const channel = supabase
-      .channel(`notifications-list-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => {
-        fetchNotifications();
-      })
+      .channel(`notifications-${user.id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, fetch)
       .subscribe();
 
     return () => {
@@ -90,110 +121,84 @@ const NotificationsList: React.FC = () => {
     };
   }, [user?.id, userPhone, roleName]);
 
-  // Apply filters
+  /* ===================== FILTER ===================== */
+
   useEffect(() => {
     let result = [...notifications];
 
-    // Search filter
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
+      const t = searchTerm.toLowerCase();
       result = result.filter(
         (n) =>
-          n.ticket_number?.toLowerCase().includes(term) ||
-          n.category?.toLowerCase().includes(term) ||
-          n.reporter_name?.toLowerCase().includes(term)
+          n.ticket_number?.toLowerCase().includes(t) ||
+          n.category?.toLowerCase().includes(t) ||
+          n.reporter_name?.toLowerCase().includes(t)
       );
     }
 
-    // Read status filter
-    if (readFilter === 'unread') {
-      result = result.filter((n) => !n.read);
-    } else if (readFilter === 'read') {
-      result = result.filter((n) => n.read);
-    }
+    if (readFilter === 'unread') result = result.filter((n) => !n.read);
+    if (readFilter === 'read') result = result.filter((n) => n.read);
 
-    // Category filter
-    if (categoryFilter !== 'all') {
-      result = result.filter((n) => n.category === categoryFilter);
-    }
+    if (categoryFilter !== 'all') result = result.filter((n) => n.category === categoryFilter);
+    if (priorityFilter !== 'all') result = result.filter((n) => n.priority === priorityFilter);
 
-    // Priority filter
-    if (priorityFilter !== 'all') {
-      result = result.filter((n) => n.priority === priorityFilter);
-    }
-
-    setFilteredNotifications(result);
+    setFiltered(result);
     setCurrentPage(1);
     setSelectedIds(new Set());
   }, [notifications, searchTerm, readFilter, categoryFilter, priorityFilter]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredNotifications.length / ITEMS_PER_PAGE);
-  const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
-  const endIdx = startIdx + ITEMS_PER_PAGE;
-  const paginatedNotifications = filteredNotifications.slice(startIdx, endIdx);
+  /* ===================== PAGINATION ===================== */
 
-  // Handle select all
+  const totalPages = Math.ceil(filteredNotifications.length / ITEMS_PER_PAGE);
+  const start = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginated = filteredNotifications.slice(start, start + ITEMS_PER_PAGE);
+
+  /* ===================== ACTION ===================== */
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
   const handleSelectAll = () => {
     if (selectAllRef.current?.checked) {
-      setSelectedIds(new Set(paginatedNotifications.map((n) => n.id)));
+      setSelectedIds(new Set(paginated.map((n) => n.id)));
     } else {
       setSelectedIds(new Set());
     }
   };
 
-  // Handle individual select
-  const toggleSelect = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const handleMarkRead = async () => {
+    if (!selectedIds.size) return;
+
+    setMarking(true);
+
+    const ids = Array.from(selectedIds);
+
+    await Promise.all(
+      ids.map((id) =>
+        supabase.from('notifications').update({ read: true }).eq('id', id)
+      )
+    );
+
+    setNotifications((prev) =>
+      prev.map((n) => (selectedIds.has(n.id) ? { ...n, read: true } : n))
+    );
+
+    setSelectedIds(new Set());
+    setMarking(false);
   };
 
-  // Mark selected as read
-  const handleMarkSelectedAsRead = async () => {
-    if (selectedIds.size === 0) return;
+  const unreadCount = notifications.filter((n) => !n.read).length;
 
-    try {
-      setMarking(true);
-      const idsArray = Array.from(selectedIds);
-
-      for (const id of idsArray) {
-        await supabase.from('notifications').update({ read: true }).eq('id', id);
-      }
-
-      setNotifications(
-        notifications.map((n) =>
-          selectedIds.has(n.id) ? { ...n, read: true } : n
-        )
-      );
-      setSelectedIds(new Set());
-    } catch (err) {
-      console.error('Error marking as read:', err);
-      alert('Gagal menandai sebagai dibaca');
-    } finally {
-      setMarking(false);
-    }
-  };
-
-  const getPriorityColor = (priority?: string): string => {
-    if (!priority) return 'gray';
-    const colors: Record<string, string> = {
-      low: 'green',
-      medium: 'yellow',
-      high: 'orange',
-      critical: 'red',
-    };
-    return colors[priority] || 'gray';
-  };
-
-  const getUnreadCount = () => notifications.filter((n) => !n.read).length;
+  /* ===================== UI ===================== */
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-96">
+      <div className="flex justify-center items-center h-96">
         <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
       </div>
     );
@@ -201,50 +206,35 @@ const NotificationsList: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Search and Filters */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-4 space-y-4">
-        {/* Search */}
+
+      {/* FILTER */}
+      <div className="bg-white dark:bg-gray-900 border rounded-lg p-4 space-y-4">
+
         <div className="relative">
           <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
           <input
-            type="text"
-            placeholder="Cari berdasarkan nomor tiket, kategori, atau nama pelapor..."
+            className="w-full pl-10 p-2 border rounded-lg dark:bg-gray-800"
+            placeholder="Cari..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
           />
         </div>
 
-        {/* Filter Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          {/* Read Status */}
-          <select
-            value={readFilter}
-            onChange={(e) => setReadFilter(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          >
-            <option value="all">Semua Status</option>
-            <option value="unread">Belum Dibaca ({getUnreadCount()})</option>
-            <option value="read">Sudah Dibaca</option>
+        <div className="grid md:grid-cols-4 gap-3">
+
+          <select value={readFilter} onChange={(e) => setReadFilter(e.target.value as any)} className="p-2 border rounded-lg">
+            <option value="all">Semua ({unreadCount} unread)</option>
+            <option value="unread">Belum dibaca</option>
+            <option value="read">Sudah dibaca</option>
           </select>
 
-          {/* Category */}
-          <select
-            value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          >
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="p-2 border rounded-lg">
             <option value="all">Semua Kategori</option>
             <option value="jalan">Jalan</option>
             <option value="jembatan">Jembatan</option>
           </select>
 
-          {/* Priority */}
-          <select
-            value={priorityFilter}
-            onChange={(e) => setPriorityFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-          >
+          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="p-2 border rounded-lg">
             <option value="all">Semua Prioritas</option>
             <option value="low">Rendah</option>
             <option value="medium">Sedang</option>
@@ -252,7 +242,6 @@ const NotificationsList: React.FC = () => {
             <option value="critical">Darurat</option>
           </select>
 
-          {/* Clear Filters */}
           {(searchTerm || readFilter !== 'all' || categoryFilter !== 'all' || priorityFilter !== 'all') && (
             <button
               onClick={() => {
@@ -261,128 +250,93 @@ const NotificationsList: React.FC = () => {
                 setCategoryFilter('all');
                 setPriorityFilter('all');
               }}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center gap-2"
+              className="border rounded-lg flex items-center gap-2 justify-center"
             >
-              <X className="w-4 h-4" />
-              Reset
+              <X className="w-4 h-4" /> Reset
             </button>
           )}
         </div>
 
-        {/* Bulk Action */}
         {selectedIds.size > 0 && (
-          <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <span className="text-sm font-medium text-blue-900 dark:text-blue-200">
-              {selectedIds.size} item dipilih
-            </span>
+          <div className="flex justify-between bg-blue-50 p-3 rounded-lg">
+            <span>{selectedIds.size} dipilih</span>
             <button
-              onClick={handleMarkSelectedAsRead}
+              onClick={handleMarkRead}
               disabled={marking}
-              className="flex items-center gap-2 px-3 py-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium rounded transition"
+              className="bg-blue-600 text-white px-3 py-1 rounded"
             >
-              {marking ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <CheckCircle className="w-4 h-4" />
-              )}
-              Tandai dibaca
+              {marking ? 'Loading...' : 'Tandai dibaca'}
             </button>
           </div>
         )}
       </div>
 
-      {/* Results Info */}
-      <div className="text-sm text-gray-600 dark:text-gray-400">
-        Menampilkan {paginatedNotifications.length > 0 ? startIdx + 1 : 0}-
-        {Math.min(endIdx, filteredNotifications.length)} dari {filteredNotifications.length} notifikasi
-      </div>
-
-      {/* Notifications List */}
+      {/* LIST */}
       <div className="space-y-3">
-        {paginatedNotifications.length === 0 ? (
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-8 text-center">
-            <p className="text-gray-600 dark:text-gray-400">Tidak ada notifikasi</p>
-          </div>
+
+        {paginated.length === 0 ? (
+          <div className="p-8 text-center">Tidak ada data</div>
         ) : (
           <>
-            {/* Header with checkbox */}
-            <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded">
               <input
                 ref={selectAllRef}
                 type="checkbox"
-                checked={selectedIds.size === paginatedNotifications.length && paginatedNotifications.length > 0}
                 onChange={handleSelectAll}
-                className="w-4 h-4 rounded cursor-pointer"
               />
-              <span className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">
-                Pilih
-              </span>
+              <span className="text-xs">Pilih semua</span>
             </div>
 
-            {paginatedNotifications.map((notif) => (
+            {paginated.map((n) => (
               <div
-                key={notif.id}
-                className={`flex items-center gap-3 p-4 border rounded-lg cursor-pointer transition ${
-                  !notif.read
-                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800'
-                    : 'bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
-                }`}
+                key={n.id}
+                className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer"
+                onClick={() => navigate(`/admin/notifications/${n.id}`)}
               >
-                {/* Checkbox */}
+
                 <input
                   type="checkbox"
-                  checked={selectedIds.has(notif.id)}
-                  onChange={() => toggleSelect(notif.id)}
+                  checked={selectedIds.has(n.id)}
+                  onChange={() => toggleSelect(n.id)}
                   onClick={(e) => e.stopPropagation()}
-                  className="w-4 h-4 rounded cursor-pointer"
                 />
 
-                {/* Unread indicator */}
-                {!notif.read && (
-                  <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0"></div>
-                )}
+                {!n.read && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
 
-                {/* Content */}
-                <div
-                  className="flex-1 min-w-0 cursor-pointer"
-                  onClick={() => navigate(`/admin/notifications/${notif.id}`)}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className={`font-semibold text-gray-900 dark:text-white ${!notif.read ? 'font-bold' : ''}`}>
-                      {notif.ticket_number || 'N/A'}
-                    </h3>
-                    {notif.category && (
-                      <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
-                        {RoadTypeLabel[notif.category as keyof typeof RoadTypeLabel] || notif.category}
+                <div className="flex-1">
+                  <div className="flex gap-2 items-center">
+
+                    <b>{n.ticket_number}</b>
+
+                    {n.category && (
+                      <span className="text-xs px-2 py-0.5 bg-blue-100 rounded">
+                        {safeLabel(RoadTypeLabel, n.category)}
                       </span>
                     )}
-                    {notif.priority && (
-                      <span
-                        className={`text-xs px-2 py-0.5 bg-${getPriorityColor(notif.priority)}-100 dark:bg-${getPriorityColor(notif.priority)}-900 text-${getPriorityColor(notif.priority)}-800 dark:text-${getPriorityColor(notif.priority)}-200 rounded`}
-                      >
-                        {PriorityLabel[notif.priority as keyof typeof PriorityLabel] || notif.priority}
+
+                    {n.priority && (
+                      <span className={`text-xs px-2 py-0.5 rounded ${getPriorityStyle(n.priority)}`}>
+                        {safeLabel(PriorityLabel, n.priority)}
                       </span>
                     )}
                   </div>
-                  <p className={`text-sm text-gray-600 dark:text-gray-400 truncate ${!notif.read ? 'font-semibold' : ''}`}>
-                    {notif.description}
+
+                  <p className="text-sm text-gray-500 truncate">
+                    {n.description}
                   </p>
-                  <div className="flex items-center gap-4 mt-2 text-xs text-gray-500 dark:text-gray-400">
+
+                  <div className="flex gap-3 text-xs text-gray-400 mt-1">
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
-                      {getRelativeTime(notif.timestamp)}
+                      {getRelativeTime(n.timestamp)}
                     </span>
-                    {notif.reporter_name && (
-                      <span>{notif.reporter_name}</span>
-                    )}
                   </div>
                 </div>
 
-                {/* Status icon */}
-                {notif.read ? (
-                  <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+                {n.read ? (
+                  <CheckCircle className="text-green-500 w-5 h-5" />
                 ) : (
-                  <AlertTriangle className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                  <AlertTriangle className="text-blue-500 w-5 h-5" />
                 )}
               </div>
             ))}
@@ -390,32 +344,21 @@ const NotificationsList: React.FC = () => {
         )}
       </div>
 
-      {/* Pagination */}
+      {/* PAGINATION */}
       {totalPages > 1 && (
-        <div className="flex items-center justify-between py-4 px-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg">
-          <button
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 text-gray-700 dark:text-gray-300"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Sebelumnya
+        <div className="flex justify-between p-4 border rounded-lg">
+          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+            Prev
           </button>
 
-          <span className="text-sm text-gray-600 dark:text-gray-400">
-            Halaman {currentPage} dari {totalPages}
-          </span>
+          <span>{currentPage} / {totalPages}</span>
 
-          <button
-            onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-            disabled={currentPage === totalPages}
-            className="flex items-center gap-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 text-gray-700 dark:text-gray-300"
-          >
-            Selanjutnya
-            <ChevronRight className="w-4 h-4" />
+          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
+            Next
           </button>
         </div>
       )}
+
     </div>
   );
 };

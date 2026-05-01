@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Complaint, ComplaintStatus, RoadType } from '../../types';
+import { Complaint, ComplaintStatus, ComplaintStatusLabel, RoadType, RoadTypeLabel } from '../../types';
 import { parseFirestoreDate, formatIndonesianDate } from '../../src/lib/dateUtils';
 import StatusBadge from '../../components/StatusBadge';
 import { supabase } from '../../src/supabase';
@@ -611,7 +611,9 @@ const ComplaintList: React.FC = () => {
               >
                 <option value="ALL">Semua Status</option>
                 {Object.values(ComplaintStatus).map(s => (
-                  <option key={s} value={s}>{s}</option>
+                  <option key={s} value={s}>
+                    {ComplaintStatusLabel[s as keyof typeof ComplaintStatusLabel]}
+                  </option>
                 ))}
               </select>
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
@@ -684,7 +686,7 @@ const ComplaintList: React.FC = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-slate-900 dark:text-white truncate max-w-[200px]" title={complaint.location}>{complaint.location}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-300 mt-0.5">{complaint.category}</div>
+                    <div className="text-xs text-slate-500 dark:text-slate-300 mt-0.5">{RoadTypeLabel[complaint.category]}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <StatusBadge status={complaint.status} />
@@ -987,7 +989,11 @@ const ComplaintList: React.FC = () => {
                     onChange={e => setAddEditForm({...addEditForm, status: e.target.value})}
                     className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                   >
-                    {Object.values(ComplaintStatus).map(s => <option key={s} value={s}>{s}</option>)}
+                    {Object.values(ComplaintStatus).map(s => (
+                      <option key={s} value={s}>
+                        {ComplaintStatusLabel[s as keyof typeof ComplaintStatusLabel]}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
