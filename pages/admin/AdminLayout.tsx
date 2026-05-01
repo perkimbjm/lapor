@@ -60,6 +60,7 @@ const NotificationDropdown = ({
   setShow,
   onMarkAll,
   onOpen,
+  panelRef,
 }: any) => {
   return (
     <div className="relative">
@@ -76,7 +77,7 @@ const NotificationDropdown = ({
       </button>
 
       {show && createPortal(
-        <div className="fixed inset-x-0 top-20 bottom-0 sm:inset-x-auto sm:bottom-auto sm:right-4 sm:w-96 bg-white dark:bg-slate-800 border sm:rounded-xl shadow-xl z-[9998] flex flex-col">
+        <div ref={panelRef} className="fixed inset-x-0 top-20 bottom-0 sm:inset-x-auto sm:bottom-auto sm:right-4 sm:w-96 bg-white dark:bg-slate-800 border sm:rounded-xl shadow-xl z-[9998] flex flex-col">
           <div className="p-3 border-b flex justify-between shrink-0">
             <span className="text-sm font-bold dark:text-white">Notifikasi</span>
 
@@ -175,16 +176,19 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
   const [notifications, setNotifications] = useState<any[]>([]);
 
   const notifRef = useRef<HTMLDivElement>(null);
+  const notifPanelRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<any>(null);
 
   /* CLOSE OUTSIDE CLICK */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
-        setShowNotif(false);
-      }
-      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      const insideButton = notifRef.current?.contains(target);
+      const insidePanel = notifPanelRef.current?.contains(target);
+      if (!insideButton && !insidePanel) setShowNotif(false);
+
+      if (profileRef.current && !profileRef.current.contains(target)) {
         setShowProfile(false);
       }
     };
@@ -297,6 +301,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
                 show={showNotif}
                 setShow={setShowNotif}
                 onMarkAll={markAllRead}
+                panelRef={notifPanelRef}
                 onOpen={(id: string) => {
                   navigate(`/admin/notifications/${id}`);
                   setShowNotif(false);
