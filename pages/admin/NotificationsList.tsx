@@ -115,7 +115,7 @@ const NotificationsList: React.FC = () => {
       result = result.filter(
         (n) =>
           n.ticket_number?.toLowerCase().includes(t) ||
-          n.category?.toLowerCase().includes(t) ||
+          n.category?.includes(t) ||
           n.reporter_name?.toLowerCase().includes(t)
       );
     }
@@ -213,8 +213,8 @@ const NotificationsList: React.FC = () => {
 
           <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="px-3 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-700 dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="all">Semua Kategori</option>
-            <option value="jalan">Jalan</option>
-            <option value="jembatan">Jembatan</option>
+            <option value="Jalan">Jalan</option>
+            <option value="Jembatan">Jembatan</option>
           </select>
 
 
