@@ -13,8 +13,6 @@ import TrackComplaint from './pages/public/TrackComplaint';
 // Admin Pages (static import - loaded immediately)
 import Dashboard from './pages/admin/Dashboard';
 import ComplaintList from './pages/admin/ComplaintList';
-import NotificationsList from './pages/admin/NotificationsList';
-import NotificationDetail from './pages/admin/NotificationDetail';
 import MaterialInventory from './pages/admin/MaterialInventory';
 import EquipmentInventory from './pages/admin/EquipmentInventory';
 import WorkforceManagement from './pages/admin/WorkforceManagement';
@@ -68,8 +66,6 @@ const App: React.FC = () => {
             >
               <Route index element={<ProtectedRoute requirePermission="DASHBOARD_READ"><Dashboard /></ProtectedRoute>} />
               <Route path="complaints" element={<ProtectedRoute requirePermission="COMPLAINTS_READ"><ComplaintList /></ProtectedRoute>} />
-              <Route path="notifications" element={<ProtectedRoute requirePermission="NOTIFICATIONS_READ"><NotificationsList /></ProtectedRoute>} />
-              <Route path="notifications/:id" element={<ProtectedRoute requirePermission="NOTIFICATIONS_READ"><NotificationDetail /></ProtectedRoute>} />
               <Route path="inventory" element={<ProtectedRoute requirePermission="INVENTORY_READ"><MaterialInventory /></ProtectedRoute>} />
               <Route path="equipment" element={<ProtectedRoute requirePermission="EQUIPMENT_READ"><EquipmentInventory /></ProtectedRoute>} />
               <Route path="workforce" element={<ProtectedRoute requirePermission="WORKFORCE_READ"><WorkforceManagement /></ProtectedRoute>} />

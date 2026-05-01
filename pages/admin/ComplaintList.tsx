@@ -466,7 +466,6 @@ const ComplaintList: React.FC = () => {
           lng:            lngRaw !== '' && !isNaN(Number(lngRaw)) ? Number(lngRaw) : null,
           description:    (row['Deskripsi'] || row['description'] || '').toString().trim(),
           status:         finalStatus,
-          is_bulk:        true,
           date_submitted: (() => {
             const raw = row['Tanggal Masuk'] ?? row['date_submitted'];
             if (!raw) return new Date().toISOString().split('T')[0];

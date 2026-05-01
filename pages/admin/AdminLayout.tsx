@@ -6,7 +6,7 @@ import {
   Menu, Bell, ChevronDown, User, LogOut, Settings,
   CheckCircle2, AlertTriangle, Info, Sun, Moon,
 } from 'lucide-react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
 import { useAuth } from '../../components/AuthContext';
 
@@ -18,7 +18,6 @@ interface AdminLayoutProps {
 const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle }) => {
   const { user, isAdmin, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const navigate = useNavigate();
   const isDark = theme === 'dark';
 
   const [pageTitle, setPageTitle] = useState(initialTitle);
@@ -181,13 +180,9 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
                   <div className="max-h-[400px] overflow-y-auto">
                     {notifications.length ? (
                       notifications.map(n => (
-                        <button
+                        <div
                           key={n.id}
-                          onClick={() => {
-                            navigate(`/admin/notifications/${n.id}`);
-                            setShowNotif(false);
-                          }}
-                          className={`w-full text-left p-3 border-b border-slate-100 dark:border-slate-700 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer ${
+                          className={`p-3 border-b border-slate-100 dark:border-slate-700 last:border-0 ${
                             !n.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
                           }`}
                         >
@@ -199,16 +194,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
                                 ? <CheckCircle2 size={14} />
                                 : <Info size={14} />}
                             </span>
-                            <div className="flex-1 min-w-0">
-                              <p className={`text-sm font-medium text-slate-900 dark:text-white ${!n.read ? 'font-bold' : ''}`}>
-                                {n.ticket_number || n.title}
-                              </p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
-                                {n.description || n.desc}
-                              </p>
+                            <div>
+                              <p className="text-sm font-medium text-slate-900 dark:text-white">{n.title}</p>
+                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{n.desc}</p>
                             </div>
                           </div>
-                        </button>
+                        </div>
                       ))
                     ) : (
                       <div className="p-6 text-center text-sm text-slate-400 dark:text-slate-500">
@@ -216,16 +207,6 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
                       </div>
                     )}
                   </div>
-
-                  {notifications.length > 0 && (
-                    <Link
-                      to="/admin/notifications"
-                      onClick={() => setShowNotif(false)}
-                      className="block w-full px-4 py-2.5 text-center text-sm text-blue-600 dark:text-blue-400 hover:bg-slate-50 dark:hover:bg-slate-700 border-t border-slate-100 dark:border-slate-700 transition-colors"
-                    >
-                      Lihat semua notifikasi
-                    </Link>
-                  )}
                 </div>
               )}
             </div>
