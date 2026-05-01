@@ -1,9 +1,9 @@
 export enum ComplaintStatus {
-  PENDING = 'pending',
-  RECEIVED = 'received',
-  REJECTED = 'rejected',
-  SURVEY = 'survey',
-  COMPLETED = 'completed',
+  PENDING = 'Belum dikerjakan',
+  RECEIVED = 'Diterima',
+  REJECTED = 'Tidak diterima',
+  SURVEY = 'Disurvey',
+  COMPLETED = 'Selesai dikerjakan',
 }
 
 export const ComplaintStatusLabel = {
