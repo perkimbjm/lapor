@@ -94,7 +94,7 @@ const NotificationsList: React.FC = () => {
       let query = supabase.from('notifications').select('*');
 
       if (isUser && userPhone) {
-        query = query.eq('user_phone', userPhone);
+        query = query.eq('reporter_phone', userPhone);
       }
 
       const { data, error } = await query.order('timestamp', { ascending: false });
@@ -208,33 +208,33 @@ const NotificationsList: React.FC = () => {
     <div className="space-y-6">
 
       {/* FILTER */}
-      <div className="bg-white dark:bg-gray-900 border rounded-lg p-4 space-y-4">
+      <div className="bg-white dark:bg-slate-800 shadow-sm rounded-2xl border border-slate-100 dark:border-slate-700 p-6 sm:p-8 space-y-4">
 
         <div className="relative">
-          <Search className="absolute left-3 top-3 w-5 h-5 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 dark:text-slate-500" />
           <input
-            className="w-full pl-10 p-2 border rounded-lg dark:bg-gray-800"
-            placeholder="Cari..."
+            className="w-full pl-10 py-2.5 px-3 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-700 dark:text-white text-slate-900 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-500"
+            placeholder="Cari notifikasi..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        <div className="grid md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
 
-          <select value={readFilter} onChange={(e) => setReadFilter(e.target.value as any)} className="p-2 border rounded-lg">
-            <option value="all">Semua ({unreadCount} unread)</option>
+          <select value={readFilter} onChange={(e) => setReadFilter(e.target.value as any)} className="px-3 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-700 dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="all">Semua ({unreadCount} belum dibaca)</option>
             <option value="unread">Belum dibaca</option>
             <option value="read">Sudah dibaca</option>
           </select>
 
-          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="p-2 border rounded-lg">
+          <select value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)} className="px-3 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-700 dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="all">Semua Kategori</option>
             <option value="jalan">Jalan</option>
             <option value="jembatan">Jembatan</option>
           </select>
 
-          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="p-2 border rounded-lg">
+          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="px-3 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-700 dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="all">Semua Prioritas</option>
             <option value="low">Rendah</option>
             <option value="medium">Sedang</option>
@@ -250,7 +250,7 @@ const NotificationsList: React.FC = () => {
                 setCategoryFilter('all');
                 setPriorityFilter('all');
               }}
-              className="border rounded-lg flex items-center gap-2 justify-center"
+              className="border border-slate-200 dark:border-slate-600 rounded-xl flex items-center gap-2 justify-center hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition"
             >
               <X className="w-4 h-4" /> Reset
             </button>
@@ -258,13 +258,14 @@ const NotificationsList: React.FC = () => {
         </div>
 
         {selectedIds.size > 0 && (
-          <div className="flex justify-between bg-blue-50 p-3 rounded-lg">
-            <span>{selectedIds.size} dipilih</span>
+          <div className="flex justify-between items-center bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 rounded-xl">
+            <span className="text-sm font-medium text-blue-900 dark:text-blue-200">{selectedIds.size} dipilih</span>
             <button
               onClick={handleMarkRead}
               disabled={marking}
-              className="bg-blue-600 text-white px-3 py-1 rounded"
+              className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2"
             >
+              {marking && <Loader2 className="w-4 h-4 animate-spin" />}
               {marking ? 'Loading...' : 'Tandai dibaca'}
             </button>
           </div>
@@ -275,22 +276,33 @@ const NotificationsList: React.FC = () => {
       <div className="space-y-3">
 
         {paginated.length === 0 ? (
-          <div className="p-8 text-center">Tidak ada data</div>
+          <div className="bg-white dark:bg-slate-800 shadow-sm rounded-2xl border border-slate-100 dark:border-slate-700 p-12 text-center">
+            <div className="flex flex-col items-center gap-3">
+              <div className="w-12 h-12 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-slate-400 dark:text-slate-500" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-slate-900 dark:text-white">Tidak ada data</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Notifikasi belum tersedia saat ini</p>
+              </div>
+            </div>
+          </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 bg-gray-50 p-2 rounded">
+            <div className="flex items-center gap-3 bg-slate-50 dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-700">
               <input
                 ref={selectAllRef}
                 type="checkbox"
                 onChange={handleSelectAll}
+                className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 accent-blue-500 cursor-pointer"
               />
-              <span className="text-xs">Pilih semua</span>
+              <span className="text-xs font-medium text-slate-700 dark:text-slate-300">Pilih semua di halaman ini</span>
             </div>
 
             {paginated.map((n) => (
               <div
                 key={n.id}
-                className="flex items-center gap-3 p-4 border rounded-lg cursor-pointer"
+                className="flex items-center gap-3 p-4 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-sm hover:shadow-md hover:border-slate-200 dark:hover:border-slate-600 cursor-pointer transition-all"
                 onClick={() => navigate(`/admin/notifications/${n.id}`)}
               >
 
@@ -299,44 +311,45 @@ const NotificationsList: React.FC = () => {
                   checked={selectedIds.has(n.id)}
                   onChange={() => toggleSelect(n.id)}
                   onClick={(e) => e.stopPropagation()}
+                  className="w-4 h-4 rounded border-slate-300 dark:border-slate-600 accent-blue-500 cursor-pointer"
                 />
 
-                {!n.read && <div className="w-2 h-2 bg-blue-500 rounded-full" />}
+                {!n.read && <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0" />}
 
                 <div className="flex-1">
-                  <div className="flex gap-2 items-center">
+                  <div className="flex gap-2 items-center flex-wrap">
 
-                    <b>{n.ticket_number}</b>
+                    <b className="text-slate-900 dark:text-white">{n.ticket_number}</b>
 
                     {n.category && (
-                      <span className="text-xs px-2 py-0.5 bg-blue-100 rounded">
+                      <span className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 rounded-lg">
                         {safeLabel(RoadTypeLabel, n.category)}
                       </span>
                     )}
 
                     {n.priority && (
-                      <span className={`text-xs px-2 py-0.5 rounded ${getPriorityStyle(n.priority)}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded-lg ${getPriorityStyle(n.priority)}`}>
                         {safeLabel(PriorityLabel, n.priority)}
                       </span>
                     )}
                   </div>
 
-                  <p className="text-sm text-gray-500 truncate">
+                  <p className="text-sm text-slate-600 dark:text-slate-400 truncate mt-1">
                     {n.description}
                   </p>
 
-                  <div className="flex gap-3 text-xs text-gray-400 mt-1">
+                  <div className="flex gap-3 text-xs text-slate-500 dark:text-slate-400 mt-2">
                     <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                      <Clock className="w-3 h-3 flex-shrink-0" />
                       {getRelativeTime(n.timestamp)}
                     </span>
                   </div>
                 </div>
 
                 {n.read ? (
-                  <CheckCircle className="text-green-500 w-5 h-5" />
+                  <CheckCircle className="text-green-500 dark:text-green-400 w-5 h-5 flex-shrink-0" />
                 ) : (
-                  <AlertTriangle className="text-blue-500 w-5 h-5" />
+                  <AlertTriangle className="text-blue-500 dark:text-blue-400 w-5 h-5 flex-shrink-0" />
                 )}
               </div>
             ))}
@@ -346,15 +359,27 @@ const NotificationsList: React.FC = () => {
 
       {/* PAGINATION */}
       {totalPages > 1 && (
-        <div className="flex justify-between p-4 border rounded-lg">
-          <button onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
-            Prev
+        <div className="flex justify-between items-center bg-white dark:bg-slate-800 shadow-sm rounded-2xl border border-slate-100 dark:border-slate-700 p-4">
+          <button
+            onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="flex items-center gap-2 px-4 py-2 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Sebelumnya
           </button>
 
-          <span>{currentPage} / {totalPages}</span>
+          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+            Halaman <span className="font-bold text-slate-900 dark:text-white">{currentPage}</span> dari <span className="font-bold text-slate-900 dark:text-white">{totalPages}</span>
+          </span>
 
-          <button onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
-            Next
+          <button
+            onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="flex items-center gap-2 px-4 py-2 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            Selanjutnya
+            <ChevronRight className="w-4 h-4" />
           </button>
         </div>
       )}

@@ -52,7 +52,7 @@ const NotificationDetail: React.FC = () => {
       case 'critical':
         return 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+        return 'bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-300';
     }
   };
 
@@ -72,7 +72,7 @@ const NotificationDetail: React.FC = () => {
         if (error) throw error;
 
         const isUserRole = roleName?.toLowerCase() === 'user';
-        if (isUserRole && data.user_phone !== userPhone) {
+        if (isUserRole && data.reporter_phone !== userPhone) {
           setError('Anda tidak memiliki akses untuk melihat notifikasi ini');
           return;
         }
@@ -142,16 +142,26 @@ const NotificationDetail: React.FC = () => {
 
   if (error || !notification) {
     return (
-      <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <p className="text-red-700 dark:text-red-200">
-          {error || 'Notifikasi tidak ditemukan'}
-        </p>
-        <button
-          onClick={() => navigate('/admin/notifications')}
-          className="mt-4 text-blue-600 hover:text-blue-800 underline"
-        >
-          Kembali ke daftar notifikasi
-        </button>
+      <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-sm p-8">
+        <div className="flex flex-col items-center text-center gap-4">
+          <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+            <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
+          </div>
+          <div>
+            <p className="text-slate-900 dark:text-white font-medium">
+              {error || 'Notifikasi tidak ditemukan'}
+            </p>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              Mungkin notifikasi telah dihapus atau Anda tidak memiliki akses
+            </p>
+          </div>
+          <button
+            onClick={() => navigate('/admin/notifications')}
+            className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition"
+          >
+            Kembali ke daftar notifikasi
+          </button>
+        </div>
       </div>
     );
   }
@@ -162,33 +172,33 @@ const NotificationDetail: React.FC = () => {
       <div className="flex items-center gap-4 mb-6">
         <button
           onClick={() => navigate('/admin/notifications')}
-          className="flex items-center gap-2 px-3 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition"
+          className="flex items-center gap-2 px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Kembali</span>
+          <span className="font-medium">Kembali</span>
         </button>
       </div>
 
       {/* Card */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 p-6 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-3">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+        <div className="bg-gradient-to-r from-blue-50 to-blue-100 dark:from-slate-800 dark:to-slate-800 p-6 sm:p-8 border-b border-slate-100 dark:border-slate-700">
+          <div className="flex items-start justify-between gap-4 flex-col sm:flex-row">
+            <div className="space-y-3 flex-1">
+              <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
                 {notification.ticket_number || 'N/A'}
               </h1>
 
               <div className="flex flex-wrap gap-2">
                 {notification.category && (
-                  <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm rounded-full">
+                  <span className="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-sm rounded-lg font-medium">
                     {safeLabel(RoadTypeLabel, notification.category)}
                   </span>
                 )}
 
                 {notification.priority && (
                   <span
-                    className={`px-3 py-1 text-sm rounded-full ${getPriorityStyle(
+                    className={`px-3 py-1 text-sm rounded-lg font-medium ${getPriorityStyle(
                       notification.priority
                     )}`}
                   >
@@ -197,7 +207,7 @@ const NotificationDetail: React.FC = () => {
                 )}
 
                 {notification.status && (
-                  <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900 text-purple-800 dark:text-purple-200 text-sm rounded-full">
+                  <span className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 text-sm rounded-lg font-medium">
                     {safeLabel(ComplaintStatus, notification.status)}
                   </span>
                 )}
@@ -208,7 +218,7 @@ const NotificationDetail: React.FC = () => {
               <button
                 onClick={handleMarkAsRead}
                 disabled={marking}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-xl font-medium transition flex-shrink-0"
               >
                 {marking ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -222,36 +232,36 @@ const NotificationDetail: React.FC = () => {
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-6">
+        <div className="p-6 sm:p-8 space-y-6">
           <div>
-            <h2 className="text-lg font-semibold mb-2">Deskripsi</h2>
-            <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">Deskripsi</h2>
+            <p className="text-slate-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
               {notification.description || '-'}
             </p>
           </div>
 
           {notification.location && (
             <div>
-              <h2 className="text-lg font-semibold mb-2">Lokasi</h2>
-              <p className="text-gray-700 dark:text-gray-300">
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">Lokasi</h2>
+              <p className="text-slate-700 dark:text-slate-300">
                 {notification.location}
               </p>
             </div>
           )}
 
           <div>
-            <h2 className="text-lg font-semibold mb-2">Pelapor</h2>
-            <p className="text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">Pelapor</h2>
+            <p className="text-slate-900 dark:text-white">
               {notification.reporter_name || '-'}
             </p>
           </div>
 
-          <div className="border-t pt-6 space-y-4">
+          <div className="border-t border-slate-100 dark:border-slate-700 pt-6 space-y-4">
             <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-gray-400" />
+              <Clock className="w-5 h-5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
               <div>
-                <p className="text-sm text-gray-500">Waktu</p>
-                <p className="text-gray-900 dark:text-white">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Waktu</p>
+                <p className="text-slate-900 dark:text-white">
                   {notification.timestamp
                     ? formatIndonesianDate(notification.timestamp, true)
                     : '-'}
@@ -260,10 +270,10 @@ const NotificationDetail: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-gray-400" />
+              <AlertTriangle className="w-5 h-5 text-slate-400 dark:text-slate-500 flex-shrink-0" />
               <div>
-                <p className="text-sm text-gray-500">Tipe</p>
-                <p className="text-gray-900 dark:text-white capitalize">
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Tipe</p>
+                <p className="text-slate-900 dark:text-white capitalize">
                   {notification.type || '-'}
                 </p>
               </div>

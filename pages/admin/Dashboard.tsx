@@ -57,7 +57,7 @@ const Dashboard: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
 
   useEffect(() => {
-    setPageTitle("Dashboard Operasional");
+    setPageTitle("Dashboard");
   }, [setPageTitle]);
 
   const currentYear = new Date().getFullYear();

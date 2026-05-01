@@ -148,7 +148,7 @@ Deno.serve(async (req: Request) => {
           type: "complaint",
           read: false,
 
-          user_phone: phone.trim(),
+          reporter_phone: phone.trim(),
 
           complaint_id: id,
           ticket_number,

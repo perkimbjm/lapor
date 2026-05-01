@@ -162,8 +162,6 @@ export interface Notification {
   reporter_name?: string;
   reporter_phone?: string;
 
-  user_phone?: string;
-
   read: boolean;
 
   timestamp: string;
