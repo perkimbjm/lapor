@@ -842,8 +842,8 @@ const Reports: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-slate-800 shadow-sm rounded-3xl border border-slate-100 dark:border-slate-700 p-6 sm:p-8">
               <h3 className="text-lg font-black text-slate-900 dark:text-white mb-6 uppercase tracking-tight">Realisasi vs Anggaran Bulanan</h3>
-              <div className="h-72">
-                <ResponsiveContainer width="99%" height="100%">
+              <div className="h-72 w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <BarChart data={monthlyTrend}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} />
                     <XAxis dataKey="month" tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 900}} axisLine={false} />
@@ -862,8 +862,8 @@ const Reports: React.FC = () => {
 
             <div className="bg-white dark:bg-slate-800 shadow-sm rounded-3xl border border-slate-100 dark:border-slate-700 p-6 sm:p-8">
               <h3 className="text-lg font-black text-slate-900 dark:text-white mb-6 uppercase tracking-tight">Alokasi Belanja Sektoral</h3>
-              <div className="h-72 flex items-center justify-center">
-                <ResponsiveContainer width="99%" height="100%">
+              <div className="h-72 w-full flex items-center justify-center">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <PieChart>
                     <Pie
                       data={sectoralAllocation}

@@ -64,7 +64,7 @@ const NotificationDropdown = ({
     <div className="relative">
       <button
         onClick={() => setShow(!show)}
-        className="relative p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+        className="relative p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
       >
         <Bell size={20} />
         {unreadCount > 0 && (
@@ -118,7 +118,7 @@ const ProfileDropdown = ({ user, show, setShow, onLogout }: any) => {
     <div className="relative">
       <button
         onClick={() => setShow(!show)}
-        className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+        className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
       >
         <User size={20} />
       </button>
@@ -248,8 +248,20 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
 
+      {/* MOBILE OVERLAY */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* SIDEBAR */}
-      <div className={`fixed inset-y-0 left-0 z-50 ${isCollapsed ? 'w-20' : 'w-64'}`}>
+      <div className={`fixed inset-y-0 left-0 z-40 transition-all duration-300 w-64 ${
+        isCollapsed ? 'md:w-20' : 'md:w-64'
+      } ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } md:translate-x-0`}>
         <AdminSidebar
           isCollapsed={isCollapsed}
           onToggleCollapse={() => setIsCollapsed(v => !v)}
@@ -257,21 +269,21 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
       </div>
 
       {/* MAIN */}
-      <div className={`${isCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
+      <div className={`transition-all duration-300 ${isCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
 
         {/* HEADER */}
-        <header className="flex justify-between items-center h-20 px-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b">
+        <header className="flex justify-between items-center h-20 px-6 bg-white dark:bg-slate-900 backdrop-blur border-b border-slate-200 dark:border-slate-700">
 
-          <button onClick={() => setSidebarOpen(v => !v)} className="md:hidden">
+          <button onClick={() => setSidebarOpen(v => !v)} className="md:hidden text-slate-700 dark:text-slate-300">
             <Menu />
           </button>
 
-          <h1 className="font-bold text-lg">{pageTitle}</h1>
+          <h1 className="font-bold text-lg text-slate-900 dark:text-white">{pageTitle}</h1>
 
           <div className="flex items-center gap-2">
 
             {/* THEME */}
-            <button onClick={toggleTheme} className="p-2">
+            <button onClick={toggleTheme} className="p-2 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white">
               {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
