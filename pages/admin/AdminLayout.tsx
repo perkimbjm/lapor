@@ -164,7 +164,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
   const navigate = useNavigate();
   const isDark = theme === 'dark';
 
-  const [pageTitle] = useState(title);
+  const [pageTitle, setPageTitle] = useState(title);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -305,7 +305,7 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
 
         {/* CONTENT */}
         <main className="p-6">
-          <Outlet />
+          <Outlet context={{ setPageTitle }} />
         </main>
 
       </div>
