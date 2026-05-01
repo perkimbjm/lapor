@@ -94,7 +94,7 @@ const LandingPage: React.FC = () => {
             backgroundPosition: 'center',
           }}
         >
-          <div className="absolute inset-0 bg-gradient-to-b from-white/70 to-white/90 dark:from-slate-950/70 dark:to-slate-950/95" />
+          <div className="absolute inset-0 bg-gradient-to-b from-white/90 to-white/40 dark:from-slate-950/70 dark:to-slate-950/80" />
         </div>
         
         {/* Decorative Gradients */}
@@ -140,8 +140,8 @@ const LandingPage: React.FC = () => {
                   {stat.icon}
                 </div>
                 <div className="text-left">
-                  <div className="text-3xl font-black text-slate-900 dark:text-white">{stat.value}</div>
-                  <div className="text-sm font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">{stat.label}</div>
+                  <div className="text-3xl font-black text-slate-00 dark:text-white">{stat.value}</div>
+                  <div className="text-sm font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{stat.label}</div>
                 </div>
               </div>
             ))}
