@@ -22,10 +22,10 @@ export enum PriorityLevel {
 }
 
 export const PriorityLabel = {
-  LOW = 'Rendah',
-  MEDIUM = 'Sedang',
-  HIGH = 'Tinggi',
-  CRITICAL = 'Darurat',
+  LOW : 'Rendah',
+  MEDIUM : 'Sedang',
+  HIGH : 'Tinggi',
+  CRITICAL : 'Darurat',
 }
 
 export enum RoadType {
