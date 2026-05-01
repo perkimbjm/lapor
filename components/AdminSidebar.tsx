@@ -18,7 +18,8 @@ import {
   Users,
   Shield,
   Key,
-  Activity
+  Activity,
+  Bell
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import { useAuth } from './AuthContext';
@@ -46,6 +47,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
     { name: 'Manajemen Role', path: '/admin/roles', icon: <Shield size={20} />, permission: 'ROLES_READ' },
     { name: 'Manajemen Izin', path: '/admin/permissions', icon: <Key size={20} />, permission: 'PERMISSIONS_READ' },
     { name: 'Audit Log', path: '/admin/audit-logs', icon: <Activity size={20} />, permission: 'AUDIT_LOG_READ' },
+    { name: 'Notifikasi', path: '/admin/notifications', icon: <Bell size={20} />, permission: 'NOTIFICATIONS_READ' },
   ];
 
   const isActive = (path: string) => {

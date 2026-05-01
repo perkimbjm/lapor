@@ -6,6 +6,8 @@ export const ComplaintStatus = {
   COMPLETED: 'Selesai dikerjakan',
 } as const;
 
+export type ComplaintStatus = typeof ComplaintStatus[keyof typeof ComplaintStatus];
+
 export enum PriorityLevel {
   LOW = 'low',
   MEDIUM = 'medium',

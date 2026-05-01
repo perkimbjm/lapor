@@ -13,6 +13,8 @@ import TrackComplaint from './pages/public/TrackComplaint';
 // Admin Pages (static import - loaded immediately)
 import Dashboard from './pages/admin/Dashboard';
 import ComplaintList from './pages/admin/ComplaintList';
+import NotificationsList from './pages/admin/NotificationsList';
+import NotificationDetail from './pages/admin/NotificationsDetail';
 import MaterialInventory from './pages/admin/MaterialInventory';
 import EquipmentInventory from './pages/admin/EquipmentInventory';
 import WorkforceManagement from './pages/admin/WorkforceManagement';
@@ -78,6 +80,8 @@ const App: React.FC = () => {
               <Route path="permissions" element={<ProtectedRoute requirePermission="PERMISSIONS_READ"><PermissionManagement /></ProtectedRoute>} />
               <Route path="activities" element={<ActivityLog />} />
               <Route path="audit-logs" element={<ProtectedRoute requirePermission="AUDIT_LOG_READ"><AuditLog /></ProtectedRoute>} />
+              <Route path="notifications" element={<ProtectedRoute requirePermission="NOTIFICATIONS_READ"><NotificationsList /></ProtectedRoute>} />
+              <Route path="notifications/:id" element={<ProtectedRoute requirePermission="NOTIFICATIONS_READ"><NotificationDetail /></ProtectedRoute>} />
             </Route>
             
             {/* Fallback */}

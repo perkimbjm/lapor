@@ -137,6 +137,14 @@ const ComplaintList: React.FC = () => {
   };
 
   type SortMode = 'newest' | 'oldest';
+  type ProcessForm = {
+    status: ComplaintStatus;
+    rejection_reason: string;
+    survey_date: string;
+    completion_date: string;
+    notes: string;
+  };
+
   const [searchTerm, setSearchTerm]     = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [sortMode, setSortMode] = useState<SortMode>('newest');
@@ -213,7 +221,7 @@ const ComplaintList: React.FC = () => {
 
   // ── Process (status update) modal ────────────────────────────────────────
   const [isProcessOpen, setIsProcessOpen] = useState(false);
-  const [processForm, setProcessForm] = useState({
+  const [processForm, setProcessForm] = useState<ProcessForm>({
     status: ComplaintStatus.RECEIVED,
     rejection_reason: '',
     survey_date: '',
@@ -612,7 +620,7 @@ const ComplaintList: React.FC = () => {
                 <option value="ALL">Semua Status</option>
                 {Object.values(ComplaintStatus).map(s => (
                   <option key={s} value={s}>
-                    {s}
+                    {status}
                   </option>
                 ))}
               </select>
@@ -991,7 +999,7 @@ const ComplaintList: React.FC = () => {
                   >
                     {Object.values(ComplaintStatus).map(s => (
                       <option key={s} value={s}>
-                        {s}
+                        {status}
                       </option>
                     ))}
                   </select>

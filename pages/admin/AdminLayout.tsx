@@ -1,49 +1,197 @@
-// pages/admin/AdminLayout.tsx — Supabase v2 stable realtime (strict fix + StrictMode guard)
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import AdminSidebar from '../../components/AdminSidebar';
 import { useTheme } from '../../components/ThemeContext';
 import {
-  Menu, Bell, ChevronDown, User, LogOut, Settings,
+  Menu, Bell, User, LogOut, Settings,
   CheckCircle2, AlertTriangle, Info, Sun, Moon,
 } from 'lucide-react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
 import { useAuth } from '../../components/AuthContext';
 
 interface AdminLayoutProps {
-  children: React.ReactNode;
   title: string;
 }
 
-const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle }) => {
-  const { user, isAdmin, signOut } = useAuth();
+/* =========================
+   NOTIFICATION ITEM
+========================= */
+const NotificationItem = ({ n, onClick }: any) => {
+  const Icon =
+    n.type === 'warning'
+      ? AlertTriangle
+      : n.type === 'success'
+      ? CheckCircle2
+      : Info;
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left p-3 border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition ${
+        !n.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+      }`}
+    >
+      <div className="flex gap-2">
+        <span className="mt-0.5 text-slate-500 dark:text-slate-400">
+          <Icon size={14} />
+        </span>
+
+        <div className="flex-1 min-w-0">
+          <p className={`text-sm text-slate-900 dark:text-white ${!n.read ? 'font-bold' : ''}`}>
+            {n.title || n.ticket_number}
+          </p>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+            {n.desc || n.description}
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+};
+
+/* =========================
+   NOTIFICATION DROPDOWN
+========================= */
+const NotificationDropdown = ({
+  notifications,
+  unreadCount,
+  show,
+  setShow,
+  onMarkAll,
+  onOpen,
+}: any) => {
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShow(!show)}
+        className="relative p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+      >
+        <Bell size={20} />
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full px-1">
+            {unreadCount}
+          </span>
+        )}
+      </button>
+
+      {show && (
+        <div className="absolute right-0 mt-3 w-96 bg-white dark:bg-slate-800 border rounded-xl shadow-xl z-50">
+          <div className="p-3 border-b flex justify-between">
+            <span className="text-sm font-bold">Notifikasi</span>
+
+            {unreadCount > 0 && (
+              <button
+                onClick={onMarkAll}
+                className="text-xs text-blue-500 hover:underline"
+              >
+                Tandai semua dibaca
+              </button>
+            )}
+          </div>
+
+          <div className="max-h-[400px] overflow-y-auto">
+            {notifications.length ? (
+              notifications.map((n: any) => (
+                <NotificationItem
+                  key={n.id}
+                  n={n}
+                  onClick={() => onOpen(n.id)}
+                />
+              ))
+            ) : (
+              <div className="p-6 text-center text-sm text-slate-400">
+                Tidak ada notifikasi
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* =========================
+   PROFILE DROPDOWN
+========================= */
+const ProfileDropdown = ({ user, show, setShow, onLogout }: any) => {
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShow(!show)}
+        className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
+      >
+        <User size={20} />
+      </button>
+
+      {show && (
+        <div className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-800 border rounded-xl shadow-xl overflow-hidden">
+          <div className="p-4 border-b">
+            <div className="font-bold text-sm">
+              {user?.user_metadata?.full_name ||
+                user?.email?.split('@')[0]}
+            </div>
+            <div className="text-xs text-slate-500">{user?.email}</div>
+          </div>
+
+          <Link
+            to="/admin/settings"
+            className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-700"
+            onClick={() => setShow(false)}
+          >
+            <Settings size={14} />
+            Pengaturan
+          </Link>
+
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 border-t"
+          >
+            <LogOut size={14} />
+            Keluar
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* =========================
+   MAIN LAYOUT
+========================= */
+const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
+  const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const isDark = theme === 'dark';
 
-  const [pageTitle, setPageTitle] = useState(initialTitle);
+  const [pageTitle] = useState(title);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<any>(null);
 
+  /* CLOSE OUTSIDE CLICK */
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
         setShowNotif(false);
       }
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
         setShowProfile(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  /* FETCH NOTIF */
   const fetchNotifications = useCallback(async () => {
     const { data } = await supabase
       .from('notifications')
@@ -53,20 +201,15 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
     if (data) setNotifications(data);
   }, []);
 
-  const channelRef = useRef<any>(null);
-
+  /* REALTIME */
   useEffect(() => {
     if (!user?.id) return;
 
-    // Initial fetch + subscribe sekali. Tidak ada refetch saat ganti tab —
-    // Supabase Realtime auto-reconnect (lihat reconnectAfterMs di src/supabase.ts)
-    // dan akan push perubahan baru via websocket saat reconnect.
     fetchNotifications();
-
-    if (channelRef.current) return; // StrictMode guard
+    if (channelRef.current) return;
 
     const channel = supabase
-      .channel(`admin-layout-notifs-${user.id}`)
+      .channel(`notif-${user.id}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'notifications' },
@@ -77,186 +220,94 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ children, title: initialTitle
     channelRef.current = channel;
 
     return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
+      supabase.removeChannel(channel);
+      channelRef.current = null;
     };
   }, [user?.id, fetchNotifications]);
+
+  const unreadCount = notifications.filter(n => !n.read).length;
+
+  const markAllRead = async () => {
+    const unread = notifications.filter(n => !n.read);
+
+    await Promise.all(
+      unread.map(n =>
+        supabase.from('notifications').update({ read: true }).eq('id', n.id)
+      )
+    );
+
+    setNotifications(prev =>
+      prev.map(n => ({ ...n, read: true }))
+    );
+  };
 
   const handleLogout = async () => {
     await signOut();
   };
 
-  const markAllRead = async () => {
-    const unread = notifications.filter(n => !n.read);
-
-    for (const n of unread) {
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', n.id);
-    }
-
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 transition-colors font-sans">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
 
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      <div
-        className={`fixed inset-y-0 left-0 z-50 transition-all duration-300
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        md:translate-x-0 ${isCollapsed ? 'w-20' : 'w-64'}`}
-      >
+      {/* SIDEBAR */}
+      <div className={`fixed inset-y-0 left-0 z-50 ${isCollapsed ? 'w-20' : 'w-64'}`}>
         <AdminSidebar
           isCollapsed={isCollapsed}
-          onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+          onToggleCollapse={() => setIsCollapsed(v => !v)}
         />
       </div>
 
-      <div className={`flex-1 flex flex-col ${isCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
-        <header className="sticky top-0 z-30 flex justify-between items-center px-6 h-20 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-700">
+      {/* MAIN */}
+      <div className={`${isCollapsed ? 'md:pl-20' : 'md:pl-64'}`}>
 
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setSidebarOpen(v => !v)}
-              className="md:hidden p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white"
-            >
-              <Menu />
+        {/* HEADER */}
+        <header className="flex justify-between items-center h-20 px-6 bg-white/80 dark:bg-slate-900/80 backdrop-blur border-b">
+
+          <button onClick={() => setSidebarOpen(v => !v)} className="md:hidden">
+            <Menu />
+          </button>
+
+          <h1 className="font-bold text-lg">{pageTitle}</h1>
+
+          <div className="flex items-center gap-2">
+
+            {/* THEME */}
+            <button onClick={toggleTheme} className="p-2">
+              {isDark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            <h1 className="text-xl font-bold hidden sm:block text-slate-900 dark:text-white">
-              {pageTitle}
-            </h1>
-          </div>
-
-          <div className="flex items-center gap-1">
-
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-            >
-              {isDark ? <Sun size={20} /> : <Moon size={20} />}
-            </button>
-
-            {/* NOTIFICATIONS */}
-            <div className="relative" ref={notifRef}>
-              <button
-                onClick={() => setShowNotif(v => !v)}
-                className="relative p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                <Bell size={20} />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 text-xs bg-red-500 text-white rounded-full px-1 leading-4">
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-
-              {showNotif && (
-                <div className="absolute right-0 mt-3 w-96 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl z-50">
-                  <div className="p-3 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-900 dark:text-white">Notifikasi</span>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={markAllRead}
-                        className="text-xs text-blue-600 dark:text-blue-400 hover:underline font-medium"
-                      >
-                        Tandai semua dibaca
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="max-h-[400px] overflow-y-auto">
-                    {notifications.length ? (
-                      notifications.map(n => (
-                        <div
-                          key={n.id}
-                          className={`p-3 border-b border-slate-100 dark:border-slate-700 last:border-0 ${
-                            !n.read ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                          }`}
-                        >
-                          <div className="flex gap-2">
-                            <span className="mt-0.5 shrink-0 text-slate-500 dark:text-slate-400">
-                              {n.type === 'warning'
-                                ? <AlertTriangle size={14} />
-                                : n.type === 'success'
-                                ? <CheckCircle2 size={14} />
-                                : <Info size={14} />}
-                            </span>
-                            <div>
-                              <p className="text-sm font-medium text-slate-900 dark:text-white">{n.title}</p>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{n.desc}</p>
-                            </div>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="p-6 text-center text-sm text-slate-400 dark:text-slate-500">
-                        Tidak ada notifikasi
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+            {/* NOTIF */}
+            <div ref={notifRef}>
+              <NotificationDropdown
+                notifications={notifications}
+                unreadCount={unreadCount}
+                show={showNotif}
+                setShow={setShowNotif}
+                onMarkAll={markAllRead}
+                onOpen={(id: string) => {
+                  navigate(`/admin/notifications/${id}`);
+                  setShowNotif(false);
+                }}
+              />
             </div>
 
             {/* PROFILE */}
-            <div className="relative" ref={profileRef}>
-              <button
-                onClick={() => setShowProfile(v => !v)}
-                className="p-2 rounded-xl text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-              >
-                <User size={20} />
-              </button>
-
-              {showProfile && (
-                <div className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xl rounded-xl overflow-hidden">
-                  <div className="p-4 border-b border-slate-100 dark:border-slate-700">
-                    <div className="text-sm font-bold text-slate-900 dark:text-white">
-                      {user?.user_metadata?.full_name || user?.email?.split('@')[0]}
-                    </div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                      {user?.email}
-                    </div>
-                  </div>
-
-                  <Link
-                    to="/admin/settings"
-                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
-                    onClick={() => setShowProfile(false)}
-                  >
-                    <Settings size={15} />
-                    Pengaturan
-                  </Link>
-
-                  <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors border-t border-slate-100 dark:border-slate-700"
-                  >
-                    <LogOut size={15} />
-                    Keluar
-                  </button>
-                </div>
-              )}
+            <div ref={profileRef}>
+              <ProfileDropdown
+                user={user}
+                show={showProfile}
+                setShow={setShowProfile}
+                onLogout={handleLogout}
+              />
             </div>
 
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto p-6">
-          {children || <Outlet context={{ setPageTitle }} />}
+        {/* CONTENT */}
+        <main className="p-6">
+          <Outlet />
         </main>
+
       </div>
     </div>
   );
