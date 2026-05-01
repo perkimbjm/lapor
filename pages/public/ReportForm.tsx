@@ -417,7 +417,7 @@ const ReportForm: React.FC = () => {
     try {
       const rawId = uuidv4();
       const ticketId = `PJJ-${rawId.slice(0, 8).toUpperCase()}`;
-      const { error } = await supabase.from('complaints').insert({
+      const { data, error } = await supabase.from('complaints').insert({
         ticket_number: ticketId,
         reporter_name: formData.name,
         reporter_phone: formData.phone,
@@ -430,9 +430,38 @@ const ReportForm: React.FC = () => {
         image_url: uploadedUrl ?? null,
         date_submitted: new Date().toISOString(),
         date_updated: new Date().toISOString(),
-      });
+      }).select();
+
       if (error) throw error;
       setTicketNumber(ticketId);
+
+      // Call Edge Function to create notifications for staff
+      if (data && data.length > 0) {
+        try {
+          const complaintId = data[0].id;
+          const response = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/notify-new-complaint`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${(await supabase.auth.getSession())?.data?.session?.access_token || ''}`
+              },
+              body: JSON.stringify({
+                complaintId: complaintId,
+                ticketNumber: ticketId
+              })
+            }
+          );
+
+          if (!response.ok) {
+            console.warn('Warning: Failed to create notifications:', response.statusText);
+          }
+        } catch (err) {
+          console.warn('Warning: Error calling notify function:', err);
+          // Don't block the flow if notification fails
+        }
+      }
     } catch (err: any) {
       console.error('Submit error:', err);
       setSubmitError(err?.message || 'Gagal mengirim laporan. Silakan coba lagi.');
