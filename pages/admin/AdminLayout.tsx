@@ -46,6 +46,7 @@ interface ProfileDropdownProps {
   show: boolean;
   setShow: (v: boolean) => void;
   onLogout: () => void;
+  panelRef: React.RefObject<HTMLDivElement>;
 }
 
 /* =========================
@@ -150,7 +151,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
 /* =========================
    PROFILE DROPDOWN
 ========================= */
-const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, show, setShow, onLogout }) => {
+const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, show, setShow, onLogout, panelRef }) => {
   return (
     <div className="relative">
       <button
@@ -160,8 +161,8 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, show, setShow, 
         <User size={20} />
       </button>
 
-      {show && (
-        <div className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-800 border rounded-xl shadow-xl z-[9998] overflow-hidden">
+      {show && createPortal(
+        <div ref={panelRef} className="fixed right-4 top-20 w-64 bg-white dark:bg-slate-800 border rounded-xl shadow-xl z-[9998] overflow-hidden">
           <div className="p-4 border-b">
             <div className="font-bold text-sm">
               {user?.user_metadata?.full_name ||
@@ -186,7 +187,8 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, show, setShow, 
             <LogOut size={14} />
             Keluar
           </button>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
@@ -344,14 +346,13 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
             </div>
 
             {/* PROFILE */}
-            <div ref={profileRef}>
-              <ProfileDropdown
-                user={user}
-                show={showProfile}
-                setShow={setShowProfile}
-                onLogout={handleLogout}
-              />
-            </div>
+            <ProfileDropdown
+              user={user}
+              show={showProfile}
+              setShow={setShowProfile}
+              onLogout={handleLogout}
+              panelRef={profileRef}
+            />
 
           </div>
         </header>
