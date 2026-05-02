@@ -99,9 +99,10 @@ const MaterialInventory: React.FC = () => {
       });
 
       setAiInsight(response.text || "Gagal menghasilkan analisa.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("AI Error:", error);
-      if (error.message && error.message.includes("Requested entity")) {
+      const errMsg = error instanceof Error ? error.message : '';
+      if (errMsg.includes("Requested entity")) {
         setShowApiKeyPrompt(true);
       } else {
         setAiInsight("Sistem AI sedang sibuk.");

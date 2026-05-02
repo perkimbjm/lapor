@@ -1,20 +1,20 @@
-
 /**
  * Safely parses a date field from Firestore which could be a Timestamp, ISO string, or number.
+ * Accepts `unknown` so callers don't need to narrow first; the function is fully defensive.
  */
-export const parseFirestoreDate = (dateField: any): Date | null => {
+export const parseFirestoreDate = (dateField: unknown): Date | null => {
   if (!dateField) return null;
-  
+
   // If it's a Firestore Timestamp (has toDate method)
-  if (dateField && typeof dateField.toDate === 'function') {
-    return dateField.toDate();
+  if (typeof (dateField as { toDate?: unknown }).toDate === 'function') {
+    return (dateField as { toDate: () => Date }).toDate();
   }
-  
+
   // If it's a Firestore Timestamp-like object { seconds, nanoseconds }
-  if (dateField && typeof dateField.seconds === 'number') {
-    return new Date(dateField.seconds * 1000);
+  if (typeof (dateField as { seconds?: number }).seconds === 'number') {
+    return new Date((dateField as { seconds: number }).seconds * 1000);
   }
-  
+
   // If it's a string (ISO or other)
   if (typeof dateField === 'string') {
     // Date-only strings (YYYY-MM-DD) are treated as UTC midnight by the spec,
@@ -25,7 +25,7 @@ export const parseFirestoreDate = (dateField: any): Date | null => {
     const d = new Date(isDateOnly ? `${s}T12:00:00` : s);
     return isNaN(d.getTime()) ? null : d;
   }
-  
+
   // If it's a number (timestamp in ms)
   if (typeof dateField === 'number') {
     return new Date(dateField);
@@ -42,10 +42,10 @@ export const parseFirestoreDate = (dateField: any): Date | null => {
 /**
  * Formats a date to a readable string in Indonesian locale.
  */
-export const formatIndonesianDate = (date: Date | string | any, includeTime: boolean = false): string => {
+export const formatIndonesianDate = (date: unknown, includeTime: boolean = false): string => {
   const d = parseFirestoreDate(date);
   if (!d) return 'Tanggal tidak valid';
-  
+
   return d.toLocaleDateString('id-ID', {
     day: 'numeric',
     month: 'long',

@@ -346,7 +346,7 @@ const ReportForm: React.FC = () => {
 
       const { data: { publicUrl } } = supabase.storage.from('reports').getPublicUrl(data.path);
       setUploadedUrl(publicUrl);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Upload error:', err);
       setUploadError('Gagal mengunggah foto. Periksa koneksi.');
     } finally {
@@ -462,9 +462,10 @@ const ReportForm: React.FC = () => {
           // Don't block the flow if notification fails
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Submit error:', err);
-      setSubmitError(err?.message || 'Gagal mengirim laporan. Silakan coba lagi.');
+      const msg = err instanceof Error ? err.message : 'Gagal mengirim laporan. Silakan coba lagi.';
+      setSubmitError(msg);
     } finally {
       setIsSubmitting(false);
     }

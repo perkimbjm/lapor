@@ -198,13 +198,13 @@ const EquipmentInventory: React.FC = () => {
                 <div><label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase">Tipe / Jenis</label><input type="text" required value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})} className="w-full mt-1 px-4 py-2.5 rounded-xl border-slate-300 dark:border-slate-600 text-sm font-bold bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all" placeholder="Contoh: Pemadat Aspal"/></div>
                 <div className="grid grid-cols-2 gap-4">
                    <div><label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase">Kategori</label>
-                      <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value as any})} className="w-full mt-1 px-4 py-2.5 rounded-xl border-slate-300 dark:border-slate-600 text-[10px] font-black uppercase tracking-tight h-11 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                      <select value={formData.category} onChange={e => setFormData({...formData, category: e.target.value as Equipment['category']})} className="w-full mt-1 px-4 py-2.5 rounded-xl border-slate-300 dark:border-slate-600 text-[10px] font-black uppercase tracking-tight h-11 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
                          <option value="Heavy">Alat Berat & Mobil</option>
                          <option value="Tool">Peralatan Pekerja</option>
                       </select>
                    </div>
                    <div><label className="text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase">Status</label>
-                      <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as any})} className="w-full mt-1 px-4 py-2.5 rounded-xl border-slate-300 dark:border-slate-600 text-[10px] font-black uppercase tracking-tight h-11 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
+                      <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value as Equipment['status']})} className="w-full mt-1 px-4 py-2.5 rounded-xl border-slate-300 dark:border-slate-600 text-[10px] font-black uppercase tracking-tight h-11 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all">
                          <option value="Tersedia">Tersedia</option>
                          <option value="Perbaikan">Rusak / Servis</option>
                       </select>

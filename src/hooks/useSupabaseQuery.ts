@@ -3,6 +3,14 @@ import { supabase } from '../supabase';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * The Supabase query builder is highly generic; we type it loosely so callers
+ * can chain `.eq()`, `.order()`, `.limit()`, etc. without us having to mirror
+ * PostgrestFilterBuilder's complex generic signature.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type QueryBuilder = any;
+
 export interface UseSupabaseQueryOptions<T> {
   /** Supabase table name */
   table: string;
@@ -15,7 +23,7 @@ export interface UseSupabaseQueryOptions<T> {
    * Called with the initial query, return the modified query.
    * Example: `(q) => q.eq('status', 'active').order('created_at', { ascending: false })`
    */
-  filter?: (query: any) => any;
+  filter?: (query: QueryBuilder) => QueryBuilder;
 
   /**
    * Realtime subscription mode (default: 'realtime').
@@ -39,7 +47,7 @@ export interface UseSupabaseQueryOptions<T> {
   enabled?: boolean;
 
   /** Transform raw rows before setting state. Runs on every fetch. */
-  transform?: (data: any[]) => T[];
+  transform?: (data: unknown[]) => T[];
 
   /**
    * Additional Supabase Realtime tables to listen to.
@@ -93,7 +101,7 @@ export function useSupabaseQuery<T = any>(
 
   const fetchData = useCallback(async () => {
     try {
-      let query = supabase.from(table).select(select);
+      let query: QueryBuilder = supabase.from(table).select(select);
 
       if (filterRef.current) {
         query = filterRef.current(query);
@@ -107,12 +115,12 @@ export function useSupabaseQuery<T = any>(
         return;
       }
 
-      const result = rows ?? [];
+      const result = (rows ?? []) as unknown[];
       setData(transformRef.current ? transformRef.current(result) : (result as T[]));
       setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[useSupabaseQuery] Unexpected error for "${table}":`, err);
-      setError(err?.message ?? 'Unknown error');
+      setError(err instanceof Error ? err.message : 'Unknown error');
     }
   }, [table, select]);
 

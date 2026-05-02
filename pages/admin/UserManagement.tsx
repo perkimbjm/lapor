@@ -2,8 +2,9 @@ import { useOutletContext } from 'react-router-dom';
 
 import React, { useState, useEffect } from 'react';
 
-import { AppUser, Role } from '../../types';
+import { AppUser, Role, type Worker } from '../../types';
 import { supabase } from '../../src/supabase';
+import type { User as SupabaseUser, Subscription } from '@supabase/supabase-js';
 import { logAuditActivity, AuditAction } from '../../src/lib/auditLogger';
 import { 
   Users, 
@@ -39,7 +40,7 @@ const UserManagement: React.FC = () => {
 
   const [users, setUsers] = useState<AppUser[]>([]);
   const [roles, setRoles] = useState<Role[]>([]);
-  const [workers, setWorkers] = useState<any[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -63,7 +64,7 @@ const UserManagement: React.FC = () => {
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
 
   useEffect(() => {
-    let authSubscription: any;
+    let authSubscription: Subscription | undefined;
 
     const initAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -75,7 +76,7 @@ const UserManagement: React.FC = () => {
       authSubscription = data.subscription;
     };
 
-    const handleUserSession = async (user: any) => {
+    const handleUserSession = async (user: SupabaseUser | null) => {
       if (!user) return;
       setIsSuperAdmin(user.email === SUPERADMIN_EMAIL);
       
@@ -164,7 +165,7 @@ const UserManagement: React.FC = () => {
       if (error) {
         console.error("Error fetching workers:", error);
       } else if (data) {
-        setWorkers(data);
+        setWorkers(data as unknown as Worker[]);
       }
     };
 
@@ -248,7 +249,7 @@ const UserManagement: React.FC = () => {
       }
 
       if (isEditing && currentId) {
-        const updateData: any = {
+        const updateData: Partial<AppUser> & { worker_id?: string | null; password?: string } = {
           display_name: formData.display_name,
           username: usernameLower,
           phone: formData.phone,
@@ -273,7 +274,7 @@ const UserManagement: React.FC = () => {
         }
         triggerToast('Pengguna berhasil diperbarui');
       } else {
-        const insertData: any = {
+        const insertData: Partial<AppUser> & { worker_id?: string | null; password?: string } = {
           email: emailLower,
           username: usernameLower,
           phone: formData.phone,
@@ -363,7 +364,7 @@ const UserManagement: React.FC = () => {
       username: user.username || '',
       phone: user.phone || '',
       role_id: user.role_id || '',
-      worker_id: (user as any).worker_id || ''
+      worker_id: user.worker_id || ''
     });
     setIsModalOpen(true);
   };

@@ -12,6 +12,14 @@ export enum OperationType {
   WRITE = 'write',
 }
 
+/** Minimal shape we need from a Supabase / Postgrest error. */
+export interface SupabaseErrorLike {
+  message: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+}
+
 export function handleSupabaseError(error: unknown, operationType: OperationType, path: string | null): never {
   const errInfo = {
     error: error instanceof Error ? error.message : String(error),
@@ -27,7 +35,7 @@ export function handleSupabaseError(error: unknown, operationType: OperationType
  * Gunakan: const data = await sb(supabase.from('x').select(), 'list', 'x')
  */
 export async function sb<T>(
-  queryPromise: PromiseLike<{ data: T | null; error: any }>,
+  queryPromise: PromiseLike<{ data: T | null; error: SupabaseErrorLike | null }>,
   operationType: OperationType,
   path: string
 ): Promise<T> {

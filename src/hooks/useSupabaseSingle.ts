@@ -3,6 +3,14 @@ import { supabase } from '../supabase';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * The Supabase query builder is highly generic; we type it as `unknown` for the
+ * filter callback so callers can chain `.eq()`, `.order()`, etc. without us
+ * having to mirror PostgrestFilterBuilder's complex generic signature.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type QueryBuilder = any;
+
 export interface UseSupabaseSingleOptions<T> {
   /** Supabase table name */
   table: string;
@@ -14,7 +22,7 @@ export interface UseSupabaseSingleOptions<T> {
    * Apply filters to narrow the query to a single row.
    * Example: `(q) => q.eq('id', 'workforce_rates')`
    */
-  filter: (query: any) => any;
+  filter: (query: QueryBuilder) => QueryBuilder;
 
   /** When false, the query is skipped. Default: true */
   enabled?: boolean;
@@ -23,7 +31,7 @@ export interface UseSupabaseSingleOptions<T> {
   defaultValue: T;
 
   /** Transform the raw row before setting state */
-  transform?: (row: any) => T;
+  transform?: (row: unknown) => T;
 }
 
 export interface UseSupabaseSingleResult<T> {
@@ -85,9 +93,9 @@ export function useSupabaseSingle<T>(
         setFound(false);
       }
       setError(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[useSupabaseSingle] Unexpected error for "${table}":`, err);
-      setError(err?.message ?? 'Unknown error');
+      setError(err instanceof Error ? err.message : 'Unknown error');
     }
   }, [table, select]);
 

@@ -154,10 +154,12 @@ const ComplaintList: React.FC = () => {
   };
 
   const filteredComplaints = useMemo(() => {
-    const isStatusMatch = (cStatus: any, target: string) => {
+    const isStatusMatch = (cStatus: ComplaintStatus | string | undefined, target: string) => {
       if (target === 'ALL') return true;
       if (cStatus === target) return true;
-      const key = Object.keys(ComplaintStatus).find(k => (ComplaintStatus as any)[k] === target);
+      const key = (Object.keys(ComplaintStatus) as Array<keyof typeof ComplaintStatus>).find(
+        k => ComplaintStatus[k] === target
+      );
       return cStatus === key;
     };
 
@@ -238,11 +240,11 @@ const ComplaintList: React.FC = () => {
     e.preventDefault();
     if (!selectedComplaint) return;
     try {
-      const updateData: any = {
+      const updateData: Partial<Complaint> = {
         status: processForm.status,
-        rejection_reason: processForm.status === ComplaintStatus.REJECTED ? processForm.rejection_reason : null,
-        survey_date: processForm.status === ComplaintStatus.SURVEY ? processForm.survey_date : (selectedComplaint.survey_date || null),
-        completion_date: processForm.status === ComplaintStatus.COMPLETED ? processForm.completion_date : (selectedComplaint.completion_date || null),
+        rejection_reason: processForm.status === ComplaintStatus.REJECTED ? processForm.rejection_reason : undefined,
+        survey_date: processForm.status === ComplaintStatus.SURVEY ? processForm.survey_date : (selectedComplaint.survey_date || undefined),
+        completion_date: processForm.status === ComplaintStatus.COMPLETED ? processForm.completion_date : (selectedComplaint.completion_date || undefined),
         notes: processForm.notes || null,
         date_updated: new Date().toISOString()
       };
@@ -304,16 +306,16 @@ const ComplaintList: React.FC = () => {
     e.preventDefault();
     setIsSubmittingAddEdit(true);
     try {
-      const payload: any = {
+      const payload: Partial<Complaint> & { created_at?: string } = {
         ticket_number: addEditForm.ticket_number || generateTicketNumber(),
-        category:       addEditForm.category,
+        category:       addEditForm.category as RoadType,
         reporter_name:  addEditForm.reporter_name,
         reporter_phone: addEditForm.reporter_phone,
         location:       addEditForm.location,
-        lat:            addEditForm.lat !== '' ? Number(addEditForm.lat) : null,
-        lng:            addEditForm.lng !== '' ? Number(addEditForm.lng) : null,
+        lat:            addEditForm.lat !== '' ? Number(addEditForm.lat) : undefined,
+        lng:            addEditForm.lng !== '' ? Number(addEditForm.lng) : undefined,
         description:    addEditForm.description,
-        status:         addEditForm.status,
+        status:         addEditForm.status as ComplaintStatus,
         date_submitted: addEditForm.date_submitted,
         date_updated:   new Date().toISOString()
       };
@@ -331,9 +333,10 @@ const ComplaintList: React.FC = () => {
         triggerToast('Aduan berhasil ditambahkan');
       }
       setIsAddEditOpen(false);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error saving complaint:', err);
-      triggerToast(`Gagal menyimpan: ${err.message || 'Terjadi kesalahan'}`);
+      const msg = err instanceof Error ? err.message : 'Terjadi kesalahan';
+      triggerToast(`Gagal menyimpan: ${msg}`);
     } finally {
       setIsSubmittingAddEdit(false);
     }
@@ -428,7 +431,7 @@ const ComplaintList: React.FC = () => {
       // cellDates: true converts Excel date serial numbers → JS Date objects
       const wb     = XLSX.read(buffer, { type: 'array', cellDates: true });
       const ws     = wb.Sheets[wb.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(ws);
+      const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
 
       if (!rows.length) {
         triggerToast('File tidak memiliki data');
@@ -457,16 +460,16 @@ const ComplaintList: React.FC = () => {
         const latRaw = row['Latitude'] ?? row['lat'] ?? '';
         const lngRaw = row['Longitude'] ?? row['lng'] ?? '';
 
-        const payload: any = {
+        const payload: Partial<Complaint> & { created_at?: string } = {
           ticket_number:  isAutoTicket ? generateTicketNumber() : ticketNum,
-          category,
+          category:       category as RoadType,
           reporter_name:  (row['Nama Pelapor'] || row['reporter_name'] || 'Import').toString().trim(),
           reporter_phone: (row['No. Telepon'] || row['reporter_phone'] || '').toString().trim(),
           location:       (row['Lokasi'] || row['location'] || '').toString().trim(),
-          lat:            latRaw !== '' && !isNaN(Number(latRaw)) ? Number(latRaw) : null,
-          lng:            lngRaw !== '' && !isNaN(Number(lngRaw)) ? Number(lngRaw) : null,
+          lat:            latRaw !== '' && !isNaN(Number(latRaw)) ? Number(latRaw) : undefined,
+          lng:            lngRaw !== '' && !isNaN(Number(lngRaw)) ? Number(lngRaw) : undefined,
           description:    (row['Deskripsi'] || row['description'] || '').toString().trim(),
-          status:         finalStatus,
+          status:         finalStatus as ComplaintStatus,
           is_bulk:        true,
           date_submitted: (() => {
             const raw = row['Tanggal Masuk'] ?? row['date_submitted'];

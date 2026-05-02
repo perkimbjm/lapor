@@ -122,7 +122,7 @@ export const IMAGE_COMPRESS_TARGET_MB = 1;
 
 // ── Superadmin ───────────────────────────────────────────────────────────────
 
-export const SUPERADMIN_EMAIL = import.meta.env.VITE_SUPERADMIN_EMAIL ?? 'denip23147@gmail.com';
+export const SUPERADMIN_EMAIL = import.meta.env.VITE_SUPERADMIN_EMAIL ?? 'fuadhasan2509@gmail.com';
 
 // ── Utility Functions ────────────────────────────────────────────────────────
 

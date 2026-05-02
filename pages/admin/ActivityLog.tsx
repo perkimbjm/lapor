@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
-import { ComplaintStatus } from '../../types';
+import {
+  ComplaintStatus,
+  type AuditLogEntry,
+  type Notification,
+  type Complaint,
+} from '../../types';
 import { parseFirestoreDate, formatIndonesianDate } from '../../src/lib/dateUtils';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 import { exportToExcel } from '../../src/lib/excel';
 import {
   Search, Calendar, Filter, X, Download, Activity, Bell,
@@ -37,7 +43,7 @@ interface DateGroup {
 
 const ITEMS_PER_PAGE = 20;
 
-const mapAuditLog = (log: any): UnifiedActivity => {
+const mapAuditLog = (log: AuditLogEntry): UnifiedActivity => {
   const actionLabels: Record<string, string> = {
     CREATE: 'Membuat',
     UPDATE: 'Memperbarui',
@@ -56,7 +62,7 @@ const mapAuditLog = (log: any): UnifiedActivity => {
   };
 };
 
-const mapNotification = (notif: any): UnifiedActivity => ({
+const mapNotification = (notif: Notification & { desc?: string }): UnifiedActivity => ({
   id: `notif-${notif.id}`,
   source: 'notification',
   title: notif.title || 'Notifikasi',
@@ -66,7 +72,7 @@ const mapNotification = (notif: any): UnifiedActivity => ({
   isRead: notif.read,
 });
 
-const mapComplaint = (c: any): UnifiedActivity => ({
+const mapComplaint = (c: Complaint): UnifiedActivity => ({
   id: `complaint-${c.id}`,
   source: 'complaint',
   title: `Aduan: ${c.ticket_number || c.id?.substring(0, 8)}`,
@@ -341,9 +347,9 @@ const ActivityLog: React.FC = () => {
   useEffect(() => { setPageTitle('Pusat Aktivitas'); }, [setPageTitle]);
 
   // Data
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [complaints, setComplaints] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -361,7 +367,7 @@ const ActivityLog: React.FC = () => {
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
-  const channelRef = useRef<any>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   // ─── Data Fetching ────────────────────────────────────────────────────────
 
@@ -371,7 +377,7 @@ const ActivityLog: React.FC = () => {
       .select('*')
       .order('timestamp', { ascending: false })
       .limit(500);
-    if (data) setAuditLogs(data);
+    if (data) setAuditLogs(data as AuditLogEntry[]);
   }, []);
 
   const fetchNotifications = useCallback(async () => {
@@ -379,7 +385,7 @@ const ActivityLog: React.FC = () => {
       .from('notifications')
       .select('*')
       .order('timestamp', { ascending: false });
-    if (data) setNotifications(data);
+    if (data) setNotifications(data as Notification[]);
   }, []);
 
   const fetchComplaints = useCallback(async () => {
@@ -387,7 +393,7 @@ const ActivityLog: React.FC = () => {
       .from('complaints')
       .select('*')
       .order('date_submitted', { ascending: false });
-    if (data) setComplaints(data);
+    if (data) setComplaints(data as Complaint[]);
   }, []);
 
   useEffect(() => {

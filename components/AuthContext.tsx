@@ -4,6 +4,30 @@ import { Session, User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { SUPERADMIN_EMAIL } from '../constants';
 
+/** Shape returned by `users.select('*, roles(name)')` — Supabase joins inflate the FK
+ *  column to a nested object (or array, for many-to-many). */
+interface UserProfileWithRole {
+  id: string;
+  email: string;
+  username?: string;
+  phone?: string | null;
+  display_name?: string | null;
+  role_id?: string | null;
+  worker_id?: string | null;
+  is_banned?: boolean;
+  created_at?: string;
+  roles?: { name?: string } | { name?: string }[] | null;
+}
+
+/** Shape returned by `role_permissions.select('permissions(code)')` */
+interface RolePermissionWithCode {
+  permissions?: { code?: string } | { code?: string }[] | null;
+}
+
+/** Resolve a possibly-array Supabase joined relation to a single record */
+const firstRel = <R,>(rel: R | R[] | null | undefined): R | undefined =>
+  Array.isArray(rel) ? rel[0] : (rel ?? undefined);
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -96,30 +120,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Hitung semua nilai TERLEBIH DAHULU sebelum set state
       // agar tidak ada jeda di mana permissions kosong sementara isAdmin sudah false
       // yang menyebabkan ProtectedRoute redirect.
-      const profileRoleName = (profile as any).roles?.name?.toLowerCase() || '';
+      const profileTyped = profile as UserProfileWithRole;
+      const profileRoleName = firstRel(profileTyped.roles)?.name?.toLowerCase() || '';
       const newIsAdmin = profileRoleName.includes('admin') || u.email === SUPERADMIN_EMAIL;
 
       let newPermissions: string[] = [];
-      if (profile.role_id) {
+      if (profileTyped.role_id) {
         const { data: rolePerms, error: rpError } = await supabase
           .from('role_permissions')
           .select('permissions(code)')
-          .eq('role_id', profile.role_id);
+          .eq('role_id', profileTyped.role_id);
 
         if (rpError) {
           console.error('Error fetching role permissions:', rpError);
         } else if (rolePerms) {
-          newPermissions = rolePerms
-            .map((rp: any) => rp.permissions?.code)
-            .filter(Boolean);
+          newPermissions = (rolePerms as RolePermissionWithCode[])
+            .map((rp) => firstRel(rp.permissions)?.code)
+            .filter((code): code is string => Boolean(code));
         }
       }
 
       // Set semua nilai sekaligus — React memproses ini dalam satu batch render
       setIsAdmin(newIsAdmin);
       setPermissions(newPermissions);
-      setWorkerId((profile as any).worker_id ?? null);
-      setUserPhone((profile as any).phone ?? null);
+      setWorkerId(profileTyped.worker_id ?? null);
+      setUserPhone(profileTyped.phone ?? null);
       setRoleName(profileRoleName);
     } catch (err) {
       console.error('Admin check failed:', err);

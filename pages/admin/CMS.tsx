@@ -77,9 +77,9 @@ const CMS: React.FC = () => {
         
       if (error) throw error;
       toast.success('Content saved successfully!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving CMS content:', error);
-      const errorMessage = error.message || 'Gagal menyimpan konten';
+      const errorMessage = error instanceof Error ? error.message : 'Gagal menyimpan konten';
       toast.error(`Error: ${errorMessage}`);
     }
     setSaving(false);
@@ -236,14 +236,14 @@ const CMS: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <input 
                     type="text" 
-                    value={(config as any)[`step${num}Title`]} 
+                    value={(config as Record<string, string>)[`step${num}Title`]}
                     onChange={e => setConfig({...config, [`step${num}Title`]: e.target.value})} 
                     placeholder="Step Title" 
                     className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" 
                   />
                   <input 
                     type="text" 
-                    value={(config as any)[`step${num}Desc`]} 
+                    value={(config as Record<string, string>)[`step${num}Desc`]} 
                     onChange={e => setConfig({...config, [`step${num}Desc`]: e.target.value})} 
                     placeholder="Step Description" 
                     className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none transition-all" 

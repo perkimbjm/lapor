@@ -153,9 +153,10 @@ const Inventory: React.FC = () => {
       });
 
       setAiInsight(response.text || "Gagal menghasilkan analisa.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("AI Error:", error);
-      if (error.message && error.message.includes("Requested entity was not found.")) {
+      const errMsg = error instanceof Error ? error.message : '';
+      if (errMsg.includes("Requested entity was not found.")) {
         setShowApiKeyPrompt(true);
         setAiInsight("API Key tidak valid atau belum disetel dari proyek berbayar. Silakan pilih kembali.");
       } else {
@@ -186,35 +187,37 @@ const Inventory: React.FC = () => {
     setIsModalOpen(true);
   };
 
-  const openEditModal = (item: any) => {
+  const openEditModal = (item: Material | Equipment) => {
     setIsEditing(true);
     setCurrentId(item.id);
     
     if (activeTab === 'material') {
+      const m = item as Material;
       setFormData({
-        name: item.name,
-        unit: item.unit,
-        current_stock: item.current_stock,
-        min_threshold: item.min_threshold,
+        name: m.name,
+        unit: m.unit,
+        current_stock: m.current_stock,
+        min_threshold: m.min_threshold,
         type: '',
         status: '',
         category: 'Heavy'
       });
     } else {
+      const e = item as Equipment;
       setFormData({
-        name: item.name,
+        name: e.name,
         unit: '',
         current_stock: 0,
         min_threshold: 0,
-        type: item.type,
-        status: item.status,
-        category: item.category || 'Heavy'
+        type: e.type,
+        status: e.status,
+        category: e.category || 'Heavy'
       });
     }
     setIsModalOpen(true);
   };
 
-  const confirmDelete = (item: any) => {
+  const confirmDelete = (item: Material | Equipment) => {
     setItemToDelete({ id: item.id, name: item.name });
   };
 

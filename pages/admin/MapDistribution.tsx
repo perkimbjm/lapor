@@ -145,7 +145,7 @@ const DetailPanel: React.FC<{
               <p className="text-xs font-mono font-bold text-blue-600 dark:text-blue-400 truncate mb-1.5">
                 {detail.ticket_number}
               </p>
-              <StatusBadge status={detail.status as any} />
+              <StatusBadge status={detail.status as ComplaintStatus} />
             </>
           ) : (
             <div className="space-y-1.5">
@@ -410,7 +410,7 @@ const MapDistribution: React.FC = () => {
       setError('Gagal mengambil data dari server');
     } else {
       const withCoords = (data ?? []).filter(
-        (c: any) =>
+        (c: { lat?: number | null; lng?: number | null }) =>
           c.lat != null && c.lng != null &&
           !isNaN(Number(c.lat)) && !isNaN(Number(c.lng))
       );
@@ -466,7 +466,7 @@ const MapDistribution: React.FC = () => {
             },
           },
           layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-        } as any,
+        } as maplibregl.StyleSpecification,
         center: [114.5928, -3.3194],
         zoom: 13,
       });
@@ -479,9 +479,9 @@ const MapDistribution: React.FC = () => {
         console.error('Map error:', e);
         setError('Gagal memuat peta');
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message);
+      setError(err instanceof Error ? err.message : 'Gagal memuat peta');
     }
 
     return () => {
@@ -513,7 +513,7 @@ const MapDistribution: React.FC = () => {
         },
       },
       layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
-    } as any);
+    } as maplibregl.StyleSpecification);
   }, []);
 
   // ── Re-render markers when data / filters / selection change ──────────────

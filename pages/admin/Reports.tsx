@@ -32,8 +32,12 @@ import {
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
 import { COST_BY_CATEGORY, CHART_COLORS, formatRupiah } from '../../constants';
+import type { Commitment, EPurchasing, CostReport } from '../../types';
 import { GoogleGenAI } from "@google/genai";
 import { toast } from 'sonner';
+
+type ReportTab = 'grafik' | 'komitmen' | 'epurchasing' | 'biaya';
+type ReportItem = Commitment | EPurchasing | CostReport;
 
 const COLORS = CHART_COLORS.GENERAL;
 
@@ -48,14 +52,14 @@ const Reports: React.FC = () => {
   const [fiscalAnalysis, setFiscalAnalysis] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [showApiKeyPrompt, setShowApiKeyPrompt] = useState(false);
-  const [selectedEPDetail, setSelectedEPDetail] = useState<any>(null);
-  const [commitments, setCommitments] = useState<any[]>([]);
-  const [epurchasing, setEpurchasing] = useState<any[]>([]);
-  const [costReports, setCostReports] = useState<any[]>([]);
+  const [selectedEPDetail, setSelectedEPDetail] = useState<EPurchasing | null>(null);
+  const [commitments, setCommitments] = useState<Commitment[]>([]);
+  const [epurchasing, setEpurchasing] = useState<EPurchasing[]>([]);
+  const [costReports, setCostReports] = useState<CostReport[]>([]);
   const [isCommitmentModalOpen, setIsCommitmentModalOpen] = useState(false);
   const [isEPurchasingModalOpen, setIsEPurchasingModalOpen] = useState(false);
   const [isCostReportModalOpen, setIsCostReportModalOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
+  const [editingItem, setEditingItem] = useState<ReportItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -90,19 +94,19 @@ const Reports: React.FC = () => {
     const fetchCommitments = async () => {
       const { data, error } = await supabase.from('commitments').select('*');
       if (error) console.error("Error fetching commitments:", error);
-      else if (data) setCommitments(data);
+      else if (data) setCommitments(data as Commitment[]);
     };
 
     const fetchEpurchasing = async () => {
       const { data, error } = await supabase.from('epurchasing').select('*');
       if (error) console.error("Error fetching epurchasing:", error);
-      else if (data) setEpurchasing(data);
+      else if (data) setEpurchasing(data as EPurchasing[]);
     };
 
     const fetchCostReports = async () => {
       const { data, error } = await supabase.from('cost_reports').select('*');
       if (error) console.error("Error fetching cost reports:", error);
-      else if (data) setCostReports(data);
+      else if (data) setCostReports(data as CostReport[]);
     };
 
     fetchCommitments();
@@ -156,7 +160,7 @@ const Reports: React.FC = () => {
       });
 
       setFiscalAnalysis(response.text || "Gagal melakukan audit otomatis.");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("AI Financial Error:", error);
       setFiscalAnalysis("Gagal terhubung ke modul Audit AI. Periksa koneksi atau API Key.");
     } finally {
@@ -165,7 +169,7 @@ const Reports: React.FC = () => {
   };
 
   const handleExportExcel = () => {
-    let dataToExport: any[] = [];
+    let dataToExport: Record<string, unknown>[] = [];
     let sheetName = "";
 
     if (activeTab === 'komitmen') {
@@ -202,7 +206,7 @@ const Reports: React.FC = () => {
     exportToExcel(dataToExport, `${sheetName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}`, sheetName);
   };
 
-  const handleOpenEPDetail = (item: any) => {
+  const handleOpenEPDetail = (item: EPurchasing) => {
     setSelectedEPDetail(item);
   };
 
@@ -215,7 +219,7 @@ const Reports: React.FC = () => {
     setIsCommitmentModalOpen(true);
   };
 
-  const handleEditCommitment = (item: any) => {
+  const handleEditCommitment = (item: Commitment) => {
     setEditingItem(item);
     setCommitmentForm({
       name: item.name,
@@ -289,7 +293,7 @@ const Reports: React.FC = () => {
     setIsEPurchasingModalOpen(true);
   };
 
-  const handleEditEPurchasing = (item: any) => {
+  const handleEditEPurchasing = (item: EPurchasing) => {
     setEditingItem(item);
     setEpurchasingForm({
       noKontrak: item.noKontrak,
@@ -323,7 +327,8 @@ const Reports: React.FC = () => {
     setUploadProgress(0);
 
     try {
-      let documentUrl = editingItem?.documentUrl || null;
+      const editingEP = editingItem as EPurchasing | null;
+      let documentUrl = editingEP?.documentUrl || null;
 
       if (selectedFile) {
         const filePath = `epurchasing/${Date.now()}_${selectedFile.name}`;
@@ -380,7 +385,7 @@ const Reports: React.FC = () => {
     setIsCostReportModalOpen(true);
   };
 
-  const handleEditCostReport = (item: any) => {
+  const handleEditCostReport = (item: CostReport) => {
     setEditingItem(item);
     setCostReportForm({
       month: item.month,
@@ -510,7 +515,7 @@ const Reports: React.FC = () => {
         ].map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id as any)}
+            onClick={() => setActiveTab(tab.id as ReportTab)}
             className={`flex items-center px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap ${
               activeTab === tab.id
                 ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
@@ -840,7 +845,7 @@ const Reports: React.FC = () => {
                     <XAxis dataKey="month" tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 900}} axisLine={false} />
                     <YAxis hide allowDecimals={false} />
                     <Tooltip 
-                      formatter={(value: any) => formatRupiah(Number(value))}
+                      formatter={(value: number | string) => formatRupiah(Number(value))}
                       contentStyle={{backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '10px'}}
                     />
                     <Legend iconType="circle" wrapperStyle={{paddingTop: '20px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase'}} />
@@ -870,7 +875,7 @@ const Reports: React.FC = () => {
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: any) => formatRupiah(Number(value))} />
+                    <Tooltip formatter={(value: number | string) => formatRupiah(Number(value))} />
                     <Legend wrapperStyle={{fontSize: '10px', fontWeight: 900, textTransform: 'uppercase'}} />
                   </PieChart>
                 </ResponsiveContainer>
@@ -1222,7 +1227,7 @@ const Reports: React.FC = () => {
                     className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 outline-none text-xs"
                     accept=".pdf,image/*"
                   />
-                  {editingItem?.documentUrl && !selectedFile && (
+                  {(editingItem as EPurchasing | null)?.documentUrl && !selectedFile && (
                     <p className="mt-1 text-[10px] text-blue-500 font-bold">Dokumen saat ini tersedia</p>
                   )}
                 </div>

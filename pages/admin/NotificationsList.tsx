@@ -205,7 +205,7 @@ const NotificationsList: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
 
-          <select value={readFilter} onChange={(e) => setReadFilter(e.target.value as any)} className="px-3 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-700 dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
+          <select value={readFilter} onChange={(e) => setReadFilter(e.target.value as 'all' | 'unread' | 'read')} className="px-3 py-2.5 border border-slate-200 dark:border-slate-600 rounded-xl dark:bg-slate-700 dark:text-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500">
             <option value="all">Semua ({unreadCount} belum dibaca)</option>
             <option value="unread">Belum dibaca</option>
             <option value="read">Sudah dibaca</option>

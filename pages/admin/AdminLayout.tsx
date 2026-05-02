@@ -9,15 +9,49 @@ import {
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
 import { useAuth } from '../../components/AuthContext';
+import type { User as SupabaseUser, RealtimeChannel } from '@supabase/supabase-js';
 
 interface AdminLayoutProps {
   title: string;
 }
 
+/** Notification shown in the navbar dropdown — superset of Notification table fields */
+interface NavbarNotification {
+  id: string;
+  title?: string;
+  ticket_number?: string;
+  description?: string;
+  desc?: string;
+  type?: 'warning' | 'success' | 'info';
+  read?: boolean;
+}
+
+interface NotificationItemProps {
+  n: NavbarNotification;
+  onClick: () => void;
+}
+
+interface NotificationDropdownProps {
+  notifications: NavbarNotification[];
+  unreadCount: number;
+  show: boolean;
+  setShow: (v: boolean) => void;
+  onMarkAll: () => void;
+  onOpen: (id: string) => void;
+  panelRef: React.RefObject<HTMLDivElement>;
+}
+
+interface ProfileDropdownProps {
+  user: SupabaseUser | null;
+  show: boolean;
+  setShow: (v: boolean) => void;
+  onLogout: () => void;
+}
+
 /* =========================
    NOTIFICATION ITEM
 ========================= */
-const NotificationItem = ({ n, onClick }: any) => {
+const NotificationItem: React.FC<NotificationItemProps> = ({ n, onClick }) => {
   const Icon =
     n.type === 'warning'
       ? AlertTriangle
@@ -53,7 +87,7 @@ const NotificationItem = ({ n, onClick }: any) => {
 /* =========================
    NOTIFICATION DROPDOWN
 ========================= */
-const NotificationDropdown = ({
+const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
   notifications,
   unreadCount,
   show,
@@ -61,7 +95,7 @@ const NotificationDropdown = ({
   onMarkAll,
   onOpen,
   panelRef,
-}: any) => {
+}) => {
   return (
     <div className="relative">
       <button
@@ -93,7 +127,7 @@ const NotificationDropdown = ({
 
           <div className="flex-1 overflow-y-auto sm:max-h-[400px]">
             {notifications.length ? (
-              notifications.map((n: any) => (
+              notifications.map((n) => (
                 <NotificationItem
                   key={n.id}
                   n={n}
@@ -116,9 +150,9 @@ const NotificationDropdown = ({
 /* =========================
    PROFILE DROPDOWN
 ========================= */
-const ProfileDropdown = ({ user, show, setShow, onLogout }: any) => {
+const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, show, setShow, onLogout }) => {
   return (
-    <div className="relative z-[9998]">
+    <div className="relative">
       <button
         onClick={() => setShow(!show)}
         className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
@@ -127,7 +161,7 @@ const ProfileDropdown = ({ user, show, setShow, onLogout }: any) => {
       </button>
 
       {show && (
-        <div className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-800 border rounded-xl shadow-xl overflow-hidden">
+        <div className="absolute right-0 mt-3 w-64 bg-white dark:bg-slate-800 border rounded-xl shadow-xl z-[9998] overflow-hidden">
           <div className="p-4 border-b">
             <div className="font-bold text-sm">
               {user?.user_metadata?.full_name ||
@@ -173,12 +207,12 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
 
   const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<NavbarNotification[]>([]);
 
   const notifRef = useRef<HTMLDivElement>(null);
   const notifPanelRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
-  const channelRef = useRef<any>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   /* CLOSE OUTSIDE CLICK */
   useEffect(() => {

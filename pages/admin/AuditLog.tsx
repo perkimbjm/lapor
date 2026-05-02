@@ -17,14 +17,15 @@ const AuditLog: React.FC = () => {
   const [dateFilter, setDateFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
 
-  const parseFirestoreDate = (dateField: any): Date | null => {
+  const parseFirestoreDate = (dateField: unknown): Date | null => {
     if (!dateField) return null;
-    if (dateField.toDate) return dateField.toDate();
+    const maybeTs = dateField as { toDate?: () => Date };
+    if (typeof maybeTs.toDate === 'function') return maybeTs.toDate();
     if (typeof dateField === 'string' || typeof dateField === 'number') return new Date(dateField);
     return null;
   };
 
-  const formatIndonesianDate = (dateField: any, includeTime = false) => {
+  const formatIndonesianDate = (dateField: unknown, includeTime = false) => {
     const date = parseFirestoreDate(dateField);
     if (!date) return '-';
     

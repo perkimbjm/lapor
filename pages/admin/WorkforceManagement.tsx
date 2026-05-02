@@ -2,9 +2,11 @@ import { useOutletContext } from 'react-router-dom';
 
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 
-import { Worker, AttendanceRecord, RoadType, Holiday } from '../../types';
+import { Worker, AttendanceRecord, RoadType, Holiday, type AttendanceRow } from '../../types';
 import { supabase } from '../../src/supabase';
 import { DEFAULT_WORKFORCE_RATES } from '../../constants';
+
+type DayKey = 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
 import { logAuditActivity, AuditAction } from '../../src/lib/auditLogger';
 import { 
   Users, 
@@ -94,7 +96,7 @@ const WorkforceManagement: React.FC = () => {
       }
       const { data } = await query;
       if (data) {
-        setAttendance(data.map((row: any) => ({
+        setAttendance(data.map((row: AttendanceRow) => ({
           id: row.id,
           worker_id: row.worker_id,
           month: row.month,
@@ -278,7 +280,7 @@ const WorkforceManagement: React.FC = () => {
         const monthMatch = Number(month) === Number(selectedMonth);
         const weekMatch = a.week === selectedWeek;
         const isWorkerInTab = filteredWorkers.some(w => w.id === a.worker_id);
-        return yearMatch && monthMatch && weekMatch && isWorkerInTab && (a.presence as any)[day] > 0;
+        return yearMatch && monthMatch && weekMatch && isWorkerInTab && (a.presence as Record<DayKey, number>)[day as DayKey] > 0;
       }).length;
       return { name: dayNames[idx], count };
     });
@@ -379,14 +381,15 @@ const WorkforceManagement: React.FC = () => {
         const workbook = XLSX.read(bstr, { type: 'binary' });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
-        const data = XLSX.utils.sheet_to_json(worksheet) as any[];
+        const data = XLSX.utils.sheet_to_json<Record<string, unknown>>(worksheet);
 
         const newWorkersMap = new Map<string, Worker>();
         const newRecords: AttendanceRecord[] = [];
 
         data.forEach((row, i) => {
-          const name = row['Nama Pekerja'] || `Pekerja-${i}`;
-          const cat = row['Kategori']?.toLowerCase().includes('jembatan') ? RoadType.JEMBATAN : RoadType.JALAN;
+          const name = (row['Nama Pekerja'] as string | undefined) || `Pekerja-${i}`;
+          const kategoriStr = (row['Kategori'] as string | undefined)?.toLowerCase() ?? '';
+          const cat = kategoriStr.includes('jembatan') ? RoadType.JEMBATAN : RoadType.JALAN;
           const weekFromRow = Number(row['Pekan']) || (selectedWeek === 'all' ? 1 : selectedWeek);
           
           if (!newWorkersMap.has(name)) {
@@ -1053,7 +1056,7 @@ const WorkforceManagement: React.FC = () => {
                           return (
                             <td key={day} className={`px-4 py-4 text-center ${holiday ? 'bg-red-50/50 dark:bg-red-900/10' : ''}`}>
                               <div className="flex justify-center">
-                                {renderCell((record?.presence as any)?.[day] || 0)}
+                                {renderCell((record?.presence as Record<DayKey, number> | undefined)?.[day as DayKey] || 0)}
                               </div>
                             </td>
                           );
@@ -1199,7 +1202,7 @@ const WorkforceManagement: React.FC = () => {
                       <div key={day} className="text-center">
                          <label className="text-[8px] font-black uppercase text-slate-400 dark:text-slate-300 mb-1 block">{day.substring(0,3)}</label>
                          <select 
-                           value={(formData as any)[day]} 
+                           value={(formData as unknown as Record<string, number>)[day]} 
                            onChange={e => setFormData({...formData, [day]: Number(e.target.value)})}
                            className="w-full px-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-black text-slate-900 dark:text-white text-center outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                          >

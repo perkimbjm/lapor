@@ -193,9 +193,10 @@ const Settings: React.FC = () => {
       }
 
       showToast('success', 'Perubahan pengaturan berhasil disimpan.');
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Gagal menyimpan pengaturan:', err);
-      showToast('error', err.message || 'Gagal menyimpan. Coba lagi.');
+      const msg = err instanceof Error ? err.message : 'Gagal menyimpan. Coba lagi.';
+      showToast('error', msg);
     } finally {
       setIsLoading(false);
     }

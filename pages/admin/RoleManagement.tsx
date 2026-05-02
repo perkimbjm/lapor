@@ -131,7 +131,7 @@ const RoleManagement: React.FC = () => {
           .eq('role_id', roleId);
         if (fetchErr) throw fetchErr;
 
-        const currentIds = (currentRPs ?? []).map((r: any) => r.permission_id as string);
+        const currentIds = (currentRPs ?? []).map((r: { permission_id: string }) => r.permission_id);
         const nextIds    = formData.selectedPermissionIds;
         const toRemove   = currentIds.filter(id => !nextIds.includes(id));
         const toAdd      = nextIds.filter(id => !currentIds.includes(id));
@@ -159,9 +159,10 @@ const RoleManagement: React.FC = () => {
       setCurrentId(null);
       setFormData({ name: '', description: '', selectedPermissionIds: [] });
       await fetchData();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error saving role:', error);
-      triggerToast(`Gagal menyimpan: ${error?.message ?? 'Terjadi kesalahan'}`, 'error');
+      const msg = error instanceof Error ? error.message : 'Terjadi kesalahan';
+      triggerToast(`Gagal menyimpan: ${msg}`, 'error');
     } finally {
       setIsSaving(false);
     }

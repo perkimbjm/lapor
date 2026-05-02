@@ -1,7 +1,15 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
-import { ComplaintStatus, RoadType } from '../../types';
+import {
+  ComplaintStatus,
+  RoadType,
+  type Complaint,
+  type Material,
+  type Equipment,
+  type Worker,
+  type Notification,
+} from '../../types';
 import { parseFirestoreDate, formatIndonesianDate } from '../../src/lib/dateUtils';
 import { 
   BarChart, 
@@ -35,13 +43,22 @@ import { CHART_COLORS } from '../../constants';
 const COLORS_STATUS = CHART_COLORS.STATUS;
 const COLORS_CATEGORY = CHART_COLORS.CATEGORY;
 
-const StatCard = ({ title, value, icon, color, darkColor, textColor, darkTextColor }: any) => (
+interface StatCardProps {
+  title: string;
+  value: React.ReactNode;
+  icon: React.ReactElement<{ size?: number }>;
+  color: string;
+  darkColor: string;
+  textColor: string;
+  darkTextColor: string;
+}
+
+const StatCard: React.FC<StatCardProps> = ({ title, value, icon, color, darkColor, textColor, darkTextColor }) => (
   <div className="bg-white dark:bg-slate-800 overflow-hidden shadow-sm hover:shadow-md dark:shadow-black/30 rounded-2xl border border-slate-100 dark:border-slate-700 transition-all">
     <div className="p-4 sm:p-5">
       <div className="flex items-center">
         <div className={`flex-shrink-0 rounded-xl p-2.5 sm:p-3 ${color} ${textColor} dark:${darkColor} dark:${darkTextColor}`}>
-          {/* Fix: Use React.ReactElement<any> to allow the 'size' prop on cloned elements */}
-          {React.cloneElement(icon as React.ReactElement<any>, { size: 20 })}
+          {React.cloneElement(icon, { size: 20 })}
         </div>
         <div className="ml-4 sm:ml-5 w-0 flex-1">
           <dt className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-300 uppercase tracking-widest truncate mb-0.5 sm:mb-1">{title}</dt>
@@ -68,11 +85,11 @@ const Dashboard: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
   const [trendView, setTrendView] = useState<'7days' | 'month' | 'quarter' | 'year'>('7days');
 
-  const [complaints, setComplaints] = useState<any[]>([]);
-  const [materials, setMaterials] = useState<any[]>([]);
-  const [equipment, setEquipment] = useState<any[]>([]);
-  const [workers, setWorkers] = useState<any[]>([]);
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [materials, setMaterials] = useState<Material[]>([]);
+  const [equipment, setEquipment] = useState<Equipment[]>([]);
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -86,11 +103,11 @@ const Dashboard: React.FC = () => {
         supabase.from('workers').select('*'),
         supabase.from('notifications').select('*'),
       ]);
-      if (c.data)  setComplaints(c.data);
-      if (m.data)  setMaterials(m.data);
-      if (eq.data) setEquipment(eq.data);
-      if (w.data)  setWorkers(w.data);
-      if (n.data)  setNotifications(n.data);
+      if (c.data)  setComplaints(c.data as Complaint[]);
+      if (m.data)  setMaterials(m.data as Material[]);
+      if (eq.data) setEquipment(eq.data as Equipment[]);
+      if (w.data)  setWorkers(w.data as Worker[]);
+      if (n.data)  setNotifications(n.data as Notification[]);
       setLoading(false);
     };
 
@@ -98,7 +115,7 @@ const Dashboard: React.FC = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(async () => {
         const { data } = await supabase.from('complaints').select('*');
-        if (data) setComplaints(data);
+        if (data) setComplaints(data as Complaint[]);
       }, 400);
     };
 
@@ -256,10 +273,12 @@ const Dashboard: React.FC = () => {
   }, [selectedMonth, selectedYear]);
 
   const stats = useMemo(() => {
-    const isStatusMatch = (cStatus: any, targetStatus: ComplaintStatus) => {
+    const isStatusMatch = (cStatus: ComplaintStatus | string | undefined, targetStatus: ComplaintStatus) => {
       if (cStatus === targetStatus) return true;
       // Fallback for legacy keys
-      const statusKey = Object.keys(ComplaintStatus).find(key => (ComplaintStatus as any)[key] === targetStatus);
+      const statusKey = (Object.keys(ComplaintStatus) as Array<keyof typeof ComplaintStatus>).find(
+        key => ComplaintStatus[key] === targetStatus
+      );
       return cStatus === statusKey;
     };
 
@@ -380,7 +399,7 @@ const Dashboard: React.FC = () => {
              <div className="flex items-center gap-3">
                 <select 
                   value={trendView}
-                  onChange={(e) => setTrendView(e.target.value as any)}
+                  onChange={(e) => setTrendView(e.target.value as '7days' | 'month' | 'quarter' | 'year')}
                   className="bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 text-xs rounded-xl px-3 py-2 font-bold focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="7days">7 Hari Terakhir</option>
