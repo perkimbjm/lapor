@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 
 import { Material } from '../../types';
 import { supabase } from '../../src/supabase';
+import { useSupabaseQuery } from '../../src/hooks';
 import { logAuditActivity, AuditAction } from '../../src/lib/auditLogger';
 import { 
   AlertTriangle, 
@@ -36,28 +37,10 @@ const MaterialInventory: React.FC = () => {
     setPageTitle("Manajemen Stok Material");
   }, [setPageTitle]);
 
-  const [materials, setMaterials] = useState<Material[]>([]);
-  
-  useEffect(() => {
-    const fetchMaterials = async () => {
-      const { data, error } = await supabase.from('materials').select('*');
-      if (error) {
-        console.error("Error fetching materials:", error);
-      } else if (data) {
-        setMaterials(data as Material[]);
-      }
-    };
-
-    fetchMaterials();
-
-    const interval = setInterval(() => {
-      fetchMaterials();
-    }, 6000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, []);
+  const { data: materials, refetch: refetchMaterials } = useSupabaseQuery<Material>({
+    table: 'materials',
+    realtimeMode: 'realtime',
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);

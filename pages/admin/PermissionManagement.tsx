@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 
 import { Permission, Role, RolePermission } from '../../types';
 import { supabase } from '../../src/supabase';
+import { useSupabaseQuery } from '../../src/hooks';
 import {
   FEATURES,
   ACTIONS,
@@ -78,10 +79,21 @@ const PermissionManagement: React.FC = () => {
     setPageTitle("Manajemen Izin (CRUD Based)");
   }, [setPageTitle]);
 
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
-  const [loading, setLoading] = useState(true);
+  // ── Data fetching via shared hooks (replaces 15s polling with realtime) ──
+  const { data: permissions, loading: loadingPerms } = useSupabaseQuery<Permission>({
+    table: 'permissions',
+    realtimeMode: 'realtime',
+  });
+  const { data: roles, loading: loadingRoles } = useSupabaseQuery<Role>({
+    table: 'roles',
+    realtimeMode: 'realtime',
+  });
+  const { data: rolePermissions, loading: loadingRP } = useSupabaseQuery<RolePermission>({
+    table: 'role_permissions',
+    realtimeMode: 'realtime',
+  });
+  const loading = loadingPerms || loadingRoles || loadingRP;
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedFeature, setSelectedFeature] = useState(FEATURES[0].id);
@@ -95,41 +107,6 @@ const PermissionManagement: React.FC = () => {
   });
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
-
-  useEffect(() => {
-    const fetchPermissions = async () => {
-      const { data } = await supabase.from('permissions').select('*');
-      if (data) setPermissions(data as Permission[]);
-    };
-
-    const fetchRoles = async () => {
-      const { data } = await supabase.from('roles').select('*');
-      if (data) setRoles(data as Role[]);
-    };
-
-    const fetchRolePermissions = async () => {
-      const { data } = await supabase.from('role_permissions').select('*');
-      if (data) setRolePermissions(data as RolePermission[]);
-    };
-
-    const fetchData = async () => {
-      setLoading(true);
-      await Promise.all([fetchPermissions(), fetchRoles(), fetchRolePermissions()]);
-      setLoading(false);
-    };
-
-    fetchData();
-
-    const interval = setInterval(() => {
-      fetchPermissions();
-      fetchRoles();
-      fetchRolePermissions();
-    }, 15000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isEditing && isModalOpen) {

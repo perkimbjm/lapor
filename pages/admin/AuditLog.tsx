@@ -1,45 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { supabase } from '../../src/supabase';
+import { useSupabaseQuery } from '../../src/hooks';
 import { Search, Calendar, Filter, X, Activity, User, Database, Clock } from 'lucide-react';
 
 const AuditLog: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (t: string) => void }>();
   useEffect(() => { setPageTitle('Audit Log'); }, [setPageTitle]);
 
-  const [logs, setLogs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: logs, loading } = useSupabaseQuery({
+    table: 'audit_logs',
+    filter: (q) => q.order('timestamp', { ascending: false }),
+    realtimeMode: 'realtime',
+  });
 
   const [searchKeyword, setSearchKeyword] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
-
-  useEffect(() => {
-    const fetchLogs = async () => {
-      const { data, error } = await supabase
-        .from('audit_logs')
-        .select('*')
-        .order('timestamp', { ascending: false });
-        
-      if (error) {
-        console.error("Error fetching audit logs:", error);
-      } else if (data) {
-        setLogs(data);
-      }
-      setLoading(false);
-    };
-
-    fetchLogs();
-
-    const channelName = `audit-logs-realtime-${Math.random().toString(36).substring(2, 7)}`;
-    const channel = supabase.channel(channelName)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'audit_logs' }, fetchLogs)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   const parseFirestoreDate = (dateField: any): Date | null => {
     if (!dateField) return null;

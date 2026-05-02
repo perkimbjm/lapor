@@ -118,7 +118,7 @@ const NotificationDropdown = ({
 ========================= */
 const ProfileDropdown = ({ user, show, setShow, onLogout }: any) => {
   return (
-    <div className="relative">
+    <div className="relative z-[9998]">
       <button
         onClick={() => setShow(!show)}
         className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"

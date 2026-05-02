@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 
 import { Equipment } from '../../types';
 import { supabase } from '../../src/supabase';
+import { useSupabaseQuery } from '../../src/hooks';
 import { 
   Plus, 
   Pencil, 
@@ -32,28 +33,10 @@ const EquipmentInventory: React.FC = () => {
   }, [setPageTitle]);
 
   const [activeTab, setActiveTab] = useState<'Heavy' | 'Tool'>('Heavy');
-  const [equipment, setEquipment] = useState<Equipment[]>([]);
-  
-  useEffect(() => {
-    const fetchEquipment = async () => {
-      const { data, error } = await supabase.from('equipment').select('*');
-      if (error) {
-        console.error("Error fetching equipment:", error);
-      } else if (data) {
-        setEquipment(data as Equipment[]);
-      }
-    };
-
-    fetchEquipment();
-
-    const interval = setInterval(() => {
-      fetchEquipment();
-    }, 9000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, []);
+  const { data: equipment, refetch: refetchEquipment } = useSupabaseQuery<Equipment>({
+    table: 'equipment',
+    realtimeMode: 'realtime',
+  });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);

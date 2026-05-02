@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Role, Permission, RolePermission } from '../../types';
 import { supabase } from '../../src/supabase';
+import { useSupabaseQuery } from '../../src/hooks';
 import {
   FEATURES,
   ACTIONS,
@@ -40,10 +41,29 @@ const RoleManagement: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (t: string) => void }>();
   useEffect(() => { setPageTitle('Manajemen Peran (Roles)'); }, [setPageTitle]);
 
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [permissions, setPermissions] = useState<Permission[]>([]);
-  const [rolePermissions, setRolePermissions] = useState<RolePermission[]>([]);
-  const [loading, setLoading] = useState(true);
+  // ── Data fetching via shared hooks (realtime on 3 related tables) ────────
+  const { data: roles, loading: loadingRoles, refetch: refetchRoles } = useSupabaseQuery<Role>({
+    table: 'roles',
+    realtimeMode: 'realtime',
+    extraTables: ['permissions', 'role_permissions'],
+    channelName: 'role-mgmt-roles',
+  });
+  const { data: permissions, loading: loadingPerms, refetch: refetchPerms } = useSupabaseQuery<Permission>({
+    table: 'permissions',
+    realtimeMode: 'realtime',
+    channelName: 'role-mgmt-perms',
+  });
+  const { data: rolePermissions, loading: loadingRP, refetch: refetchRP } = useSupabaseQuery<RolePermission>({
+    table: 'role_permissions',
+    realtimeMode: 'realtime',
+    channelName: 'role-mgmt-rp',
+  });
+  const loading = loadingRoles || loadingPerms || loadingRP;
+
+  const fetchData = async () => {
+    await Promise.all([refetchRoles(), refetchPerms(), refetchRP()]);
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -55,57 +75,6 @@ const RoleManagement: React.FC = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-
-  
-  const fetchRoles = async () => {
-    const { data, error } = await supabase.from('roles').select('*');
-    if (error) {
-      console.error('Error fetching roles:', error);
-      return;
-    }
-    if (data) setRoles(data as Role[]);
-  };
-
-  const fetchPermissions = async () => {
-    const { data, error } = await supabase.from('permissions').select('*');
-    if (error) {
-      console.error('Error fetching permissions:', error);
-      return;
-    }
-    if (data) setPermissions(data as Permission[]);
-  };
-
-  const fetchRolePermissions = async () => {
-    const { data, error } = await supabase.from('role_permissions').select('*');
-    if (error) {
-      console.error('Error fetching role_permissions:', error);
-      throw error;
-    }
-    if (data) setRolePermissions(data as RolePermission[]);
-  };
-
-  const fetchData = async () => {
-    setLoading(true);
-    try {
-      await Promise.all([fetchRoles(), fetchPermissions(), fetchRolePermissions()]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    fetchData();
-
-    // Realtime: sync when roles, permissions, or role_permissions change from any page
-    const channel = supabase
-      .channel('role-management-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'roles' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'permissions' }, fetchData)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'role_permissions' }, fetchData)
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const triggerToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
