@@ -30,9 +30,10 @@ import {
   Inbox
 } from 'lucide-react';
 
-// Mock data removed, now dynamic from useMemo
-const COLORS_STATUS = ['#3b82f6', '#8b5cf6', '#10b981', '#ef4444', '#f59e0b'];
-const COLORS_CATEGORY = ['#0ea5e9', '#6366f1'];
+import { CHART_COLORS } from '../../constants';
+
+const COLORS_STATUS = CHART_COLORS.STATUS;
+const COLORS_CATEGORY = CHART_COLORS.CATEGORY;
 
 const StatCard = ({ title, value, icon, color, darkColor, textColor, darkTextColor }: any) => (
   <div className="bg-white dark:bg-slate-800 overflow-hidden shadow-sm hover:shadow-md dark:shadow-black/30 rounded-2xl border border-slate-100 dark:border-slate-700 transition-all">

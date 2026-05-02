@@ -28,6 +28,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
+import { SUPERADMIN_EMAIL } from '../../constants';
 
 const UserManagement: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
@@ -76,7 +77,7 @@ const UserManagement: React.FC = () => {
 
     const handleUserSession = async (user: any) => {
       if (!user) return;
-      setIsSuperAdmin(user.email === 'denip23147@gmail.com');
+      setIsSuperAdmin(user.email === SUPERADMIN_EMAIL);
       
       try {
         const { data: userData, error } = await supabase
@@ -471,7 +472,7 @@ const UserManagement: React.FC = () => {
                         <div>
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{user.display_name || 'Tanpa Nama'}</p>
-                            {user.email === 'denip23147@gmail.com' && (
+                            {user.email === SUPERADMIN_EMAIL && (
                               <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded text-[8px] font-black uppercase tracking-widest border border-amber-200 dark:border-amber-800 flex items-center gap-1">
                                 <Shield size={8} /> Super Admin
                               </span>
@@ -522,7 +523,7 @@ const UserManagement: React.FC = () => {
                         {hasPermission('USERS_BAN_USER') && (
                           <button 
                             onClick={() => toggleBanStatus(user)}
-                            disabled={user.email === 'denip23147@gmail.com'}
+                            disabled={user.email === SUPERADMIN_EMAIL}
                             className={`p-2.5 rounded-xl transition-all ${
                               user.is_banned 
                                 ? 'text-red-600 bg-red-50 dark:bg-red-900/30 hover:bg-red-100' 
@@ -541,7 +542,7 @@ const UserManagement: React.FC = () => {
                         </button>
                         <button 
                           onClick={() => setDeleteConfirm({ id: user.id, email: user.email })}
-                          disabled={user.email === 'denip23147@gmail.com'}
+                          disabled={user.email === SUPERADMIN_EMAIL}
                           className="p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-xl transition-all disabled:opacity-20 disabled:cursor-not-allowed"
                         >
                           <Trash2 size={18} />

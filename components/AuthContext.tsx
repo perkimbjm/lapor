@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase } from '../src/supabase';
 import { Session, User } from '@supabase/supabase-js';
 import { toast } from 'sonner';
+import { SUPERADMIN_EMAIL } from '../constants';
 
 interface AuthContextType {
   user: User | null;
@@ -31,8 +32,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const checkAdminStatus = async (u: User) => {
     try {
-      // Superadmin hardcoded
-      if (u.email === 'denip23147@gmail.com') {
+      // Superadmin check (configurable via VITE_SUPERADMIN_EMAIL env var)
+      if (u.email === SUPERADMIN_EMAIL) {
         setIsAdmin(true);
         return;
       }
@@ -96,7 +97,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // agar tidak ada jeda di mana permissions kosong sementara isAdmin sudah false
       // yang menyebabkan ProtectedRoute redirect.
       const profileRoleName = (profile as any).roles?.name?.toLowerCase() || '';
-      const newIsAdmin = profileRoleName.includes('admin') || u.email === 'denip23147@gmail.com';
+      const newIsAdmin = profileRoleName.includes('admin') || u.email === SUPERADMIN_EMAIL;
 
       let newPermissions: string[] = [];
       if (profile.role_id) {

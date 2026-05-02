@@ -11,12 +11,12 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import PublicNavbar from '../../components/PublicNavbar';
 import { supabase } from '../../src/supabase';
 import { RoadType, ComplaintStatus } from '../../types';
+import { DEFAULT_MAP_CENTER, IMAGE_MAX_SIZE_MB, IMAGE_COMPRESS_TARGET_MB } from '../../constants';
 import imageCompression from 'browser-image-compression';
 import exifr from 'exifr';
 import { v4 as uuidv4 } from 'uuid';
 
-// Banjarmasin default center
-const DEFAULT_CENTER = { lat: -3.3194, lng: 114.5908 };
+const DEFAULT_CENTER = DEFAULT_MAP_CENTER;
 
 type LocSource = 'gps' | 'exif' | 'manual' | 'map' | null;
 
@@ -295,7 +295,7 @@ const ReportForm: React.FC = () => {
     const selectedFile = e.target.files?.[0];
     if (!selectedFile) return;
 
-    const MAX_SIZE_MB = 5;
+    const MAX_SIZE_MB = IMAGE_MAX_SIZE_MB;
     const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif'];
 
     if (!ALLOWED_TYPES.includes(selectedFile.type) && !selectedFile.name.match(/\.(jpe?g|png|webp|gif|heic|heif)$/i)) {
@@ -327,7 +327,7 @@ const ReportForm: React.FC = () => {
     let progressInterval: ReturnType<typeof setInterval> | null = null;
     try {
       const compressed = await imageCompression(selectedFile, {
-        maxSizeMB: 1,
+        maxSizeMB: IMAGE_COMPRESS_TARGET_MB,
         maxWidthOrHeight: 1920,
         useWebWorker: true,
       });

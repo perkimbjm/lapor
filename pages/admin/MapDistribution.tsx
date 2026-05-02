@@ -4,6 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
 import { ComplaintStatus, RoadType } from '../../types';
+import { STATUS_COLORS, STATUS_LABELS } from '../../constants';
 import { formatIndonesianDate } from '../../src/lib/dateUtils';
 import StatusBadge from '../../components/StatusBadge';
 import {
@@ -86,23 +87,7 @@ type ComplaintDetail = MarkerData & {
   notes?: string;
 };
 
-// ── Status constants ──────────────────────────────────────────────────────────
-
-const STATUS_COLORS: Record<string, string> = {
-  [ComplaintStatus.PENDING]:   '#f97316',
-  [ComplaintStatus.RECEIVED]:  '#3b82f6',
-  [ComplaintStatus.REJECTED]:  '#ef4444',
-  [ComplaintStatus.SURVEY]:    '#8b5cf6',
-  [ComplaintStatus.COMPLETED]: '#22c55e',
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  [ComplaintStatus.PENDING]:   'Belum Dikerjakan',
-  [ComplaintStatus.RECEIVED]:  'Diterima',
-  [ComplaintStatus.REJECTED]:  'Tidak Diterima',
-  [ComplaintStatus.SURVEY]:    'Disurvey',
-  [ComplaintStatus.COMPLETED]: 'Selesai Dikerjakan',
-};
+// STATUS_COLORS & STATUS_LABELS imported from ../../constants
 
 // ── Marker element ────────────────────────────────────────────────────────────
 

@@ -3,6 +3,11 @@ import { useOutletContext } from 'react-router-dom';
 import { Role, Permission, RolePermission } from '../../types';
 import { supabase } from '../../src/supabase';
 import {
+  FEATURES,
+  ACTIONS,
+  WORKFORCE_ONLY_ACTIONS,
+} from '../../constants';
+import {
   Shield,
   Plus,
   Pencil,
@@ -20,33 +25,16 @@ import {
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
 
-const FEATURES = [
-  { id: 'DASHBOARD', name: 'Dashboard' },
-  { id: 'COMPLAINTS', name: 'Daftar Aduan' },
-  { id: 'MAP', name: 'Peta Sebaran' },
-  { id: 'INVENTORY', name: 'Stok Material' },
-  { id: 'EQUIPMENT', name: 'Armada & Peralatan' },
-  { id: 'WORKFORCE', name: 'Tenaga Kerja' },
-  { id: 'REPORTS', name: 'Laporan & Biaya' },
-  { id: 'CMS', name: 'CMS Landing Page' },
-  { id: 'USERS', name: 'Manajemen User' },
-  { id: 'ROLES', name: 'Manajemen Role' },
-  { id: 'PERMISSIONS', name: 'Manajemen Izin' },
-  { id: 'NOTIFICATIONS', name: 'Notifikasi' },
-  { id: 'AUDIT_LOG', name: 'Audit Log' },
-];
-
-const ACTIONS = [
-  { id: 'read', label: 'R', fullLabel: 'Melihat Data', icon: <Eye size={10} /> },
-  { id: 'create', label: 'C', fullLabel: 'Menambahkan Data', icon: <Plus size={10} /> },
-  { id: 'update', label: 'U', fullLabel: 'Update/Edit Data', icon: <Pencil size={10} /> },
-  { id: 'delete', label: 'D', fullLabel: 'Menghapus Data', icon: <Trash2 size={10} /> },
-  { id: 'manage_rates', label: 'MR', fullLabel: 'Kelola Tarif Upah', icon: <Banknote size={10} /> },
-  { id: 'manage_excel', label: 'MX', fullLabel: 'Kelola Excel & Template', icon: <FileSpreadsheet size={10} /> },
-  { id: 'manage_holidays', label: 'MH', fullLabel: 'Kelola Hari Libur', icon: <Calendar size={10} /> },
-];
-
-const WORKFORCE_ONLY_ACTIONS = ['manage_rates', 'manage_excel', 'manage_holidays'];
+/** Icon lookup for the compact CRUD matrix */
+const ACTION_ICONS: Record<string, React.ReactNode> = {
+  read:            <Eye size={10} />,
+  create:          <Plus size={10} />,
+  update:          <Pencil size={10} />,
+  delete:          <Trash2 size={10} />,
+  manage_rates:    <Banknote size={10} />,
+  manage_excel:    <FileSpreadsheet size={10} />,
+  manage_holidays: <Calendar size={10} />,
+};
 
 const RoleManagement: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (t: string) => void }>();
@@ -446,9 +434,9 @@ const RoleManagement: React.FC = () => {
                           <tr className="bg-slate-100 dark:bg-slate-900">
                             <th className="px-4 py-3 text-[9px] font-black uppercase text-slate-500">Fitur</th>
                             {ACTIONS.map(action => (
-                              <th key={action.id} className="px-2 py-3 text-center" title={action.fullLabel}>
+                              <th key={action.id} className="px-2 py-3 text-center" title={action.label}>
                                 <div className="flex flex-col items-center gap-1">
-                                  <span className="text-[9px] font-black text-slate-500">{action.label}</span>
+                                  <span className="text-[9px] font-black text-slate-500">{action.shortLabel}</span>
                                 </div>
                               </th>
                             ))}
@@ -482,7 +470,7 @@ const RoleManagement: React.FC = () => {
                                             : 'bg-slate-200 dark:bg-slate-700 text-slate-400 hover:bg-blue-100'
                                         }`}
                                       >
-                                        {formData.selectedPermissionIds.includes(perm.id) ? <Check size={12} /> : action.icon}
+                                        {formData.selectedPermissionIds.includes(perm.id) ? <Check size={12} /> : (ACTION_ICONS[action.id] ?? null)}
                                       </button>
                                     ) : (
                                       <div className="w-6 h-6 rounded-lg bg-slate-50 dark:bg-slate-900/30 mx-auto opacity-20"></div>
@@ -499,8 +487,8 @@ const RoleManagement: React.FC = () => {
                   <div className="flex gap-4 mt-2">
                     {ACTIONS.map(a => (
                       <div key={a.id} className="flex items-center gap-1.5">
-                        <span className="text-[8px] font-black bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-slate-500">{a.label}</span>
-                        <span className="text-[8px] font-bold text-slate-400 uppercase">{a.fullLabel}</span>
+                        <span className="text-[8px] font-black bg-slate-100 dark:bg-slate-900 px-1.5 py-0.5 rounded text-slate-500">{a.shortLabel}</span>
+                        <span className="text-[8px] font-bold text-slate-400 uppercase">{a.label}</span>
                       </div>
                     ))}
                   </div>

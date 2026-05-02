@@ -5,6 +5,13 @@ import React, { useState, useEffect } from 'react';
 import { Permission, Role, RolePermission } from '../../types';
 import { supabase } from '../../src/supabase';
 import {
+  FEATURES,
+  ACTIONS,
+  WORKFORCE_ONLY_ACTIONS,
+  USERS_ONLY_ACTIONS,
+  type FeatureId,
+} from '../../constants';
+import {
   Bell,
   Shield,
   Plus,
@@ -34,36 +41,35 @@ import {
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
 
-const FEATURES = [
-  { id: 'DASHBOARD', name: 'Dashboard', icon: <LayoutDashboard size={16} /> },
-  { id: 'COMPLAINTS', name: 'Daftar Aduan', icon: <ClipboardList size={16} /> },
-  { id: 'MAP', name: 'Peta Sebaran', icon: <Map size={16} /> },
-  { id: 'INVENTORY', name: 'Stok Material', icon: <Package size={16} /> },
-  { id: 'EQUIPMENT', name: 'Armada & Peralatan', icon: <Truck size={16} /> },
-  { id: 'WORKFORCE', name: 'Tenaga Kerja', icon: <Users size={16} /> },
-  { id: 'REPORTS', name: 'Laporan & Biaya', icon: <BarChart3 size={16} /> },
-  { id: 'CMS', name: 'CMS Landing Page', icon: <Settings size={16} /> },
-  { id: 'USERS', name: 'Manajemen User', icon: <Users size={16} /> },
-  { id: 'ROLES', name: 'Manajemen Role', icon: <Shield size={16} /> },
-  { id: 'PERMISSIONS', name: 'Manajemen Izin', icon: <Key size={16} /> },
-  { id: 'NOTIFICATIONS', name: 'Notifikasi', icon: <Bell size={16} /> },
-  { id: 'AUDIT_LOG', name: 'Audit Log', icon: <Activity size={16} /> },
-];
+/** Icon lookup per feature — keeps JSX out of the shared constants file */
+const FEATURE_ICONS: Record<string, React.ReactNode> = {
+  DASHBOARD:     <LayoutDashboard size={16} />,
+  COMPLAINTS:    <ClipboardList size={16} />,
+  MAP:           <Map size={16} />,
+  INVENTORY:     <Package size={16} />,
+  EQUIPMENT:     <Truck size={16} />,
+  WORKFORCE:     <Users size={16} />,
+  REPORTS:       <BarChart3 size={16} />,
+  CMS:           <Settings size={16} />,
+  USERS:         <Users size={16} />,
+  ROLES:         <Shield size={16} />,
+  PERMISSIONS:   <Key size={16} />,
+  NOTIFICATIONS: <Bell size={16} />,
+  AUDIT_LOG:     <Activity size={16} />,
+};
 
-const ACTIONS = [
-  { id: 'read', label: 'Melihat Data', icon: <Eye size={14} />, color: 'text-blue-600 bg-blue-50 dark:bg-blue-900/30' },
-  { id: 'create', label: 'Menambahkan Data', icon: <Plus size={14} />, color: 'text-green-600 bg-green-50 dark:bg-green-900/30' },
-  { id: 'update', label: 'Update/Edit Data', icon: <Pencil size={14} />, color: 'text-orange-600 bg-orange-50 dark:bg-orange-900/30' },
-  { id: 'delete', label: 'Menghapus Data', icon: <Trash2 size={14} />, color: 'text-red-600 bg-red-50 dark:bg-red-900/30' },
-  { id: 'reset_password', label: 'Reset Password', icon: <Key size={14} />, color: 'text-purple-600 bg-purple-50 dark:bg-purple-900/30' },
-  { id: 'ban_user', label: 'Banned User', icon: <XCircle size={14} />, color: 'text-slate-600 bg-slate-50 dark:bg-slate-900/30' },
-  { id: 'manage_rates', label: 'Kelola Tarif Upah', icon: <Banknote size={14} />, color: 'text-amber-600 bg-amber-50 dark:bg-amber-900/30' },
-  { id: 'manage_excel', label: 'Kelola Excel & Template', icon: <FileSpreadsheet size={14} />, color: 'text-emerald-600 bg-emerald-50 dark:bg-emerald-900/30' },
-  { id: 'manage_holidays', label: 'Kelola Hari Libur', icon: <Calendar size={14} />, color: 'text-rose-600 bg-rose-50 dark:bg-rose-900/30' },
-];
-
-const WORKFORCE_ONLY_ACTIONS = ['manage_rates', 'manage_excel', 'manage_holidays'];
-const USERS_ONLY_ACTIONS = ['reset_password', 'ban_user'];
+/** Icon lookup per action */
+const ACTION_ICONS: Record<string, React.ReactNode> = {
+  read:            <Eye size={14} />,
+  create:          <Plus size={14} />,
+  update:          <Pencil size={14} />,
+  delete:          <Trash2 size={14} />,
+  reset_password:  <Key size={14} />,
+  ban_user:        <XCircle size={14} />,
+  manage_rates:    <Banknote size={14} />,
+  manage_excel:    <FileSpreadsheet size={14} />,
+  manage_holidays: <Calendar size={14} />,
+};
 
 const PermissionManagement: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();
@@ -394,7 +400,7 @@ const PermissionManagement: React.FC = () => {
               <div className="px-6 py-4 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-600 text-white rounded-xl">
-                    {feature.icon || <Shield size={16} />}
+                    {FEATURE_ICONS[feature.id] ?? <Shield size={16} />}
                   </div>
                   <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{feature.name}</h4>
                 </div>
@@ -418,7 +424,7 @@ const PermissionManagement: React.FC = () => {
                     >
                       <div className="flex items-center gap-3">
                         <div className={`p-2 rounded-lg ${action.color}`}>
-                          {action.icon}
+                          {ACTION_ICONS[action.id]}
                         </div>
                         <span className="text-[11px] font-black text-slate-700 dark:text-slate-200 uppercase tracking-tight">{action.label}</span>
                       </div>
@@ -494,7 +500,7 @@ const PermissionManagement: React.FC = () => {
                       <select 
                         value={selectedFeature}
                         onChange={e => {
-                          const newFeature = e.target.value;
+                          const newFeature = e.target.value as FeatureId;
                           setSelectedFeature(newFeature);
                         }}
                         className="w-full px-5 py-4 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl text-sm font-bold text-slate-900 dark:text-white outline-none focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all appearance-none"
@@ -529,7 +535,7 @@ const PermissionManagement: React.FC = () => {
                         >
                           <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-xl ${action.color}`}>
-                              {action.icon}
+                              {ACTION_ICONS[action.id]}
                             </div>
                             <div className="text-left">
                               <p className={`text-[10px] font-black uppercase tracking-tight ${selectedActions.includes(action.id) ? 'text-blue-600 dark:text-blue-400' : 'text-slate-900 dark:text-white'}`}>{action.label}</p>

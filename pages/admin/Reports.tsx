@@ -31,20 +31,11 @@ import {
   Save
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
-import { COST_BY_CATEGORY } from '../../constants';
+import { COST_BY_CATEGORY, CHART_COLORS, formatRupiah } from '../../constants';
 import { GoogleGenAI } from "@google/genai";
 import { toast } from 'sonner';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444'];
-
-const formatRupiah = (value: number) => {
-  return new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
-};
+const COLORS = CHART_COLORS.GENERAL;
 
 const Reports: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (title: string) => void }>();

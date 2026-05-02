@@ -4,6 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 
 import { Worker, AttendanceRecord, RoadType, Holiday } from '../../types';
 import { supabase } from '../../src/supabase';
+import { DEFAULT_WORKFORCE_RATES } from '../../constants';
 import { logAuditActivity, AuditAction } from '../../src/lib/auditLogger';
 import { 
   Users, 
@@ -73,12 +74,7 @@ const WorkforceManagement: React.FC = () => {
   const [deleteHolidayConfirm, setDeleteHolidayConfirm] = useState<{ id: string; name: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [globalRates, setGlobalRates] = useState({
-    dailyRate: 170000,
-    otRate1: 240000,
-    otRate2: 290000,
-    otRate3: 340000
-  });
+  const [globalRates, setGlobalRates] = useState({ ...DEFAULT_WORKFORCE_RATES });
   const [isSavingRates, setIsSavingRates] = useState(false);
 
   useEffect(() => {
@@ -125,10 +121,10 @@ const WorkforceManagement: React.FC = () => {
       const { data } = await supabase.from('cms').select('*').eq('id', 'workforce_rates').single();
       if (data && data.data) {
         setGlobalRates({
-          dailyRate: data.data.dailyRate ?? 170000,
-          otRate1: data.data.otRate1 ?? 240000,
-          otRate2: data.data.otRate2 ?? 290000,
-          otRate3: data.data.otRate3 ?? 340000,
+          dailyRate: data.data.dailyRate ?? DEFAULT_WORKFORCE_RATES.dailyRate,
+          otRate1: data.data.otRate1 ?? DEFAULT_WORKFORCE_RATES.otRate1,
+          otRate2: data.data.otRate2 ?? DEFAULT_WORKFORCE_RATES.otRate2,
+          otRate3: data.data.otRate3 ?? DEFAULT_WORKFORCE_RATES.otRate3,
         });
       }
     };
@@ -398,10 +394,10 @@ const WorkforceManagement: React.FC = () => {
               id: `imp-${name.replace(/\s+/g, '-').toLowerCase()}`,
               name: name,
               category: cat,
-              daily_rate: 170000,
-              ot_rate_1: 240000,
-              ot_rate_2: 290000,
-              ot_rate_3: 340000
+              daily_rate: DEFAULT_WORKFORCE_RATES.dailyRate,
+              ot_rate_1: DEFAULT_WORKFORCE_RATES.otRate1,
+              ot_rate_2: DEFAULT_WORKFORCE_RATES.otRate2,
+              ot_rate_3: DEFAULT_WORKFORCE_RATES.otRate3
             });
           }
 

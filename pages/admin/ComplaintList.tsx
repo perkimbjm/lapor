@@ -16,14 +16,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-const generateTicketNumber = () => {
-  const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-  const rand = Math.floor(Math.random() * 99999).toString().padStart(5, '0');
-  return `ADU-${date}-${rand}`;
-};
+import { generateTicketNumber } from '../../constants';
 
 const VALID_CATEGORIES = Object.values(RoadType);
 const VALID_STATUSES   = Object.values(ComplaintStatus);
