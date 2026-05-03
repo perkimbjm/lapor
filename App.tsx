@@ -1,9 +1,10 @@
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useCallback } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider } from './components/ThemeContext';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import PWAUpdatePrompt from './components/PWAUpdatePrompt';
+import { useConnectionRecovery } from './src/hooks/useConnectionRecovery';
 
 // Public Pages
 import LandingPage from './pages/public/LandingPage';
@@ -45,6 +46,21 @@ const LazyLoadingFallback = () => (
 );
 
 const App: React.FC = () => {
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
+
+  const handleTabRecovery = useCallback(async () => {
+    setRecoveryMessage('Menyambung kembali ke server...');
+    toast.loading('Menyambung kembali ke server...');
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+
+    setRecoveryMessage(null);
+    toast.dismiss();
+    toast.success('Terhubung kembali ke server');
+  }, []);
+
+  useConnectionRecovery(handleTabRecovery, 600);
+
   return (
     <AuthProvider>
       <ThemeProvider>

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
+import { toast } from 'sonner';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,12 +60,17 @@ export interface UseSupabaseQueryOptions<T> {
   /** Unique channel suffix — prevents collisions when the same table is queried
    *  by multiple hooks on different pages. Auto-generated if omitted. */
   channelName?: string;
+
+  /** Enable local caching to localStorage (default: true). Restores cache when connection lost. */
+  cacheEnabled?: boolean;
 }
 
 export interface UseSupabaseQueryResult<T> {
   data: T[];
   loading: boolean;
   error: string | null;
+  /** Connection error (network/database down). Shows cached data if available. */
+  connectionError: boolean;
   /** Manually re-fetch data */
   refetch: () => Promise<void>;
 }
@@ -87,11 +93,15 @@ export function useSupabaseQuery<T = any>(
     transform,
     extraTables = [],
     channelName,
+    cacheEnabled = true,
   } = options;
 
   const [data, setData] = useState<T[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [connectionError, setConnectionError] = useState(false);
+
+  const cacheKey = `cache-${table}`;
 
   // Keep refs to latest options so the fetch callback is always current
   const filterRef = useRef(filter);
@@ -112,17 +122,57 @@ export function useSupabaseQuery<T = any>(
       if (fetchError) {
         console.error(`[useSupabaseQuery] Error fetching "${table}":`, fetchError);
         setError(fetchError.message);
+        setConnectionError(true);
+
+        // Try to restore from cache on connection error
+        if (cacheEnabled) {
+          try {
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+              const cachedData = JSON.parse(cached) as T[];
+              setData(cachedData);
+              toast.error(`Offline: Menampilkan data tersimpan untuk ${table}`);
+            }
+          } catch (e) {
+            console.error(`Failed to restore cache for "${table}":`, e);
+          }
+        }
         return;
       }
 
       const result = (rows ?? []) as unknown[];
-      setData(transformRef.current ? transformRef.current(result) : (result as T[]));
+      const transformedData = transformRef.current ? transformRef.current(result) : (result as T[]);
+      setData(transformedData);
       setError(null);
+      setConnectionError(false);
+
+      // Save to cache on successful fetch
+      if (cacheEnabled) {
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify(transformedData));
+        } catch (e) {
+          console.error(`Failed to cache "${table}":`, e);
+        }
+      }
     } catch (err: unknown) {
       console.error(`[useSupabaseQuery] Unexpected error for "${table}":`, err);
       setError(err instanceof Error ? err.message : 'Unknown error');
+      setConnectionError(true);
+
+      // Try to restore from cache on unexpected error
+      if (cacheEnabled) {
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const cachedData = JSON.parse(cached) as T[];
+            setData(cachedData);
+          }
+        } catch (e) {
+          console.error(`Failed to restore cache for "${table}":`, e);
+        }
+      }
     }
-  }, [table, select]);
+  }, [table, select, cacheEnabled, cacheKey]);
 
   // ── Initial fetch ────────────────────────────────────────────────────────
   useEffect(() => {
@@ -190,5 +240,5 @@ export function useSupabaseQuery<T = any>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, realtimeMode, pollInterval, debounceMs, table, channelName]);
 
-  return { data, loading, error, refetch: fetchData };
+  return { data, loading, error, connectionError, refetch: fetchData };
 }
