@@ -2,6 +2,7 @@ import React, { type FormEvent } from 'react';
 import { XCircle } from 'lucide-react';
 import { RoadType } from '../../../types';
 import { type WorkerFormData } from '../../../src/hooks/useWorkforceData';
+import { TEXT_COLOR, ICON_COLOR } from '../../../src/lib/colors';
 
 interface AttendanceFormModalProps {
   isOpen: boolean;
@@ -44,7 +45,7 @@ const AttendanceFormModal: React.FC<AttendanceFormModalProps> = ({
           <h3 className="text-lg font-black uppercase text-slate-900 dark:text-white">
             {isEditing ? 'Update' : 'Tambah'} Pekerja &amp; Presensi
           </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors">
+          <button onClick={onClose} className={`${ICON_COLOR.MUTED} hover:text-slate-700 dark:hover:text-slate-300 transition-colors`}>
             <XCircle size={24} />
           </button>
         </div>
@@ -53,7 +54,7 @@ const AttendanceFormModal: React.FC<AttendanceFormModalProps> = ({
         <form onSubmit={onSubmit} className="p-8 space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="text-[10px] font-black text-slate-500 dark:text-slate-200 uppercase tracking-widest mb-1 block">
+              <label className={`text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest mb-1 block`}>
                 Nama Pekerja
               </label>
               <input
@@ -66,7 +67,7 @@ const AttendanceFormModal: React.FC<AttendanceFormModalProps> = ({
               />
             </div>
             <div>
-              <label className="text-[10px] font-black text-slate-500 dark:text-slate-200 uppercase tracking-widest mb-1 block">
+              <label className={`text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest mb-1 block`}>
                 Kategori
               </label>
               <select
@@ -82,13 +83,13 @@ const AttendanceFormModal: React.FC<AttendanceFormModalProps> = ({
 
           {/* Daily presence */}
           <div>
-            <label className="text-[10px] font-black text-slate-500 dark:text-slate-200 uppercase tracking-widest mb-4 block">
+            <label className={`text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest mb-4 block`}>
               Presensi Harian (Kode: 0=Absen, 1=Hadir, 2=Lembur 1, 3=Lembur 2, 4=Lembur 3)
             </label>
             <div className="grid grid-cols-7 gap-2">
               {DAYS.map(day => (
                 <div key={day} className="text-center">
-                  <label className="text-[8px] font-black uppercase text-slate-400 dark:text-slate-300 mb-1 block">
+                  <label className={`text-[8px] font-black uppercase ${TEXT_COLOR.SECONDARY} mb-1 block`}>
                     {day.substring(0, 3)}
                   </label>
                   <select
@@ -109,7 +110,7 @@ const AttendanceFormModal: React.FC<AttendanceFormModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-4 text-[10px] font-black uppercase text-slate-500"
+              className={`flex-1 py-4 text-[10px] font-black uppercase ${TEXT_COLOR.SECONDARY}`}
             >
               Batalkan
             </button>

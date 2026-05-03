@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { useSupabaseQuery } from '../../src/hooks';
 import { Search, Calendar, Filter, X, Activity, User, Database, Clock } from 'lucide-react';
+import { TEXT_COLOR, ICON_COLOR } from '../../src/lib/colors';
 
 const AuditLog: React.FC = () => {
   const { setPageTitle } = useOutletContext<{ setPageTitle: (t: string) => void }>();
@@ -73,14 +74,14 @@ const AuditLog: React.FC = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">Audit Log</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Lacak aktivitas CRUD (Create, Read, Update, Delete) dari user terdaftar.</p>
+            <p className={`text-sm ${TEXT_COLOR.SECONDARY} mt-1`}>Lacak aktivitas CRUD (Create, Read, Update, Delete) dari user terdaftar.</p>
           </div>
         </div>
 
         <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col mb-8">
           <div className="p-4 sm:p-6 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Search className={`absolute left-3 top-1/2 -translate-y-1/2 ${ICON_COLOR.MUTED}`} size={18} />
               <input
                 type="text"
                 placeholder="Cari user, aksi, atau detail..."
@@ -89,9 +90,9 @@ const AuditLog: React.FC = () => {
                 className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-900 dark:text-white"
               />
               {searchKeyword && (
-                <button 
+                <button
                   onClick={() => setSearchKeyword('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                  className={`absolute right-3 top-1/2 -translate-y-1/2 ${ICON_COLOR.MUTED} hover:text-slate-600 dark:hover:text-slate-300`}
                 >
                   <X size={16} />
                 </button>
@@ -108,10 +109,10 @@ const AuditLog: React.FC = () => {
                   <option key={mod} value={mod}>{mod}</option>
                 ))}
               </select>
-              <Database className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+              <Database className={`absolute right-3 top-1/2 -translate-y-1/2 ${ICON_COLOR.MUTED} pointer-events-none`} size={16} />
             </div>
             <div className="relative w-full sm:w-48">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 ${ICON_COLOR.MUTED}`} size={18} />
               <input
                 type="date"
                 value={dateFilter}
@@ -125,30 +126,30 @@ const AuditLog: React.FC = () => {
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700">
-                  <th className="px-6 py-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">Waktu</th>
-                  <th className="px-6 py-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">User</th>
-                  <th className="px-6 py-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">Aksi</th>
-                  <th className="px-6 py-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest whitespace-nowrap">Modul</th>
-                  <th className="px-6 py-4 text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Detail</th>
+                  <th className={`px-6 py-4 text-xs font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest whitespace-nowrap`}>Waktu</th>
+                  <th className={`px-6 py-4 text-xs font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest whitespace-nowrap`}>User</th>
+                  <th className={`px-6 py-4 text-xs font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest whitespace-nowrap`}>Aksi</th>
+                  <th className={`px-6 py-4 text-xs font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest whitespace-nowrap`}>Modul</th>
+                  <th className={`px-6 py-4 text-xs font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest`}>Detail</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-10 text-center text-slate-400 text-sm font-bold">Memuat data...</td>
+                    <td colSpan={5} className={`px-6 py-10 text-center ${TEXT_COLOR.SECONDARY} text-sm font-bold`}>Memuat data...</td>
                   </tr>
                 ) : filteredLogs.length > 0 ? (
                   filteredLogs.map((log, i) => (
                     <tr key={log.id || i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-xs text-slate-600 dark:text-slate-300 font-medium">
-                          <Clock size={14} className="mr-2 text-slate-400" />
+                        <div className={`flex items-center text-xs ${TEXT_COLOR.SECONDARY} font-medium`}>
+                          <Clock size={14} className={`mr-2 ${ICON_COLOR.MUTED}`} />
                           {formatIndonesianDate(log.timestamp, true)}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center text-sm text-slate-900 dark:text-white font-bold">
-                          <User size={16} className="mr-2 text-slate-400" />
+                          <User size={16} className={`mr-2 ${ICON_COLOR.MUTED}`} />
                           {log.user_email || log.user_id || 'System'}
                         </div>
                       </td>
@@ -163,12 +164,12 @@ const AuditLog: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-slate-600 dark:text-slate-300 font-medium">
+                        <span className={`text-sm ${TEXT_COLOR.SECONDARY} font-medium`}>
                           {log.module || '-'}
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <p className="text-sm text-slate-600 dark:text-slate-300 line-clamp-2" title={log.details}>
+                        <p className={`text-sm ${TEXT_COLOR.SECONDARY} line-clamp-2`} title={log.details}>
                           {log.details || '-'}
                         </p>
                       </td>
@@ -179,10 +180,10 @@ const AuditLog: React.FC = () => {
                     <td colSpan={5} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mb-4">
-                          <Activity className="w-8 h-8 text-slate-400" />
+                          <Activity className={`w-8 h-8 ${ICON_COLOR.MUTED}`} />
                         </div>
                         <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Tidak ada log ditemukan</h3>
-                        <p className="text-sm text-slate-500 dark:text-slate-400">Belum ada aktivitas yang tercatat atau tidak cocok dengan filter.</p>
+                        <p className={`text-sm ${TEXT_COLOR.SECONDARY}`}>Belum ada aktivitas yang tercatat atau tidak cocok dengan filter.</p>
                       </div>
                     </td>
                   </tr>

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import { useAuth } from './AuthContext';
+import { TEXT_COLOR, ICON_COLOR } from '../src/lib/colors';
 
 interface AdminSidebarProps {
   isCollapsed: boolean;
@@ -88,10 +89,10 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
               className={`group flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
                 isActive(item.path)
                   ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200'
+                  : `${TEXT_COLOR.SECONDARY} hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200`
               }`}
             >
-              <span className={`flex-shrink-0 ${isCollapsed ? 'mx-auto' : 'mr-3'} ${isActive(item.path) ? 'text-blue-600 dark:text-blue-400' : 'text-slate-400 dark:text-slate-300 group-hover:text-slate-600 dark:group-hover:text-slate-300'}`}>
+              <span className={`flex-shrink-0 ${isCollapsed ? 'mx-auto' : 'mr-3'} ${isActive(item.path) ? 'text-blue-600 dark:text-blue-400' : `${ICON_COLOR.SECONDARY} group-hover:text-slate-600 dark:group-hover:text-slate-300`}`}>
                 {item.icon}
               </span>
               {!isCollapsed && (
@@ -106,11 +107,11 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
         <div className="px-4 py-4 border-t border-slate-200 dark:border-slate-800 space-y-2 mt-auto">
           <button
             onClick={toggleTheme}
-            className="w-full flex items-center px-3 py-3 text-sm font-medium rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+            className={`w-full flex items-center px-3 py-3 text-sm font-medium rounded-xl ${TEXT_COLOR.SECONDARY} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}
           >
              {theme === 'light' ? (
                <>
-                 <Moon size={20} className={`${isCollapsed ? 'mx-auto' : 'mr-3'} text-slate-500`} />
+                 <Moon size={20} className={`${isCollapsed ? 'mx-auto' : 'mr-3'} ${ICON_COLOR.SECONDARY}`} />
                  {!isCollapsed && <span className="animate-in fade-in duration-300">Mode Gelap</span>}
                </>
              ) : (
@@ -121,8 +122,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
              )}
           </button>
 
-          <Link to="/admin/settings" className="flex items-center px-3 py-3 text-sm font-medium rounded-xl text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
-             <Settings size={20} className={`${isCollapsed ? 'mx-auto' : 'mr-3'} text-slate-500 dark:text-slate-300`} />
+          <Link to="/admin/settings" className={`flex items-center px-3 py-3 text-sm font-medium rounded-xl ${TEXT_COLOR.SECONDARY} hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors`}>
+             <Settings size={20} className={`${isCollapsed ? 'mx-auto' : 'mr-3'} ${ICON_COLOR.SECONDARY}`} />
              {!isCollapsed && <span>Pengaturan</span>}
           </Link>
           <button 

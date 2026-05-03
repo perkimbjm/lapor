@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
+import { TEXT_COLOR, ICON_COLOR } from '../../src/lib/colors';
 import {
   ComplaintStatus,
   type AuditLogEntry,
@@ -132,7 +133,7 @@ const ActivityStatCard = ({ title, value, icon, bgColor, iconColor }: {
         <span className={iconColor}>{icon}</span>
       </div>
       <div className="min-w-0">
-        <p className="text-[9px] sm:text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest truncate">{title}</p>
+        <p className={`text-[9px] sm:text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest truncate`}>{title}</p>
         <p className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight mt-0.5">{value}</p>
       </div>
     </div>
@@ -166,7 +167,7 @@ const EmptyState = ({ title, subtitle, onClearFilters }: {
       <Activity className="w-8 h-8 text-slate-400" />
     </div>
     <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">{title}</h3>
-    <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs">{subtitle}</p>
+    <p className={`text-sm ${TEXT_COLOR.SECONDARY} max-w-xs`}>{subtitle}</p>
     {onClearFilters && (
       <button
         onClick={onClearFilters}
@@ -267,16 +268,16 @@ const TimelineItem = ({ activity, isExpanded, onToggle }: {
             <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate max-w-[180px] sm:max-w-none">{activity.title}</h4>
             <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
               {getBadge()}
-              <span className="hidden sm:inline text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 font-bold whitespace-nowrap">
+              <span className={`hidden sm:inline text-[10px] sm:text-xs ${ICON_COLOR.MUTED} font-bold whitespace-nowrap`}>
                 {formatRelativeTime(activity.timestamp)}
               </span>
             </div>
           </div>
 
-          <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 mt-1 line-clamp-1">{activity.message}</p>
+          <p className={`text-xs sm:text-sm ${TEXT_COLOR.SECONDARY} mt-1 line-clamp-1`}>{activity.message}</p>
 
           {/* Mobile: show relative time below message */}
-          <span className="sm:hidden text-[10px] text-slate-400 dark:text-slate-500 font-bold mt-1 block">
+          <span className={`sm:hidden text-[10px] ${ICON_COLOR.MUTED} font-bold mt-1 block`}>
             {formatRelativeTime(activity.timestamp)}
           </span>
 
@@ -285,43 +286,43 @@ const TimelineItem = ({ activity, isExpanded, onToggle }: {
             <div className="mt-3 p-3 sm:p-4 bg-slate-100/70 dark:bg-slate-900/60 rounded-xl text-xs sm:text-sm space-y-2 border border-slate-200/50 dark:border-slate-700/50 animate-in fade-in duration-200">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {activity.userEmail && (
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <Users size={13} className="text-slate-400 shrink-0" />
+                  <div className={`flex items-center gap-2 ${TEXT_COLOR.SECONDARY}`}>
+                    <Users size={13} className={`${ICON_COLOR.MUTED} shrink-0`} />
                     <span className="font-medium">User:</span>
                     <span className="truncate">{activity.userEmail}</span>
                   </div>
                 )}
                 {activity.module && (
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <Shield size={13} className="text-slate-400 shrink-0" />
+                  <div className={`flex items-center gap-2 ${TEXT_COLOR.SECONDARY}`}>
+                    <Shield size={13} className={`${ICON_COLOR.MUTED} shrink-0`} />
                     <span className="font-medium">Modul:</span>
                     <span>{activity.module}</span>
                   </div>
                 )}
                 {activity.action && (
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+                  <div className={`flex items-center gap-2 ${TEXT_COLOR.SECONDARY}`}>
                     {getActionIcon()}
                     <span className="font-medium">Aksi:</span>
                     <span className="uppercase font-bold">{activity.action}</span>
                   </div>
                 )}
                 {activity.timestamp && (
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <Clock size={13} className="text-slate-400 shrink-0" />
+                  <div className={`flex items-center gap-2 ${TEXT_COLOR.SECONDARY}`}>
+                    <Clock size={13} className={`${ICON_COLOR.MUTED} shrink-0`} />
                     <span className="font-medium">Waktu:</span>
                     <span>{formatIndonesianDate(activity.timestamp, true)}</span>
                   </div>
                 )}
                 {activity.complaintStatus && (
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <FileText size={13} className="text-slate-400 shrink-0" />
+                  <div className={`flex items-center gap-2 ${TEXT_COLOR.SECONDARY}`}>
+                    <FileText size={13} className={`${ICON_COLOR.MUTED} shrink-0`} />
                     <span className="font-medium">Status:</span>
                     <span className="uppercase font-bold">{activity.complaintStatus}</span>
                   </div>
                 )}
                 {activity.category && (
-                  <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
-                    <Activity size={13} className="text-slate-400 shrink-0" />
+                  <div className={`flex items-center gap-2 ${TEXT_COLOR.SECONDARY}`}>
+                    <Activity size={13} className={`${ICON_COLOR.MUTED} shrink-0`} />
                     <span className="font-medium">Kategori:</span>
                     <span>{activity.category}</span>
                   </div>
@@ -329,7 +330,7 @@ const TimelineItem = ({ activity, isExpanded, onToggle }: {
               </div>
               {activity.message && (
                 <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed">{activity.message}</p>
+                  <p className={`${TEXT_COLOR.SECONDARY} leading-relaxed`}>{activity.message}</p>
                 </div>
               )}
             </div>
@@ -604,7 +605,7 @@ const ActivityLog: React.FC = () => {
             <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
               Pusat Aktivitas
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+            <p className={`text-sm ${TEXT_COLOR.SECONDARY} mt-1`}>
               Pantau semua aktivitas sistem secara real-time.
             </p>
           </div>
@@ -613,7 +614,7 @@ const ActivityLog: React.FC = () => {
             <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs font-bold transition-colors ${
               isRealtimeConnected
                 ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-700 dark:text-green-400'
-                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400'
+                : `bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 ${TEXT_COLOR.SECONDARY}`
             }`}>
               <span className={`w-2 h-2 rounded-full shrink-0 ${isRealtimeConnected ? 'bg-green-500 animate-pulse' : 'bg-slate-400'}`} />
               {isRealtimeConnected ? (
@@ -755,9 +756,9 @@ const ActivityLog: React.FC = () => {
             <div className="px-4 sm:px-5 pb-4 sm:pb-5 border-t border-slate-100 dark:border-slate-700 pt-4 flex flex-col sm:flex-row flex-wrap gap-3">
               {/* Date From */}
               <div className="relative flex-1 min-w-[140px]">
-                <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Dari Tanggal</label>
+                <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest mb-1.5`}>Dari Tanggal</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                  <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 ${ICON_COLOR.MUTED}`} size={15} />
                   <input
                     type="date"
                     value={dateFrom}
@@ -769,9 +770,9 @@ const ActivityLog: React.FC = () => {
 
               {/* Date To */}
               <div className="relative flex-1 min-w-[140px]">
-                <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Sampai Tanggal</label>
+                <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest mb-1.5`}>Sampai Tanggal</label>
                 <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                  <Calendar className={`absolute left-3 top-1/2 -translate-y-1/2 ${ICON_COLOR.MUTED}`} size={15} />
                   <input
                     type="date"
                     value={dateTo}
@@ -784,7 +785,7 @@ const ActivityLog: React.FC = () => {
               {/* Source filter (only on "all" tab) */}
               {activeTab === 'all' && (
                 <div className="relative flex-1 min-w-[140px]">
-                  <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Sumber</label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest mb-1.5`}>Sumber</label>
                   <div className="relative">
                     <select
                       value={sourceFilter}
@@ -796,7 +797,7 @@ const ActivityLog: React.FC = () => {
                       <option value="notification">Notifikasi</option>
                       <option value="complaint">Aduan</option>
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                    <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 ${ICON_COLOR.MUTED} pointer-events-none`} size={14} />
                   </div>
                 </div>
               )}
@@ -804,7 +805,7 @@ const ActivityLog: React.FC = () => {
               {/* Action filter (audit-related) */}
               {showAuditFilters && (
                 <div className="relative flex-1 min-w-[140px]">
-                  <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Aksi</label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest mb-1.5`}>Aksi</label>
                   <div className="relative">
                     <select
                       value={actionFilter}
@@ -817,7 +818,7 @@ const ActivityLog: React.FC = () => {
                       <option value="DELETE">Delete</option>
                       <option value="READ">Read</option>
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                    <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 ${ICON_COLOR.MUTED} pointer-events-none`} size={14} />
                   </div>
                 </div>
               )}
@@ -825,7 +826,7 @@ const ActivityLog: React.FC = () => {
               {/* Module filter (audit-related) */}
               {showAuditFilters && uniqueModules.length > 0 && (
                 <div className="relative flex-1 min-w-[140px]">
-                  <label className="block text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-1.5">Modul</label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase tracking-widest mb-1.5`}>Modul</label>
                   <div className="relative">
                     <select
                       value={moduleFilter}
@@ -837,7 +838,7 @@ const ActivityLog: React.FC = () => {
                         <option key={mod} value={mod}>{mod}</option>
                       ))}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={14} />
+                    <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2 ${ICON_COLOR.MUTED} pointer-events-none`} size={14} />
                   </div>
                 </div>
               )}
@@ -864,7 +865,7 @@ const ActivityLog: React.FC = () => {
           {/* Results count header */}
           {!loading && filteredActivities.length > 0 && (
             <div className="px-4 sm:px-6 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/30 flex items-center justify-between">
-              <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              <span className={`text-xs font-bold ${TEXT_COLOR.SECONDARY}`}>
                 {filteredActivities.length} aktivitas ditemukan
               </span>
               {activeFilterCount > 0 && (
@@ -885,11 +886,11 @@ const ActivityLog: React.FC = () => {
                   {/* Date group header */}
                   <div className="px-4 sm:px-6 py-2.5 bg-slate-50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700 sticky top-0 z-10">
                     <div className="flex items-center gap-2">
-                      <Clock size={13} className="text-slate-400" />
-                      <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
+                      <Clock size={13} className={ICON_COLOR.MUTED} />
+                      <span className={`text-[10px] sm:text-xs font-black uppercase tracking-widest ${TEXT_COLOR.TERTIARY}`}>
                         {group.label}
                       </span>
-                      <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-1.5 py-0.5 rounded-md font-bold">
+                      <span className={`text-[10px] bg-slate-200 dark:bg-slate-700 ${TEXT_COLOR.SECONDARY} px-1.5 py-0.5 rounded-md font-bold`}>
                         {group.items.length}
                       </span>
                     </div>

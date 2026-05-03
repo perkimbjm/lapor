@@ -4,6 +4,7 @@ import { ArrowRight, ShieldCheck, CheckCircle2, Camera, ClipboardCheck, Activity
 import PublicNavbar from '../../components/PublicNavbar';
 import { supabase } from '../../src/supabase';
 import { ComplaintStatus } from '../../types';
+import { TEXT_COLOR } from '../../src/lib/colors';
 
 const LandingPage: React.FC = () => {
   const [stats, setStats] = useState({
@@ -107,7 +108,7 @@ const LandingPage: React.FC = () => {
               {config.heroTitle} <span className="text-blue-600 dark:text-blue-500">{config.heroSubtitle}</span>
             </h1>
             
-            <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-3xl mx-auto leading-relaxed">
+            <p className={`text-lg md:text-xl ${TEXT_COLOR.SECONDARY} max-w-3xl mx-auto leading-relaxed`}>
               {config.heroDescription}
             </p>
 
@@ -141,7 +142,7 @@ const LandingPage: React.FC = () => {
                 </div>
                 <div className="text-left">
                   <div className="text-3xl font-black text-slate-00 dark:text-white">{stat.value}</div>
-                  <div className="text-sm font-bold text-slate-700 dark:text-slate-400 uppercase tracking-wider">{stat.label}</div>
+                  <div className={`text-sm font-bold ${TEXT_COLOR.TERTIARY} uppercase tracking-wider`}>{stat.label}</div>
                 </div>
               </div>
             ))}
@@ -191,7 +192,7 @@ const LandingPage: React.FC = () => {
                   </div>
                 </div>
                 <h4 className="text-2xl font-black text-slate-900 dark:text-white mb-4 tracking-tight">{item.title}</h4>
-                <p className="text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                <p className={`${TEXT_COLOR.SECONDARY} leading-relaxed font-medium`}>
                   {item.desc}
                 </p>
               </div>
@@ -203,7 +204,7 @@ const LandingPage: React.FC = () => {
       {/* --- FOOTER --- */}
       <footer className="bg-white dark:bg-slate-950 py-12 border-t border-slate-100 dark:border-slate-900 transition-colors duration-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-           <p className="text-slate-500 dark:text-slate-500 text-sm font-bold tracking-tight">
+           <p className={`${TEXT_COLOR.SECONDARY} text-sm font-bold tracking-tight`}>
             &copy; {new Date().getFullYear()} {config.footerText}
           </p>
         </div>

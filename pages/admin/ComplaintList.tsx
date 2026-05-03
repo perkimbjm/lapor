@@ -7,6 +7,7 @@ import StatusBadge from '../../components/StatusBadge';
 import { supabase } from '../../src/supabase';
 import { useAuth } from '../../components/AuthContext';
 import { logAuditActivity, AuditAction } from '../../src/lib/auditLogger';
+import { TEXT_COLOR, ICON_COLOR } from '../../src/lib/colors';
 import * as XLSX from 'xlsx';
 import {
   Search, Filter, X, MapPin, Calendar, User, Phone,
@@ -585,7 +586,7 @@ const ComplaintList: React.FC = () => {
             {/* Search */}
             <div className="relative flex-1 min-w-[160px]">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-4 w-4 text-slate-400" />
+                <Search className={`h-4 w-4 ${ICON_COLOR.MUTED}`} />
               </div>
               <input
                 type="text"
@@ -595,7 +596,7 @@ const ComplaintList: React.FC = () => {
                 placeholder="Cari tiket, lokasi, pelapor…"
               />
               {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+                <button onClick={() => setSearchTerm('')} className={`absolute inset-y-0 right-0 pr-3 flex items-center ${ICON_COLOR.MUTED} hover:text-slate-600 dark:hover:text-slate-300`}>
                   <X size={15} />
                 </button>
               )}
@@ -606,7 +607,7 @@ const ComplaintList: React.FC = () => {
           <div className="flex items-center gap-2">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Filter className="h-4 w-4 text-slate-500 dark:text-slate-300" />
+                <Filter className={`h-4 w-4 ${ICON_COLOR.MUTED}`} />
               </div>
               <select
                 value={statusFilter}
@@ -620,7 +621,7 @@ const ComplaintList: React.FC = () => {
                   </option>
                 ))}
               </select>
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-400">
+              <div className={`absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none ${ICON_COLOR.MUTED}`}>
                 <ChevronDown size={14} />
               </div>
             </div>
@@ -654,7 +655,7 @@ const ComplaintList: React.FC = () => {
                   </th>
                 )}
                 <th
-                  className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider cursor-pointer group hover:text-blue-600 dark:hover:text-blue-400 transition-colors select-none"
+                  className={`px-6 py-3 text-left text-xs font-bold ${TEXT_COLOR.TERTIARY} uppercase tracking-wider cursor-pointer group hover:text-blue-600 dark:hover:text-blue-400 transition-colors select-none`}
                   onClick={handleSortToggle}
                 >
                   <div className="flex items-center gap-1.5">
@@ -663,9 +664,9 @@ const ComplaintList: React.FC = () => {
                      <ArrowUp size={14} className="text-blue-600 dark:text-blue-400" />}
                   </div>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Lokasi & Kategori</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider">Aksi</th>
+                <th className={`px-6 py-3 text-left text-xs font-bold ${TEXT_COLOR.TERTIARY} uppercase tracking-wider`}>Lokasi & Kategori</th>
+                <th className={`px-6 py-3 text-left text-xs font-bold ${TEXT_COLOR.TERTIARY} uppercase tracking-wider`}>Status</th>
+                <th className={`px-6 py-3 text-left text-xs font-bold ${TEXT_COLOR.TERTIARY} uppercase tracking-wider`}>Aksi</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-slate-800 divide-y divide-slate-200 dark:divide-slate-700">
@@ -683,14 +684,14 @@ const ComplaintList: React.FC = () => {
                   )}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-bold text-blue-600 dark:text-blue-400 font-mono">{complaint.ticket_number}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-300 mt-1 flex items-center">
+                    <div className={`text-xs ${TEXT_COLOR.SECONDARY} mt-1 flex items-center`}>
                       <Calendar className="w-3 h-3 mr-1" />
                       {formatIndonesianDate(complaint.date_submitted || complaint.created_at)}
                     </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm font-medium text-slate-900 dark:text-white truncate max-w-[200px]" title={complaint.location}>{complaint.location}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-300 mt-0.5">{RoadTypeLabel[complaint.category]}</div>
+                    <div className={`text-xs ${TEXT_COLOR.SECONDARY} mt-0.5`}>{RoadTypeLabel[complaint.category]}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <StatusBadge status={complaint.status} />
@@ -736,10 +737,10 @@ const ComplaintList: React.FC = () => {
                 <tr>
                   <td colSpan={canDelete ? 5 : 4} className="px-6 py-12 text-center">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
-                      <Search className="h-6 w-6 text-slate-400" />
+                      <Search className={`h-6 w-6 ${ICON_COLOR.MUTED}`} />
                     </div>
                     <h3 className="mt-2 text-sm font-semibold text-slate-900 dark:text-white">Tidak ada aduan ditemukan</h3>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-300">Coba ubah kata kunci atau filter status.</p>
+                    <p className={`mt-1 text-sm ${TEXT_COLOR.SECONDARY}`}>Coba ubah kata kunci atau filter status.</p>
                     {isFiltered && (
                       <button onClick={resetFilters} className="mt-4 text-sm font-bold text-blue-600 dark:text-blue-400 hover:underline">
                         Tampilkan Semua Aduan
@@ -763,7 +764,7 @@ const ComplaintList: React.FC = () => {
                 <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
                   Detail Aduan <span className="text-blue-600 dark:text-blue-400 font-mono text-base bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-100 dark:border-blue-800">{selectedComplaint.ticket_number}</span>
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-300 mt-1">Dikirim: {formatIndonesianDate(selectedComplaint.date_submitted || selectedComplaint.created_at, true)}</p>
+                <p className={`text-xs ${TEXT_COLOR.SECONDARY} mt-1`}>Dikirim: {formatIndonesianDate(selectedComplaint.date_submitted || selectedComplaint.created_at, true)}</p>
               </div>
               <button onClick={() => setIsDetailOpen(false)} className="p-2 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 transition-colors">
                 <X className="w-5 h-5" />
@@ -786,34 +787,34 @@ const ComplaintList: React.FC = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider mb-1 block">Pelapor</label>
-                    <div className="flex items-center text-slate-900 dark:text-white font-medium"><User className="w-4 h-4 mr-2 text-slate-400" />{selectedComplaint.reporter_name}</div>
+                    <label className={`text-xs font-bold ${TEXT_COLOR.TERTIARY} uppercase tracking-wider mb-1 block`}>Pelapor</label>
+                    <div className="flex items-center text-slate-900 dark:text-white font-medium"><User className={`w-4 h-4 mr-2 ${ICON_COLOR.MUTED}`} />{selectedComplaint.reporter_name}</div>
                     <div className="flex items-center text-slate-900 dark:text-white font-medium mt-2">
-                      <Phone className="w-4 h-4 mr-2 text-slate-400" />
+                      <Phone className={`w-4 h-4 mr-2 ${ICON_COLOR.MUTED}`} />
                       {selectedComplaint.reporter_phone ? (
                         <a href={`https://wa.me/${selectedComplaint.reporter_phone.startsWith('0') ? '62' + selectedComplaint.reporter_phone.slice(1) : selectedComplaint.reporter_phone}`} target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline">{selectedComplaint.reporter_phone}</a>
                       ) : <span className="text-slate-500 italic text-sm">Tidak ada nomor</span>}
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider mb-1 block">Lokasi</label>
-                    <div className="flex items-start text-slate-900 dark:text-white font-medium"><MapPin className="w-4 h-4 mr-2 text-slate-400 mt-0.5 shrink-0" /><span>{selectedComplaint.location}</span></div>
+                    <label className={`text-xs font-bold ${TEXT_COLOR.TERTIARY} uppercase tracking-wider mb-1 block`}>Lokasi</label>
+                    <div className="flex items-start text-slate-900 dark:text-white font-medium"><MapPin className={`w-4 h-4 mr-2 ${ICON_COLOR.MUTED} mt-0.5 shrink-0`} /><span>{selectedComplaint.location}</span></div>
                     <a href={`https://www.google.com/maps?q=${selectedComplaint.lat},${selectedComplaint.lng}`} target="_blank" rel="noreferrer" className="text-xs text-blue-600 dark:text-blue-400 hover:underline ml-6 mt-1 block">Buka di Google Maps</a>
                   </div>
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider mb-1 block">Status Terkini</label>
+                    <label className={`text-xs font-bold ${TEXT_COLOR.TERTIARY} uppercase tracking-wider mb-1 block`}>Status Terkini</label>
                     <StatusBadge status={selectedComplaint.status} />
                   </div>
                   <div>
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider mb-1 block">Kategori Objek</label>
+                    <label className={`text-xs font-bold ${TEXT_COLOR.TERTIARY} uppercase tracking-wider mb-1 block`}>Kategori Objek</label>
                     <div className="text-slate-900 dark:text-white font-medium border-l-2 border-blue-500 pl-3">{selectedComplaint.category}</div>
                   </div>
                 </div>
               </div>
               <div className="bg-slate-50 dark:bg-slate-900/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700">
-                <label className="text-xs font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wider mb-2 block">Deskripsi Masalah</label>
+                <label className={`text-xs font-bold ${TEXT_COLOR.TERTIARY} uppercase tracking-wider mb-2 block`}>Deskripsi Masalah</label>
                 <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">"{selectedComplaint.description}"</p>
               </div>
               {(selectedComplaint.rejection_reason || selectedComplaint.survey_date || selectedComplaint.completion_date || selectedComplaint.notes) && (
@@ -822,25 +823,25 @@ const ComplaintList: React.FC = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {selectedComplaint.status === ComplaintStatus.REJECTED && selectedComplaint.rejection_reason && (
                       <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg md:col-span-2">
-                        <span className="text-xs text-slate-500 dark:text-slate-300 block">Alasan Tidak Dikerjakan</span>
+                        <span className={`text-xs ${TEXT_COLOR.SECONDARY} block`}>Alasan Tidak Dikerjakan</span>
                         <span className="font-semibold text-red-700 dark:text-red-300 text-sm">{selectedComplaint.rejection_reason}</span>
                       </div>
                     )}
                     {selectedComplaint.survey_date && (
                       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                        <span className="text-xs text-slate-500 dark:text-slate-300 block">Tanggal Disurvey</span>
+                        <span className={`text-xs ${TEXT_COLOR.SECONDARY} block`}>Tanggal Disurvey</span>
                         <span className="font-semibold text-blue-700 dark:text-blue-300 text-sm">{new Date(selectedComplaint.survey_date).toLocaleDateString('id-ID')}</span>
                       </div>
                     )}
                     {selectedComplaint.completion_date && (
                       <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-lg">
-                        <span className="text-xs text-slate-500 dark:text-slate-300 block">Tanggal Selesai</span>
+                        <span className={`text-xs ${TEXT_COLOR.SECONDARY} block`}>Tanggal Selesai</span>
                         <span className="font-semibold text-emerald-700 dark:text-emerald-300 text-sm">{new Date(selectedComplaint.completion_date).toLocaleDateString('id-ID')}</span>
                       </div>
                     )}
                     {selectedComplaint.notes && (
                       <div className="bg-slate-100 dark:bg-slate-700/50 p-3 rounded-lg md:col-span-2">
-                        <span className="text-xs text-slate-500 dark:text-slate-300 block">Keterangan Tambahan</span>
+                        <span className={`text-xs ${TEXT_COLOR.SECONDARY} block`}>Keterangan Tambahan</span>
                         <span className="text-slate-700 dark:text-slate-300 text-sm">{selectedComplaint.notes}</span>
                       </div>
                     )}
@@ -896,7 +897,7 @@ const ComplaintList: React.FC = () => {
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tanggal Disurvey</label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Calendar className="h-4 w-4 text-slate-400" /></div>
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Calendar className={`h-4 w-4 ${ICON_COLOR.MUTED}`} /></div>
                     <input type="date" value={processForm.survey_date} onChange={e => setProcessForm({...processForm, survey_date: e.target.value})} required className="block w-full pl-10 rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500" />
                   </div>
                 </div>
@@ -905,7 +906,7 @@ const ComplaintList: React.FC = () => {
                 <div className="animate-in fade-in slide-in-from-top-2 duration-200">
                   <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tanggal Selesai Dikerjakan</label>
                   <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Calendar className="h-4 w-4 text-slate-400" /></div>
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Calendar className={`h-4 w-4 ${ICON_COLOR.MUTED}`} /></div>
                     <input type="date" value={processForm.completion_date} onChange={e => setProcessForm({...processForm, completion_date: e.target.value})} required className="block w-full pl-10 rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500" />
                   </div>
                 </div>
@@ -942,7 +943,7 @@ const ComplaintList: React.FC = () => {
               {/* Nomor Tiket */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Nomor Tiket</label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Nomor Tiket</label>
                   <div className="flex gap-2">
                     <input
                       type="text"
@@ -962,7 +963,7 @@ const ComplaintList: React.FC = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Tanggal Masuk</label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Tanggal Masuk</label>
                   <input
                     type="date"
                     required
@@ -976,7 +977,7 @@ const ComplaintList: React.FC = () => {
               {/* Kategori + Status */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Kategori <span className="text-red-500">*</span></label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Kategori <span className="text-red-500">*</span></label>
                   <select
                     required
                     value={addEditForm.category}
@@ -987,7 +988,7 @@ const ComplaintList: React.FC = () => {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Status</label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Status</label>
                   <select
                     value={addEditForm.status}
                     onChange={e => setAddEditForm({...addEditForm, status: e.target.value})}
@@ -1005,7 +1006,7 @@ const ComplaintList: React.FC = () => {
               {/* Pelapor */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Nama Pelapor <span className="text-red-500">*</span></label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Nama Pelapor <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     required
@@ -1016,7 +1017,7 @@ const ComplaintList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">No. Telepon</label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>No. Telepon</label>
                   <input
                     type="text"
                     value={addEditForm.reporter_phone}
@@ -1029,7 +1030,7 @@ const ComplaintList: React.FC = () => {
 
               {/* Lokasi */}
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Lokasi <span className="text-red-500">*</span></label>
+                <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Lokasi <span className="text-red-500">*</span></label>
                 <input
                   type="text"
                   required
@@ -1043,7 +1044,7 @@ const ComplaintList: React.FC = () => {
               {/* Koordinat */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Latitude <span className="text-slate-400 font-normal lowercase">(opsional)</span></label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Latitude <span className={`${TEXT_COLOR.SECONDARY} font-normal lowercase`}>(opsional)</span></label>
                   <input
                     type="number"
                     step="any"
@@ -1054,7 +1055,7 @@ const ComplaintList: React.FC = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Longitude <span className="text-slate-400 font-normal lowercase">(opsional)</span></label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Longitude <span className={`${TEXT_COLOR.SECONDARY} font-normal lowercase`}>(opsional)</span></label>
                   <input
                     type="number"
                     step="any"
@@ -1068,7 +1069,7 @@ const ComplaintList: React.FC = () => {
 
               {/* Deskripsi */}
               <div>
-                <label className="block text-[10px] font-black text-slate-500 uppercase mb-1">Deskripsi Kerusakan <span className="text-red-500">*</span></label>
+                <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Deskripsi Kerusakan <span className="text-red-500">*</span></label>
                 <textarea
                   required
                   rows={3}

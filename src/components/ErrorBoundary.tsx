@@ -1,4 +1,5 @@
 import React, { ErrorInfo, ReactNode } from 'react';
+import { TEXT_COLOR } from '../lib/colors';
 
 interface Props {
   children: ReactNode;
@@ -51,7 +52,7 @@ class ErrorBoundary extends React.Component<Props, State> {
               <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
             <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-2">Ups! Terjadi Kesalahan</h3>
-            <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-8">
+            <p className={`text-sm font-bold ${TEXT_COLOR.SECONDARY} mb-8`}>
               {errorMessage}
             </p>
             <button 

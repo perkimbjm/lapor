@@ -1,6 +1,7 @@
 import React, { type FormEvent } from 'react';
 import { Calendar, Plus, Trash2, XCircle } from 'lucide-react';
 import { type Holiday } from '../../../types';
+import { TEXT_COLOR, ICON_COLOR } from '../../../src/lib/colors';
 
 interface HolidayManagerProps {
   show: boolean;
@@ -41,7 +42,7 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({
               onClick={onClose}
               className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors"
             >
-              <XCircle size={24} className="text-slate-400" />
+              <XCircle size={24} className={ICON_COLOR.MUTED} />
             </button>
           </div>
 
@@ -51,7 +52,7 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({
             className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8 p-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700"
           >
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+              <label className={`text-[10px] font-black uppercase tracking-widest ${TEXT_COLOR.TERTIARY}`}>
                 Tanggal
               </label>
               <input
@@ -62,7 +63,7 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+              <label className={`text-[10px] font-black uppercase tracking-widest ${TEXT_COLOR.TERTIARY}`}>
                 Nama Hari Libur
               </label>
               <input
@@ -74,7 +75,7 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-500">
+              <label className={`text-[10px] font-black uppercase tracking-widest ${TEXT_COLOR.TERTIARY}`}>
                 Tipe
               </label>
               <div className="flex gap-2">
@@ -119,7 +120,7 @@ const HolidayManager: React.FC<HolidayManagerProps> = ({
                         <p className="text-sm font-bold text-slate-900 dark:text-white">
                           {holiday.name}
                         </p>
-                        <p className="text-[10px] text-slate-500 font-medium uppercase">
+                        <p className={`text-[10px] ${TEXT_COLOR.SECONDARY} font-medium uppercase`}>
                           {new Date(holiday.date).toLocaleDateString('id-ID', {
                             day: 'numeric',
                             month: 'long',

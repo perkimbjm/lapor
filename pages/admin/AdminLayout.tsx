@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import AdminSidebar from '../../components/AdminSidebar';
 import { useTheme } from '../../components/ThemeContext';
+import { TEXT_COLOR, ICON_COLOR } from '../../src/lib/colors';
 import {
   Menu, Bell, User, LogOut, Settings,
   CheckCircle2, AlertTriangle, Info, Sun, Moon,
@@ -68,7 +69,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ n, onClick }) => {
       }`}
     >
       <div className="flex gap-2">
-        <span className="mt-0.5 text-slate-500 dark:text-slate-400">
+        <span className={`mt-0.5 ${ICON_COLOR.MUTED}`}>
           <Icon size={14} />
         </span>
 
@@ -76,7 +77,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ n, onClick }) => {
           <p className={`text-sm text-slate-900 dark:text-white ${!n.read ? 'font-bold' : ''}`}>
             {n.title || n.ticket_number}
           </p>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+          <p className={`text-xs ${TEXT_COLOR.SECONDARY} mt-0.5 truncate`}>
             {n.desc || n.description}
           </p>
         </div>
@@ -136,7 +137,7 @@ const NotificationDropdown: React.FC<NotificationDropdownProps> = ({
                 />
               ))
             ) : (
-              <div className="p-6 text-center text-sm text-slate-400">
+              <div className={`p-6 text-center text-sm ${ICON_COLOR.MUTED}`}>
                 Tidak ada notifikasi
               </div>
             )}
@@ -168,7 +169,7 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, show, setShow, 
               {user?.user_metadata?.full_name ||
                 user?.email?.split('@')[0]}
             </div>
-            <div className="text-xs text-slate-500">{user?.email}</div>
+            <div className={`text-xs ${TEXT_COLOR.SECONDARY}`}>{user?.email}</div>
           </div>
 
           <Link
