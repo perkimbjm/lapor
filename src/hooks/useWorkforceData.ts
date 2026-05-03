@@ -161,7 +161,7 @@ export function useWorkforceData({
     }
   }, []);
 
-  // ── Realtime subscriptions (replaces 6s polling) ───────────────────────────
+  // ── Initial fetch + polling interval ─────────────────────────────────────
 
   useEffect(() => {
     fetchWorkers();
@@ -169,32 +169,14 @@ export function useWorkforceData({
     fetchHolidays();
     fetchRates();
 
-    const workersChannel = supabase
-      .channel('workforce-workers')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'workers' }, fetchWorkers)
-      .subscribe();
+    const interval = setInterval(() => {
+      fetchWorkers();
+      fetchAttendance();
+      fetchHolidays();
+      fetchRates();
+    }, 6000);
 
-    const attendanceChannel = supabase
-      .channel('workforce-attendance')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance' }, fetchAttendance)
-      .subscribe();
-
-    const holidaysChannel = supabase
-      .channel('workforce-holidays')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'holidays' }, fetchHolidays)
-      .subscribe();
-
-    const cmsChannel = supabase
-      .channel('workforce-cms')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cms' }, fetchRates)
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(workersChannel);
-      supabase.removeChannel(attendanceChannel);
-      supabase.removeChannel(holidaysChannel);
-      supabase.removeChannel(cmsChannel);
-    };
+    return () => clearInterval(interval);
   }, [fetchWorkers, fetchAttendance, fetchHolidays, fetchRates]);
 
   // ── Derived / computed values ──────────────────────────────────────────────
