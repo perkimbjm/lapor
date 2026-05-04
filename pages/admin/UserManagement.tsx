@@ -70,7 +70,12 @@ const UserManagement: React.FC = () => {
       const { data: { session } } = await supabase.auth.getSession();
       handleUserSession(session?.user);
 
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        // Skip TOKEN_REFRESHED & USER_UPDATED — event ini fire otomatis saat
+        // ganti tab (auto-refresh token). Tidak perlu re-query perms karena
+        // role/permission tidak berubah. Tanpa filter ini, setiap pindah tab
+        // memicu 3 query DB sequential → terlihat seperti "disconnect".
+        if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') return;
         handleUserSession(session?.user);
       });
       authSubscription = data.subscription;
