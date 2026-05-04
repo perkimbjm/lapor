@@ -93,7 +93,7 @@ export default defineConfig(({ mode }) => {
               options: {
                 cacheName: 'google-fonts-cache',
                 expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-                cacheableResponse: { statuses: [0, 200] },
+                cacheableResponse: { statuses: [200] },
               },
             },
             {
@@ -102,40 +102,28 @@ export default defineConfig(({ mode }) => {
               options: {
                 cacheName: 'gstatic-fonts-cache',
                 expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-                cacheableResponse: { statuses: [0, 200] },
+                cacheableResponse: { statuses: [200] },
               },
             },
-            // MapLibre tiles — cache first (tiles jarang berubah)
+            // MapLibre tiles — cache first (tiles jarang berubah, public)
             {
               urlPattern: /^https:\/\/.*\.tile\.openstreetmap\.org\/.*/i,
               handler: 'CacheFirst',
               options: {
                 cacheName: 'map-tiles-cache',
                 expiration: { maxEntries: 200, maxAgeSeconds: 60 * 60 * 24 * 30 },
-                cacheableResponse: { statuses: [0, 200] },
+                cacheableResponse: { statuses: [200] },
               },
             },
-            // Supabase API — network first, fallback ke cache 5 menit
-            {
-              urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/.*/i,
-              handler: 'NetworkFirst',
-              options: {
-                cacheName: 'supabase-api-cache',
-                networkTimeoutSeconds: 10,
-                expiration: { maxEntries: 50, maxAgeSeconds: 60 * 5 },
-                cacheableResponse: { statuses: [0, 200] },
-              },
-            },
-            // Supabase Storage (gambar/foto laporan) — stale-while-revalidate
-            {
-              urlPattern: /^https:\/\/.*\.supabase\.co\/storage\/.*/i,
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'supabase-storage-cache',
-                expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
-                cacheableResponse: { statuses: [0, 200] },
-              },
-            },
+            // ⚠️ SUPABASE REST API & STORAGE TIDAK DI-CACHE
+            // Alasan:
+            // 1. Authenticated requests dengan JWT — caching by URL tidak
+            //    membedakan user/session, bisa bocor data antar role
+            // 2. NetworkFirst timeout 10s + fallback cache stale = saat tab
+            //    switch, user dapat data lama (terlihat "tidak konek")
+            // 3. statuses [0] men-cache response error sebagai "valid"
+            // 4. useSupabaseQuery sudah punya localStorage cache sendiri
+            //    yang lebih aman (per-table, di-clear saat needed)
           ],
           // Fallback ke offline.html saat navigasi gagal dan tidak ada cache
           offlineGoogleAnalytics: false,
