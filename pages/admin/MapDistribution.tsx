@@ -10,8 +10,9 @@ import StatusBadge from '../../components/StatusBadge';
 import {
   AlertCircle, RefreshCw, Loader2, Layers, X,
   Calendar, User, MapPin, Navigation, ExternalLink,
-  Truck, FileText, Map as MapIcon, ChevronDown
+  Truck, FileText, Map as MapIcon, ChevronDown, TriangleAlert
 } from 'lucide-react';
+import { isValidBjmLat, isValidBjmLng } from '../../src/lib/coordUtils';
 
 // ── Basemaps ──────────────────────────────────────────────────────────────────
 
@@ -396,6 +397,8 @@ const MapDistribution: React.FC = () => {
   const [selectedId, setSelectedId]       = useState<string | null>(null);
   const [detail, setDetail]               = useState<ComplaintDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [invalidMarkers, setInvalidMarkers] = useState<{ ticket_number: string; lat: number; lng: number }[]>([]);
+  const [showInvalidPanel, setShowInvalidPanel] = useState(true);
 
   useEffect(() => { setPageTitle('Peta Sebaran Kerusakan'); }, [setPageTitle]);
 
@@ -409,12 +412,15 @@ const MapDistribution: React.FC = () => {
       console.error(err);
       setError('Gagal mengambil data dari server');
     } else {
-      const withCoords = (data ?? []).filter(
+      const hasCoords = (data ?? []).filter(
         (c: { lat?: number | null; lng?: number | null }) =>
           c.lat != null && c.lng != null &&
           !isNaN(Number(c.lat)) && !isNaN(Number(c.lng))
       );
-      setMarkers(withCoords as MarkerData[]);
+      const valid   = hasCoords.filter((c: { lat: number; lng: number }) => isValidBjmLat(c.lat) && isValidBjmLng(c.lng));
+      const invalid = hasCoords.filter((c: { lat: number; lng: number }) => !isValidBjmLat(c.lat) || !isValidBjmLng(c.lng));
+      setMarkers(valid as MarkerData[]);
+      setInvalidMarkers(invalid as { ticket_number: string; lat: number; lng: number }[]);
     }
     setLoading(false);
   }, []);
@@ -678,6 +684,34 @@ const MapDistribution: React.FC = () => {
 
           {/* MapLibre canvas */}
           <div ref={mapContainer} className="w-full h-full" />
+
+          {/* Invalid coords warning panel */}
+          {invalidMarkers.length > 0 && showInvalidPanel && (
+            <div className="absolute top-4 left-4 z-10 bg-amber-50/95 dark:bg-amber-900/90 backdrop-blur-sm border border-amber-300 dark:border-amber-600 rounded-2xl shadow-lg p-3 max-w-[260px]">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <TriangleAlert size={14} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                  <p className="text-[11px] font-black uppercase tracking-wide text-amber-700 dark:text-amber-300">
+                    Koordinat Tidak Valid
+                  </p>
+                </div>
+                <button onClick={() => setShowInvalidPanel(false)} className="text-amber-400 hover:text-amber-600 dark:hover:text-amber-300">
+                  <X size={13} />
+                </button>
+              </div>
+              <p className="text-[10px] text-amber-700 dark:text-amber-300 mb-2 leading-relaxed">
+                {invalidMarkers.length} aduan berikut memiliki koordinat di luar area Banjarmasin dan tidak ditampilkan di peta. Perbaiki datanya:
+              </p>
+              <div className="space-y-1 max-h-[120px] overflow-y-auto">
+                {invalidMarkers.map(m => (
+                  <div key={m.ticket_number} className="flex items-center justify-between gap-2 bg-amber-100 dark:bg-amber-800/40 rounded-lg px-2 py-1">
+                    <span className="font-mono text-[10px] font-bold text-amber-800 dark:text-amber-200">{m.ticket_number}</span>
+                    <span className="text-[9px] text-amber-600 dark:text-amber-400">{Number(m.lat).toFixed(4)}, {Number(m.lng).toFixed(4)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Legend overlay */}
           {showLegend && (

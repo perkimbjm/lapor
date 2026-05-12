@@ -17,6 +17,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
+import { cleanLatInput, cleanLngInput } from '../../src/lib/coordUtils';
 import { generateTicketNumber } from '../../constants';
 
 const VALID_CATEGORIES = Object.values(RoadType);
@@ -279,10 +280,16 @@ const ComplaintList: React.FC = () => {
   const [editingComplaint, setEditingComplaint] = useState<Complaint | null>(null);
   const [addEditForm, setAddEditForm]           = useState({ ...emptyForm });
   const [isSubmittingAddEdit, setIsSubmittingAddEdit] = useState(false);
+  const [latCleaned, setLatCleaned] = useState(false);
+  const [lngCleaned, setLngCleaned] = useState(false);
+  const [coordOutOfRange, setCoordOutOfRange] = useState(false);
 
   const handleAddClick = () => {
     setEditingComplaint(null);
     setAddEditForm({ ...emptyForm, ticket_number: generateTicketNumber() });
+    setLatCleaned(false);
+    setLngCleaned(false);
+    setCoordOutOfRange(false);
     setIsAddEditOpen(true);
   };
 
@@ -294,12 +301,15 @@ const ComplaintList: React.FC = () => {
       reporter_name: c.reporter_name,
       reporter_phone: c.reporter_phone,
       location: c.location,
-      lat: c.lat ?? '',
-      lng: c.lng ?? '',
+      lat: c.lat != null ? c.lat.toFixed(7) : '',
+      lng: c.lng != null ? c.lng.toFixed(7) : '',
       description: c.description,
       status: c.status,
       date_submitted: c.date_submitted ? c.date_submitted.slice(0, 10) : new Date().toISOString().split('T')[0]
     });
+    setLatCleaned(false);
+    setLngCleaned(false);
+    setCoordOutOfRange(false);
     setIsAddEditOpen(true);
   };
 
@@ -458,8 +468,11 @@ const ComplaintList: React.FC = () => {
         const status = (row['Status'] || row['status'] || ComplaintStatus.PENDING).toString().trim();
         const finalStatus = VALID_STATUSES.includes(status as ComplaintStatus) ? status : ComplaintStatus.PENDING;
 
-        const latRaw = row['Latitude'] ?? row['lat'] ?? '';
-        const lngRaw = row['Longitude'] ?? row['lng'] ?? '';
+        const latRaw = (row['Latitude'] ?? row['lat'] ?? '').toString().trim();
+        const lngRaw = (row['Longitude'] ?? row['lng'] ?? '').toString().trim();
+
+        const latResult = latRaw !== '' ? cleanLatInput(latRaw) : null;
+        const lngResult = lngRaw !== '' ? cleanLngInput(lngRaw) : null;
 
         const payload: Partial<Complaint> & { created_at?: string } = {
           ticket_number:  isAutoTicket ? generateTicketNumber() : ticketNum,
@@ -467,8 +480,8 @@ const ComplaintList: React.FC = () => {
           reporter_name:  (row['Nama Pelapor'] || row['reporter_name'] || 'Import').toString().trim(),
           reporter_phone: (row['No. Telepon'] || row['reporter_phone'] || '').toString().trim(),
           location:       (row['Lokasi'] || row['location'] || '').toString().trim(),
-          lat:            latRaw !== '' && !isNaN(Number(latRaw)) ? Number(latRaw) : undefined,
-          lng:            lngRaw !== '' && !isNaN(Number(lngRaw)) ? Number(lngRaw) : undefined,
+          lat:            latResult?.value ?? undefined,
+          lng:            lngResult?.value ?? undefined,
           description:    (row['Deskripsi'] || row['description'] || '').toString().trim(),
           status:         finalStatus as ComplaintStatus,
           is_bulk:        true,
@@ -1044,28 +1057,68 @@ const ComplaintList: React.FC = () => {
               {/* Koordinat */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Latitude <span className={`${TEXT_COLOR.SECONDARY} font-normal lowercase`}>(opsional)</span></label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>
+                    Latitude <span className={`${TEXT_COLOR.SECONDARY} font-normal lowercase`}>(opsional)</span>
+                    {latCleaned && <span className="ml-1 text-amber-500 font-normal normal-case text-[9px]">diperbaiki</span>}
+                  </label>
                   <input
-                    type="number"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     value={addEditForm.lat}
-                    onChange={e => setAddEditForm({...addEditForm, lat: e.target.value})}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    onChange={e => { setAddEditForm({...addEditForm, lat: e.target.value}); setLatCleaned(false); }}
+                    onBlur={e => {
+                      if (!e.target.value.trim()) return;
+                      const r = cleanLatInput(e.target.value);
+                      if (r.value !== null) {
+                        setAddEditForm(f => ({...f, lat: r.display}));
+                        setLatCleaned(r.cleaned);
+                        setCoordOutOfRange(!r.valid);
+                      }
+                    }}
+                    className={`w-full p-2.5 rounded-xl border text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none ${
+                      coordOutOfRange && addEditForm.lat
+                        ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:text-white dark:border-amber-600'
+                        : 'border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white'
+                    }`}
                     placeholder="-3.3194"
                   />
                 </div>
                 <div>
-                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>Longitude <span className={`${TEXT_COLOR.SECONDARY} font-normal lowercase`}>(opsional)</span></label>
+                  <label className={`block text-[10px] font-black ${TEXT_COLOR.TERTIARY} uppercase mb-1`}>
+                    Longitude <span className={`${TEXT_COLOR.SECONDARY} font-normal lowercase`}>(opsional)</span>
+                    {lngCleaned && <span className="ml-1 text-amber-500 font-normal normal-case text-[9px]">diperbaiki</span>}
+                  </label>
                   <input
-                    type="number"
-                    step="any"
+                    type="text"
+                    inputMode="decimal"
                     value={addEditForm.lng}
-                    onChange={e => setAddEditForm({...addEditForm, lng: e.target.value})}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    onChange={e => { setAddEditForm({...addEditForm, lng: e.target.value}); setLngCleaned(false); }}
+                    onBlur={e => {
+                      if (!e.target.value.trim()) return;
+                      const r = cleanLngInput(e.target.value);
+                      if (r.value !== null) {
+                        setAddEditForm(f => ({...f, lng: r.display}));
+                        setLngCleaned(r.cleaned);
+                        setCoordOutOfRange(!r.valid);
+                      }
+                    }}
+                    className={`w-full p-2.5 rounded-xl border text-sm font-mono focus:ring-2 focus:ring-blue-500 outline-none ${
+                      coordOutOfRange && addEditForm.lng
+                        ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 dark:text-white dark:border-amber-600'
+                        : 'border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white'
+                    }`}
                     placeholder="114.5928"
                   />
                 </div>
               </div>
+              {coordOutOfRange && (addEditForm.lat || addEditForm.lng) && (
+                <div className="flex items-start gap-2 p-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl">
+                  <AlertCircle size={13} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300">
+                    Koordinat di luar area Banjarmasin (lat: -3.x s.d. -4.x, lng: 114.x). Data akan tetap tersimpan tetapi tidak tampil di peta.
+                  </p>
+                </div>
+              )}
 
               {/* Deskripsi */}
               <div>

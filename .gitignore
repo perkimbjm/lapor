@@ -24,9 +24,6 @@ implementation_plan_pooling.md
 implementation_plan.md
 implementation_plan2.md
 masalah_pejantan.md
-*.test.ts
-*.test.tsx
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
@@ -37,4 +34,3 @@ masalah_pejantan.md
 *.njsproj
 *.sln
 *.sw?
-.test.tsx

@@ -12,6 +12,7 @@ import PublicNavbar from '../../components/PublicNavbar';
 import { supabase } from '../../src/supabase';
 import { RoadType, ComplaintStatus } from '../../types';
 import { DEFAULT_MAP_CENTER, IMAGE_MAX_SIZE_MB, IMAGE_COMPRESS_TARGET_MB } from '../../constants';
+import { cleanLatInput, cleanLngInput } from '../../src/lib/coordUtils';
 import imageCompression from 'browser-image-compression';
 import exifr from 'exifr';
 import { v4 as uuidv4 } from 'uuid';
@@ -87,7 +88,7 @@ const MapPickerModal: React.FC<MapPickerProps> = ({ initialLocation, onConfirm, 
 
   const applyLatInput = (val: string) => {
     setLatText(val);
-    const n = parseFloat(val);
+    const n = parseFloat(val.replace(',', '.'));
     if (!isNaN(n) && n >= -90 && n <= 90) {
       const next = { lat: n, lng: pickedCoords.lng };
       setPickedCoords(next);
@@ -96,11 +97,33 @@ const MapPickerModal: React.FC<MapPickerProps> = ({ initialLocation, onConfirm, 
     }
   };
 
+  const handleLatBlurPicker = () => {
+    const result = cleanLatInput(latText);
+    if (result.value !== null) {
+      setLatText(result.display);
+      const next = { lat: result.value, lng: pickedCoords.lng };
+      setPickedCoords(next);
+      markerRef.current?.setLngLat([next.lng, next.lat]);
+      mapRef.current?.flyTo({ center: [next.lng, next.lat], duration: 400 });
+    }
+  };
+
   const applyLngInput = (val: string) => {
     setLngText(val);
-    const n = parseFloat(val);
+    const n = parseFloat(val.replace(',', '.'));
     if (!isNaN(n) && n >= -180 && n <= 180) {
       const next = { lat: pickedCoords.lat, lng: n };
+      setPickedCoords(next);
+      markerRef.current?.setLngLat([next.lng, next.lat]);
+      mapRef.current?.flyTo({ center: [next.lng, next.lat], duration: 400 });
+    }
+  };
+
+  const handleLngBlurPicker = () => {
+    const result = cleanLngInput(lngText);
+    if (result.value !== null) {
+      setLngText(result.display);
+      const next = { lat: pickedCoords.lat, lng: result.value };
       setPickedCoords(next);
       markerRef.current?.setLngLat([next.lng, next.lat]);
       mapRef.current?.flyTo({ center: [next.lng, next.lat], duration: 400 });
@@ -131,20 +154,24 @@ const MapPickerModal: React.FC<MapPickerProps> = ({ initialLocation, onConfirm, 
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Latitude</label>
               <input
-                type="number"
-                step="0.0000001"
+                type="text"
+                inputMode="decimal"
                 value={latText}
                 onChange={e => applyLatInput(e.target.value)}
+                onBlur={handleLatBlurPicker}
+                placeholder="-3.3194000"
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
               <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1 uppercase tracking-wide">Longitude</label>
               <input
-                type="number"
-                step="0.0000001"
+                type="text"
+                inputMode="decimal"
                 value={lngText}
                 onChange={e => applyLngInput(e.target.value)}
+                onBlur={handleLngBlurPicker}
+                placeholder="114.5908000"
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -258,6 +285,9 @@ const ReportForm: React.FC = () => {
   // Separate text inputs for lat/lng (allows partial editing without breaking location state)
   const [latInput, setLatInput] = useState('');
   const [lngInput, setLngInput] = useState('');
+  const [latCleaned, setLatCleaned] = useState(false);
+  const [lngCleaned, setLngCleaned] = useState(false);
+  const [coordOutOfRange, setCoordOutOfRange] = useState(false);
 
   useEffect(() => { return () => { if (preview) URL.revokeObjectURL(preview); }; }, [preview]);
 
@@ -267,27 +297,48 @@ const ReportForm: React.FC = () => {
     setLocSource(source);
     setLatInput(loc.lat.toFixed(7));
     setLngInput(loc.lng.toFixed(7));
+    setLatCleaned(false);
+    setLngCleaned(false);
+    setCoordOutOfRange(false);
   };
 
-  // Manual lat input
+  // Manual lat input — track raw text
   const handleLatInput = (val: string) => {
     setLatInput(val);
     setLocSource('manual');
-    const n = parseFloat(val);
-    if (!isNaN(n) && n >= -90 && n <= 90) {
+    setLatCleaned(false);
+  };
+
+  // Apply cleaning when lat input loses focus
+  const handleLatBlur = () => {
+    if (!latInput.trim()) return;
+    const result = cleanLatInput(latInput);
+    if (result.value !== null) {
+      setLatInput(result.display);
+      setLatCleaned(result.cleaned);
       const lng = location?.lng ?? 0;
-      setLocation({ lat: n, lng });
+      setLocation({ lat: result.value, lng });
+      setCoordOutOfRange(!result.valid);
     }
   };
 
-  // Manual lng input
+  // Manual lng input — track raw text
   const handleLngInput = (val: string) => {
     setLngInput(val);
     setLocSource('manual');
-    const n = parseFloat(val);
-    if (!isNaN(n) && n >= -180 && n <= 180) {
+    setLngCleaned(false);
+  };
+
+  // Apply cleaning when lng input loses focus
+  const handleLngBlur = () => {
+    if (!lngInput.trim()) return;
+    const result = cleanLngInput(lngInput);
+    if (result.value !== null) {
+      setLngInput(result.display);
+      setLngCleaned(result.cleaned);
       const lat = location?.lat ?? 0;
-      setLocation({ lat, lng: n });
+      setLocation({ lat, lng: result.value });
+      setCoordOutOfRange(!result.valid);
     }
   };
 
@@ -366,6 +417,9 @@ const ReportForm: React.FC = () => {
       setLocSource(null);
       setLatInput('');
       setLngInput('');
+      setLatCleaned(false);
+      setLngCleaned(false);
+      setCoordOutOfRange(false);
     }
   };
 
@@ -394,6 +448,9 @@ const ReportForm: React.FC = () => {
     setLocSource(null);
     setLatInput('');
     setLngInput('');
+    setLatCleaned(false);
+    setLngCleaned(false);
+    setCoordOutOfRange(false);
   };
 
   const validate = () => {
@@ -600,42 +657,62 @@ const ReportForm: React.FC = () => {
                 {/* Lat / Lng inputs */}
                 <div className="grid grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Latitude</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                      Latitude
+                      {latCleaned && <span className="ml-1 text-amber-500 font-normal normal-case">(diperbaiki)</span>}
+                    </label>
                     <div className="relative">
                       <MapPin className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${coordsValid ? 'text-blue-500' : 'text-slate-400'}`} />
                       <input
-                        type="number"
-                        step="0.0000001"
+                        type="text"
+                        inputMode="decimal"
                         value={latInput}
                         onChange={e => handleLatInput(e.target.value)}
+                        onBlur={handleLatBlur}
                         placeholder="-3.3194000"
                         className={`block w-full pl-9 pr-3 py-3 rounded-2xl border font-mono text-xs transition-colors ${
-                          coordsValid
+                          coordsValid && !coordOutOfRange
                             ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300'
-                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white'
+                            : coordOutOfRange && latInput
+                              ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-800 dark:text-red-300'
+                              : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white'
                         } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">Longitude</label>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 mb-1.5 uppercase tracking-wide">
+                      Longitude
+                      {lngCleaned && <span className="ml-1 text-amber-500 font-normal normal-case">(diperbaiki)</span>}
+                    </label>
                     <div className="relative">
                       <MapPin className={`absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 ${coordsValid ? 'text-blue-500' : 'text-slate-400'}`} />
                       <input
-                        type="number"
-                        step="0.0000001"
+                        type="text"
+                        inputMode="decimal"
                         value={lngInput}
                         onChange={e => handleLngInput(e.target.value)}
+                        onBlur={handleLngBlur}
                         placeholder="114.5908000"
                         className={`block w-full pl-9 pr-3 py-3 rounded-2xl border font-mono text-xs transition-colors ${
-                          coordsValid
+                          coordsValid && !coordOutOfRange
                             ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700 text-emerald-800 dark:text-emerald-300'
-                            : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white'
+                            : coordOutOfRange && lngInput
+                              ? 'bg-red-50 dark:bg-red-900/20 border-red-300 dark:border-red-700 text-red-800 dark:text-red-300'
+                              : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white'
                         } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                       />
                     </div>
                   </div>
                 </div>
+                {coordOutOfRange && (latInput || lngInput) && (
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl mb-3">
+                    <AlertCircle size={14} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Koordinat di luar area Banjarmasin (lat: -3.x hingga -4.x, lng: 114.x). Pastikan koordinat sudah benar.
+                    </p>
+                  </div>
+                )}
 
                 {/* Action buttons */}
                 <div className="flex gap-3">
