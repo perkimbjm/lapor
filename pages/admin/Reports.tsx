@@ -180,7 +180,7 @@ const Reports: React.FC = () => {
         'Vendor': c.vendor,
         'Pagu': c.pagu,
         'Nilai Kontrak': c.commitment,
-        'Serapan (%)': ((c.commitment / c.pagu) * 100).toFixed(4)
+        'Serapan (%)': ((c.commitment / c.pagu) * 100).toFixed(2)
       }));
     } else if (activeTab === 'epurchasing') {
       sheetName = "E-Purchasing";
@@ -590,9 +590,13 @@ const Reports: React.FC = () => {
                            <td className="px-6 py-4">
                               <div className="flex items-center gap-2 justify-center">
                                  <div className="w-16 bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
-                                    <div className="bg-blue-600 h-full rounded-full" style={{ width: `${(item.commitment/item.pagu)*100}%` }}></div>
+                                    <div className="bg-blue-600 h-full rounded-full" style={{ width: item.pagu > 0 ? `${(item.commitment / item.pagu) * 100}%`: '0%'}}></div>
                                  </div>
-                                 <span className="text-[10px] font-black text-slate-500 dark:text-slate-300">{((item.commitment/item.pagu)*100).toFixed(0)}%</span>
+                                 <span className="text-[10px] font-black text-slate-500 dark:text-slate-300">
+                                  {item.pagu > 0
+                                    ? ((item.commitment / item.pagu) * 100).toFixed(2)
+                                    : '0.00'}%
+                                 </span>
                               </div>
                            </td>
                            <td className="px-6 py-4">
