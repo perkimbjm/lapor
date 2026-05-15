@@ -60,6 +60,8 @@ export interface Complaint {
   date_created?: string;
   created_at?: FirestoreLikeDate;
   image_url?: string;
+  /** Photo after work completion (foto sesudah dikerjakan) */
+  photo_after?: string;
   rejection_reason?: string;
   survey_date?: string;
   completion_date?: string;

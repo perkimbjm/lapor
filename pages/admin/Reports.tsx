@@ -752,7 +752,7 @@ const Reports: React.FC = () => {
                                       <Trash2 size={14} />
                                    </button>
                                    <button 
-                                      onClick={() => window.open('https://e-katalog.lkpp.go.id/', '_blank')}
+                                      onClick={() => window.open('https://katalog.inaproc.id/', '_blank')}
                                       className="p-2 text-slate-400 hover:text-emerald-600 transition-all bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm"
                                       title="Buka LKPP"
                                    >

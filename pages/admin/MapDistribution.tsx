@@ -82,6 +82,7 @@ type ComplaintDetail = MarkerData & {
   date_submitted?: string;
   created_at?: string;
   image_url?: string;
+  photo_after?: string;
   rejection_reason?: string;
   survey_date?: string;
   completion_date?: string;
@@ -173,17 +174,54 @@ const DetailPanel: React.FC<{
         ) : detail ? (
           <div className="p-4 space-y-4">
 
-            {/* Foto — lazy: only fetched when panel is open */}
-            {detail.image_url && (
-              <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900">
-                <img
-                  src={detail.image_url}
-                  alt="Foto aduan"
-                  loading="lazy"
-                  decoding="async"
-                  className="w-full h-40 object-cover"
-                  onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
-                />
+            {/* Foto — before/after (lazy loaded) */}
+            {(detail.image_url || detail.photo_after) && (
+              <div>
+                {detail.photo_after ? (
+                  /* Side-by-side before/after */
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Dokumentasi Foto</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Sebelum */}
+                      <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900">
+                        {detail.image_url ? (
+                          <a href={detail.image_url} target="_blank" rel="noreferrer" title="Lihat full">
+                            <img src={detail.image_url} alt="Sebelum" loading="lazy" decoding="async"
+                              className="w-full h-28 object-cover hover:opacity-90 transition-opacity"
+                              onError={e => { (e.target as HTMLImageElement).parentElement!.parentElement!.style.display = 'none'; }} />
+                          </a>
+                        ) : (
+                          <div className="w-full h-28 flex flex-col items-center justify-center text-slate-400 dark:text-slate-600">
+                            <svg className="w-6 h-6 mb-1 opacity-30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="2" strokeWidth={1.5}/><circle cx="8.5" cy="8.5" r="1.5" strokeWidth={1.5}/><path d="M21 15l-5-5L5 21" strokeWidth={1.5}/></svg>
+                            <span className="text-[10px]">Tidak ada</span>
+                          </div>
+                        )}
+                        <p className="text-center text-[10px] font-bold py-1 bg-slate-100 dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-t border-slate-200 dark:border-slate-700">Sebelum</p>
+                      </div>
+                      {/* Sesudah */}
+                      <div className="rounded-xl overflow-hidden border border-emerald-200 dark:border-emerald-800 bg-slate-100 dark:bg-slate-900">
+                        <a href={detail.photo_after} target="_blank" rel="noreferrer" title="Lihat full">
+                          <img src={detail.photo_after} alt="Sesudah" loading="lazy" decoding="async"
+                            className="w-full h-28 object-cover hover:opacity-90 transition-opacity"
+                            onError={e => { (e.target as HTMLImageElement).parentElement!.parentElement!.style.display = 'none'; }} />
+                        </a>
+                        <p className="text-center text-[10px] font-bold py-1 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-t border-emerald-200 dark:border-emerald-800">Sesudah</p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  /* Single photo (no photo_after yet) */
+                  <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900">
+                    <img
+                      src={detail.image_url}
+                      alt="Foto aduan"
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-40 object-cover"
+                      onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }}
+                    />
+                  </div>
+                )}
               </div>
             )}
 
@@ -442,7 +480,7 @@ const MapDistribution: React.FC = () => {
 
     supabase
       .from('complaints')
-      .select('id, ticket_number, category, status, lat, lng, location, reporter_name, reporter_phone, description, date_submitted, created_at, image_url, rejection_reason, survey_date, completion_date, notes')
+      .select('id, ticket_number, category, status, lat, lng, location, reporter_name, reporter_phone, description, date_submitted, created_at, image_url, photo_after, rejection_reason, survey_date, completion_date, notes')
       .eq('id', selectedId)
       .single()
       .then(({ data, error: err }) => {
