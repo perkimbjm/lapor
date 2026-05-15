@@ -12,6 +12,7 @@ coverage
 migrated_prompt_history
 .temp
 *.sql
+!supabase/migrations/*.sql
 .claude
 dist
 dist-ssr
