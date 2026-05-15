@@ -11,7 +11,9 @@ node_modules
 coverage
 migrated_prompt_history
 .temp
+*.test.ts
 *.sql
+*.test.tsx
 !supabase/migrations/*.sql
 .claude
 dist
