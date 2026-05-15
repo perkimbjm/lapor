@@ -961,133 +961,201 @@ const ComplaintList: React.FC = () => {
 
       {/* ── Process Modal ── */}
       {isProcessOpen && selectedComplaint && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsProcessOpen(false)} />
-          <div className="relative w-full max-w-lg bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in slide-in-from-bottom-4 duration-200">
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-blue-600 dark:bg-slate-900 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white flex items-center gap-2"><CheckCircle2 className="w-5 h-5" /> Update Progres</h3>
-              <button onClick={() => setIsProcessOpen(false)} className="text-white/70 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleProcessSubmit} className="p-6 space-y-5">
-              <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-100 dark:border-blue-800">
-                <p className="text-xs text-blue-600 dark:text-blue-300 font-semibold mb-1">Tiket yang diproses:</p>
-                <p className="text-sm font-bold text-slate-800 dark:text-white">{selectedComplaint.ticket_number} - {selectedComplaint.category}</p>
-              </div>
+          <div className="relative w-full sm:max-w-lg bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in slide-in-from-bottom-4 duration-200">
+
+            {/* ── Header (sticky) ── */}
+            <div className="shrink-0 px-5 py-4 border-b border-slate-200 dark:border-slate-700 bg-blue-600 dark:bg-slate-900 flex justify-between items-center rounded-t-2xl">
               <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Status Pekerjaan</label>
-                <select value={processForm.status} onChange={e => setProcessForm({...processForm, status: e.target.value as ComplaintStatus})} className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500">
-                  <option value={ComplaintStatus.RECEIVED}>Diterima</option>
-                  <option value={ComplaintStatus.REJECTED}>Tidak diterima</option>
-                  <option value={ComplaintStatus.SURVEY}>Disurvey</option>
-                  <option value={ComplaintStatus.COMPLETED}>Selesai dikerjakan</option>
-                </select>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" /> Update Progres
+                </h3>
+                <p className="text-[11px] text-blue-100/80 mt-0.5 font-mono">{selectedComplaint.ticket_number} · {selectedComplaint.category}</p>
               </div>
-              {processForm.status === ComplaintStatus.REJECTED && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Alasan Tidak Dikerjakan</label>
-                  <textarea value={processForm.rejection_reason} onChange={e => setProcessForm({...processForm, rejection_reason: e.target.value})} placeholder="Berikan alasan penolakan..." rows={3} required className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500" />
+              <button onClick={() => setIsProcessOpen(false)} className="p-1.5 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* ── Scrollable body ── */}
+            <form id="process-form" onSubmit={handleProcessSubmit} className="flex-1 overflow-y-auto overscroll-contain">
+              <div className="p-5 space-y-4">
+
+                {/* Status selector */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Status Pekerjaan</label>
+                  <select
+                    value={processForm.status}
+                    onChange={e => setProcessForm({...processForm, status: e.target.value as ComplaintStatus})}
+                    className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value={ComplaintStatus.RECEIVED}>Diterima</option>
+                    <option value={ComplaintStatus.REJECTED}>Tidak diterima</option>
+                    <option value={ComplaintStatus.SURVEY}>Disurvey</option>
+                    <option value={ComplaintStatus.COMPLETED}>Selesai dikerjakan</option>
+                  </select>
                 </div>
-              )}
-              {processForm.status === ComplaintStatus.SURVEY && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tanggal Disurvey</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Calendar className={`h-4 w-4 ${ICON_COLOR.MUTED}`} /></div>
-                    <input type="date" value={processForm.survey_date} onChange={e => setProcessForm({...processForm, survey_date: e.target.value})} required className="block w-full pl-10 rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500" />
+
+                {/* REJECTED — alasan */}
+                {processForm.status === ComplaintStatus.REJECTED && (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Alasan Tidak Dikerjakan</label>
+                    <textarea
+                      value={processForm.rejection_reason}
+                      onChange={e => setProcessForm({...processForm, rejection_reason: e.target.value})}
+                      placeholder="Berikan alasan penolakan..."
+                      rows={3}
+                      required
+                      className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500"
+                    />
                   </div>
-                </div>
-              )}
-              {processForm.status === ComplaintStatus.COMPLETED && (
-                <div className="animate-in fade-in slide-in-from-top-2 duration-200 space-y-4">
-                  {/* Tanggal selesai */}
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tanggal Selesai Dikerjakan</label>
+                )}
+
+                {/* SURVEY — tanggal survei */}
+                {processForm.status === ComplaintStatus.SURVEY && (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-200">
+                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tanggal Disurvey</label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Calendar className={`h-4 w-4 ${ICON_COLOR.MUTED}`} /></div>
-                      <input type="date" value={processForm.completion_date} onChange={e => setProcessForm({...processForm, completion_date: e.target.value})} required className="block w-full pl-10 rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500" />
+                      <input type="date" value={processForm.survey_date} onChange={e => setProcessForm({...processForm, survey_date: e.target.value})} required className="block w-full pl-10 rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500" />
                     </div>
                   </div>
+                )}
 
-                  {/* Upload foto sebelum / sesudah */}
-                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 p-4 space-y-3">
-                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 uppercase tracking-wider">
-                      <Camera className="w-3.5 h-3.5" /> Foto Dokumentasi (Opsional)
-                    </p>
+                {/* COMPLETED — tanggal + foto */}
+                {processForm.status === ComplaintStatus.COMPLETED && (
+                  <div className="animate-in fade-in slide-in-from-top-2 duration-200 space-y-4">
 
-                    {/* Foto Sebelum */}
+                    {/* Tanggal selesai */}
                     <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">
-                        Foto Sebelum <span className="font-normal text-slate-400">(sama dengan bukti dukung)</span>
-                      </label>
-                      {/* Preview: tampilkan foto yang sudah ada atau preview baru */}
-                      {(photoBeforePreview || selectedComplaint?.image_url) && (
-                        <div className="relative w-full h-28 rounded-lg overflow-hidden mb-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                          <img
-                            src={photoBeforePreview ?? selectedComplaint!.image_url!}
-                            alt="Foto Sebelum"
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                          {photoBeforePreview && (
-                            <span className="absolute top-1 right-1 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">BARU</span>
-                          )}
-                        </div>
-                      )}
-                      <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>{(selectedComplaint?.image_url || photoBeforePreview) ? 'Ganti foto sebelum' : 'Upload foto sebelum'}</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoSelect(f, 'before'); }}
-                        />
-                      </label>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tanggal Selesai Dikerjakan</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Calendar className={`h-4 w-4 ${ICON_COLOR.MUTED}`} /></div>
+                        <input type="date" value={processForm.completion_date} onChange={e => setProcessForm({...processForm, completion_date: e.target.value})} required className="block w-full pl-10 rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500" />
+                      </div>
                     </div>
 
-                    {/* Foto Sesudah */}
-                    <div>
-                      <label className="block text-xs font-semibold text-slate-600 dark:text-slate-400 mb-1.5">Foto Sesudah</label>
-                      {(photoAfterPreview || selectedComplaint?.photo_after) && (
-                        <div className="relative w-full h-28 rounded-lg overflow-hidden mb-2 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
-                          <img
-                            src={photoAfterPreview ?? selectedComplaint!.photo_after!}
-                            alt="Foto Sesudah"
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            decoding="async"
-                          />
-                          {photoAfterPreview && (
-                            <span className="absolute top-1 right-1 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">BARU</span>
-                          )}
+                    {/* Foto dokumentasi — side-by-side */}
+                    <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/20 overflow-hidden">
+                      <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-emerald-200 dark:border-emerald-800 bg-emerald-100/60 dark:bg-emerald-900/30">
+                        <Camera className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
+                        <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">Foto Dokumentasi <span className="font-normal normal-case tracking-normal opacity-70">(opsional)</span></p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-px bg-emerald-200 dark:bg-emerald-800">
+                        {/* Foto Sebelum */}
+                        <div className="bg-emerald-50/80 dark:bg-slate-800/80 p-3 space-y-2">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-400">Sebelum</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 -mt-1.5">sama dengan bukti dukung</p>
+
+                          {/* Preview */}
+                          <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700">
+                            {(photoBeforePreview || selectedComplaint?.image_url) ? (
+                              <>
+                                <img
+                                  src={photoBeforePreview ?? selectedComplaint!.image_url!}
+                                  alt="Sebelum"
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                                {photoBeforePreview && (
+                                  <span className="absolute top-1 right-1 bg-blue-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow">BARU</span>
+                                )}
+                              </>
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 gap-1">
+                                <ImageIcon className="w-6 h-6 opacity-40" />
+                                <span className="text-[10px]">Belum ada</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Upload trigger */}
+                          <label className="flex items-center justify-center gap-1.5 cursor-pointer w-full py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-[11px] font-medium text-slate-600 dark:text-slate-400 hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                            <Upload className="w-3 h-3" />
+                            <span>{(selectedComplaint?.image_url || photoBeforePreview) ? 'Ganti' : 'Upload'}</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoSelect(f, 'before'); }} />
+                          </label>
                         </div>
-                      )}
-                      <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-600 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>{(selectedComplaint?.photo_after || photoAfterPreview) ? 'Ganti foto sesudah' : 'Upload foto sesudah'}</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoSelect(f, 'after'); }}
-                        />
-                      </label>
+
+                        {/* Foto Sesudah */}
+                        <div className="bg-emerald-50/80 dark:bg-slate-800/80 p-3 space-y-2">
+                          <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Sesudah</p>
+                          <p className="text-[10px] text-slate-400 dark:text-slate-500 -mt-1.5">foto setelah dikerjakan</p>
+
+                          {/* Preview */}
+                          <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-slate-100 dark:bg-slate-900 border border-emerald-200 dark:border-emerald-700">
+                            {(photoAfterPreview || selectedComplaint?.photo_after) ? (
+                              <>
+                                <img
+                                  src={photoAfterPreview ?? selectedComplaint!.photo_after!}
+                                  alt="Sesudah"
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                  decoding="async"
+                                />
+                                {photoAfterPreview && (
+                                  <span className="absolute top-1 right-1 bg-emerald-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full shadow">BARU</span>
+                                )}
+                              </>
+                            ) : (
+                              <div className="w-full h-full flex flex-col items-center justify-center text-slate-300 dark:text-slate-600 gap-1">
+                                <Camera className="w-6 h-6 opacity-40" />
+                                <span className="text-[10px]">Belum ada</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Upload trigger */}
+                          <label className="flex items-center justify-center gap-1.5 cursor-pointer w-full py-1.5 rounded-lg border border-emerald-300 dark:border-emerald-700 bg-white dark:bg-slate-800 text-[11px] font-medium text-emerald-700 dark:text-emerald-400 hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                            <Upload className="w-3 h-3" />
+                            <span>{(selectedComplaint?.photo_after || photoAfterPreview) ? 'Ganti' : 'Upload'}</span>
+                            <input type="file" accept="image/*" className="hidden" onChange={e => { const f = e.target.files?.[0]; if (f) handlePhotoSelect(f, 'after'); }} />
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </div>
+                )}
+
+                {/* Keterangan */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Keterangan <span className="font-normal text-slate-400">(Opsional)</span></label>
+                  <textarea
+                    value={processForm.notes}
+                    onChange={e => setProcessForm({...processForm, notes: e.target.value})}
+                    placeholder="Catatan tambahan mengenai progres..."
+                    rows={2}
+                    className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500"
+                  />
                 </div>
-              )}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Keterangan (Opsional)</label>
-                <textarea value={processForm.notes} onChange={e => setProcessForm({...processForm, notes: e.target.value})} placeholder="Catatan tambahan mengenai progres..." rows={2} className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500" />
-              </div>
-              <div className="pt-2 flex gap-3">
-                <button type="button" onClick={() => setIsProcessOpen(false)} className="flex-1 py-3 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">Batal</button>
-                <button type="submit" disabled={isUploadingPhotos} className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/30 transition-colors flex justify-center items-center gap-2 disabled:opacity-70">
-                  {isUploadingPhotos ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengupload…</> : <><Save className="w-4 h-4" /> Simpan Perubahan</>}
-                </button>
+
               </div>
             </form>
+
+            {/* ── Footer (sticky) ── */}
+            <div className="shrink-0 px-5 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setIsProcessOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="submit"
+                form="process-form"
+                disabled={isUploadingPhotos}
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 shadow-lg shadow-blue-600/25 transition-colors flex justify-center items-center gap-2 disabled:opacity-70"
+              >
+                {isUploadingPhotos
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Mengupload…</>
+                  : <><Save className="w-4 h-4" /> Simpan Perubahan</>}
+              </button>
+            </div>
+
           </div>
         </div>
       )}
