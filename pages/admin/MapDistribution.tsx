@@ -474,7 +474,7 @@ const MapDistribution: React.FC = () => {
           layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
         } as maplibregl.StyleSpecification,
         center: [114.5928, -3.3194],
-        zoom: 13,
+        zoom: 12,
       });
 
       map.current = instance;
