@@ -296,13 +296,13 @@ const Reports: React.FC = () => {
   const handleEditEPurchasing = (item: EPurchasing) => {
     setEditingItem(item);
     setEpurchasingForm({
-      noKontrak: item.noKontrak,
-      namaPekerjaan: item.namaPekerjaan,
-      nilai: item.nilai,
-      waktuPelaksanaan: item.waktuPelaksanaan,
-      tglKontrak: item.tglKontrak,
-      tglBerakhir: item.tglBerakhir,
-      status: item.status
+      noKontrak: item.noKontrak ?? '',
+      namaPekerjaan: item.namaPekerjaan ?? '',
+      nilai: item.nilai ?? 0,
+      waktuPelaksanaan: item.waktuPelaksanaan ?? '',
+      tglKontrak: item.tglKontrak ?? '',
+      tglBerakhir: item.tglBerakhir ?? '',
+      status: item.status ?? 'Draft'
     });
     setSelectedFile(null);
     setUploadProgress(null);
@@ -365,9 +365,10 @@ const Reports: React.FC = () => {
       setSelectedFile(null);
       setUploadProgress(null);
       toast.success(editingItem ? 'Data e-purchasing berhasil diperbarui' : 'Data e-purchasing berhasil ditambahkan');
-    } catch (error) {
+    } catch (error: unknown) {
+      const msg = (error as { message?: string })?.message ?? 'Unknown error';
       console.error('Error saving epurchasing:', error);
-      toast.error('Gagal menyimpan data e-purchasing');
+      toast.error(`Gagal menyimpan data: ${msg}`);
     } finally {
       setIsSubmitting(false);
     }
