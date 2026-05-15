@@ -180,7 +180,7 @@ const Reports: React.FC = () => {
         'Vendor': c.vendor,
         'Pagu': c.pagu,
         'Nilai Kontrak': c.commitment,
-        'Serapan (%)': ((c.commitment / c.pagu) * 100).toFixed(2)
+        'Serapan (%)': ((c.commitment / c.pagu) * 100).toFixed(4)
       }));
     } else if (activeTab === 'epurchasing') {
       sheetName = "E-Purchasing";
