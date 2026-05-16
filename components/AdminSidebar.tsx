@@ -1,12 +1,12 @@
 
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  ClipboardList, 
-  Package, 
-  Truck, 
-  BarChart3, 
+import {
+  LayoutDashboard,
+  ClipboardList,
+  Package,
+  Truck,
+  BarChart3,
   Settings,
   LogOut,
   Map,
@@ -19,10 +19,12 @@ import {
   Shield,
   Key,
   Activity,
-  Bell
+  Bell,
+  HardDriveDownload
 } from 'lucide-react';
 import { useTheme } from './ThemeContext';
 import { useAuth } from './AuthContext';
+import { SUPERADMIN_EMAIL } from '../constants';
 import { TEXT_COLOR, ICON_COLOR } from '../src/lib/colors';
 
 interface AdminSidebarProps {
@@ -33,7 +35,8 @@ interface AdminSidebarProps {
 const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollapse }) => {
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const { signOut, hasPermission } = useAuth();
+  const { user, signOut, hasPermission } = useAuth();
+  const isSuperAdmin = user?.email === SUPERADMIN_EMAIL;
 
   const menuItems = [
     { name: 'Dashboard', path: '/admin', icon: <LayoutDashboard size={20} />, permission: 'DASHBOARD_READ' },
@@ -49,6 +52,10 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
     { name: 'Manajemen Izin', path: '/admin/permissions', icon: <Key size={20} />, permission: 'PERMISSIONS_READ' },
     { name: 'Audit Log', path: '/admin/audit-logs', icon: <Activity size={20} />, permission: 'AUDIT_LOG_READ' },
     { name: 'Notifikasi', path: '/admin/notifications', icon: <Bell size={20} />, permission: 'NOTIFICATIONS_READ' },
+  ];
+
+  const superAdminItems = [
+    { name: 'Backup Database', path: '/admin/backup', icon: <HardDriveDownload size={20} /> },
   ];
 
   const isActive = (path: string) => {
@@ -102,6 +109,38 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
               )}
             </Link>
           ))}
+
+          {isSuperAdmin && (
+            <>
+              {!isCollapsed && (
+                <p className="px-3 pt-3 pb-1 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-600 animate-in fade-in duration-300">
+                  Super Admin
+                </p>
+              )}
+              {isCollapsed && <div className="border-t border-slate-200 dark:border-slate-700 my-2" />}
+              {superAdminItems.map((item) => (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  title={isCollapsed ? item.name : ''}
+                  className={`group flex items-center px-3 py-3 text-sm font-medium rounded-xl transition-all duration-200 ${
+                    isActive(item.path)
+                      ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 shadow-sm'
+                      : `${TEXT_COLOR.SECONDARY} hover:bg-amber-50 dark:hover:bg-amber-900/20 hover:text-amber-700 dark:hover:text-amber-300`
+                  }`}
+                >
+                  <span className={`flex-shrink-0 ${isCollapsed ? 'mx-auto' : 'mr-3'} ${isActive(item.path) ? 'text-amber-600 dark:text-amber-400' : 'text-amber-500 dark:text-amber-600'}`}>
+                    {item.icon}
+                  </span>
+                  {!isCollapsed && (
+                    <span className="truncate animate-in fade-in duration-300">
+                      {item.name}
+                    </span>
+                  )}
+                </Link>
+              ))}
+            </>
+          )}
         </nav>
         
         <div className="px-4 py-4 border-t border-slate-200 dark:border-slate-800 space-y-2 mt-auto">

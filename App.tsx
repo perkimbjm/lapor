@@ -25,6 +25,7 @@ import RoleManagement from './pages/admin/RoleManagement';
 import PermissionManagement from './pages/admin/PermissionManagement';
 import ActivityLog from './pages/admin/ActivityLog';
 import AuditLog from './pages/admin/AuditLog';
+import DatabaseBackup from './pages/admin/DatabaseBackup';
 
 // Lazy-loaded Pages (loaded on-demand with their vendor chunks)
 const MapDistribution = React.lazy(() => import('./pages/admin/MapDistribution'));
@@ -86,6 +87,7 @@ const App: React.FC = () => {
               <Route path="audit-logs" element={<ProtectedRoute requirePermission="AUDIT_LOG_READ"><AuditLog /></ProtectedRoute>} />
               <Route path="notifications" element={<ProtectedRoute requirePermission="NOTIFICATIONS_READ"><NotificationsList /></ProtectedRoute>} />
               <Route path="notifications/:id" element={<ProtectedRoute requirePermission="NOTIFICATIONS_READ"><NotificationDetail /></ProtectedRoute>} />
+              <Route path="backup" element={<DatabaseBackup />} />
             </Route>
             
             {/* Fallback */}
