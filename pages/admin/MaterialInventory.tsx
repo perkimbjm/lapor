@@ -24,6 +24,8 @@ import {
   ArrowDownToLine,
   ArrowUpFromLine,
   FileText,
+  LayoutGrid,
+  List,
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
 import { GoogleGenAI } from "@google/genai";
@@ -44,6 +46,14 @@ const MaterialInventory: React.FC = () => {
     table: 'materials',
     realtimeMode: 'realtime',
   });
+
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>(() =>
+    (localStorage.getItem('mat-view') as 'list' | 'grid') ?? 'list'
+  );
+  const toggleView = (mode: 'list' | 'grid') => {
+    setViewMode(mode);
+    localStorage.setItem('mat-view', mode);
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -240,126 +250,235 @@ const MaterialInventory: React.FC = () => {
         </div>
       </div>
 
+      {/* ── Toolbar ── */}
       <div className="bg-white dark:bg-slate-800 shadow-sm rounded-3xl border border-slate-100 dark:border-slate-700 overflow-hidden">
-        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-900/50">
-           <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Stok Material Konstruksi</h3>
-           <div className="flex gap-3">
-             <button 
-               onClick={handleExportExcel}
-               className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white bg-green-600 rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2"
-             >
-               <FileSpreadsheet size={14} /> Export Excel
-             </button>
-             {canCreate && (
-               <button onClick={openAddModal} className="px-4 py-2 text-[10px] font-black uppercase tracking-widest text-white bg-blue-600 rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-2">
-                 <Plus size={14}/> Tambah Stok
-               </button>
-             )}
-           </div>
+        <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-700 flex flex-wrap gap-3 items-center justify-between bg-slate-50 dark:bg-slate-900/50">
+          <div className="flex items-center gap-3">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Stok Material Konstruksi</h3>
+            <span className="text-[10px] bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-2 py-0.5 rounded-full font-black">{materials.length} Item</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <div className="flex items-center bg-slate-200 dark:bg-slate-700 rounded-xl p-1 gap-0.5">
+              <button
+                onClick={() => toggleView('list')}
+                title="Tampilan List"
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'list' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-blue-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+              ><List size={15}/></button>
+              <button
+                onClick={() => toggleView('grid')}
+                title="Tampilan Grid"
+                className={`p-1.5 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-white dark:bg-slate-600 shadow text-blue-600 dark:text-blue-400' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'}`}
+              ><LayoutGrid size={15}/></button>
+            </div>
+            <button onClick={handleExportExcel}
+              className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white bg-green-600 rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-1.5">
+              <FileSpreadsheet size={13}/> Excel
+            </button>
+            {canCreate && (
+              <button onClick={openAddModal}
+                className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-white bg-blue-600 rounded-xl shadow-lg active:scale-95 transition-all flex items-center gap-1.5">
+                <Plus size={13}/> Tambah
+              </button>
+            )}
+          </div>
         </div>
-        <ul className="divide-y divide-slate-100 dark:divide-slate-700">
-          {materials.length === 0 && (
-            <li className="px-6 py-12 text-center text-slate-400 dark:text-slate-500 italic text-sm">Belum ada data material.</li>
-          )}
-          {materials.map((item) => {
-            const isCritical  = item.current_stock <= item.min_threshold;
-            const contracted  = item.stock_contracted ?? 0;
-            const stockIn     = item.stock_in  ?? 0;
-            const stockOut    = item.stock_out ?? 0;
-            const inPct       = contracted > 0 ? Math.min(100, Math.round((stockIn  / contracted) * 100)) : 0;
-            const outPct      = stockIn    > 0 ? Math.min(100, Math.round((stockOut / stockIn)    * 100)) : 0;
-            return (
-              <li key={item.id} className={`px-5 py-4 transition-all group border-l-4 ${
-                isCritical ? 'border-red-500 bg-red-50/40 dark:bg-red-900/10' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-700/30'
-              }`}>
-                {/* Name row */}
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="min-w-0">
-                    <p className={`text-xs font-black uppercase truncate ${isCritical ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>{item.name}</p>
-                    <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold mt-0.5">
-                      Satuan: <span className="text-slate-600 dark:text-slate-300">{item.unit}</span>
-                      &ensp;·&ensp;Min. {item.min_threshold} {item.unit}
-                    </p>
+
+        {materials.length === 0 && (
+          <p className="px-6 py-14 text-center text-slate-400 dark:text-slate-500 italic text-sm">Belum ada data material.</p>
+        )}
+
+        {/* ══ LIST VIEW ══ */}
+        {viewMode === 'list' && materials.length > 0 && (
+          <ul className="divide-y divide-slate-100 dark:divide-slate-700">
+            {materials.map((item) => {
+              const isCritical = item.current_stock <= item.min_threshold;
+              const contracted = item.stock_contracted ?? 0;
+              const stockIn    = item.stock_in  ?? 0;
+              const stockOut   = item.stock_out ?? 0;
+              const inPct  = contracted > 0 ? Math.min(100, Math.round((stockIn  / contracted) * 100)) : 0;
+              const outPct = stockIn    > 0 ? Math.min(100, Math.round((stockOut / stockIn)    * 100)) : 0;
+              return (
+                <li key={item.id} className={`px-5 py-4 transition-all group border-l-4 ${
+                  isCritical ? 'border-red-500 bg-red-50/40 dark:bg-red-900/10' : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-700/30'
+                }`}>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="min-w-0">
+                      <p className={`text-xs font-black uppercase truncate ${isCritical ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>{item.name}</p>
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-bold mt-0.5">
+                        Satuan: <span className="text-slate-600 dark:text-slate-300">{item.unit}</span>&ensp;·&ensp;Min. {item.min_threshold} {item.unit}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {isCritical && <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-[9px] font-black uppercase"><AlertTriangle size={10}/> Kritis</span>}
+                      {canUpdate && <button onClick={() => openEditModal(item)} className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all"><Pencil size={13}/></button>}
+                      {canDelete && <button onClick={() => setItemToDelete({id: item.id, name: item.name})} className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"><Trash2 size={13}/></button>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {isCritical && (
-                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg text-[9px] font-black uppercase">
-                        <AlertTriangle size={10}/> Kritis
+                  <div className="grid grid-cols-4 gap-2">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700">
+                      <div className="flex items-center gap-1 text-slate-400 mb-1.5"><FileText size={10}/><span className="text-[9px] font-black uppercase tracking-widest">Kontrak</span></div>
+                      <p className="text-lg font-black tabular-nums text-slate-700 dark:text-slate-200 leading-none">{contracted.toLocaleString()}</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">{item.unit}</p>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-800">
+                      <div className="flex items-center gap-1 text-blue-500 mb-1.5"><ArrowDownToLine size={10}/><span className="text-[9px] font-black uppercase tracking-widest">Datang</span></div>
+                      <p className="text-lg font-black tabular-nums text-blue-700 dark:text-blue-300 leading-none">{stockIn.toLocaleString()}</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <div className="flex-1 h-1 rounded-full bg-blue-100 dark:bg-blue-900 overflow-hidden"><div className="h-full rounded-full bg-blue-500 transition-all" style={{width:`${inPct}%`}}/></div>
+                        <span className="text-[9px] text-blue-400 font-bold">{inPct}%</span>
+                      </div>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-100 dark:border-amber-800">
+                      <div className="flex items-center gap-1 text-amber-500 mb-1.5"><ArrowUpFromLine size={10}/><span className="text-[9px] font-black uppercase tracking-widest">Keluar</span></div>
+                      <p className="text-lg font-black tabular-nums text-amber-700 dark:text-amber-300 leading-none">{stockOut.toLocaleString()}</p>
+                      <div className="flex items-center gap-1 mt-1">
+                        <div className="flex-1 h-1 rounded-full bg-amber-100 dark:bg-amber-900 overflow-hidden"><div className="h-full rounded-full bg-amber-500 transition-all" style={{width:`${outPct}%`}}/></div>
+                        <span className="text-[9px] text-amber-400 font-bold">{outPct}%</span>
+                      </div>
+                    </div>
+                    <div className={`rounded-xl p-3 border ${item.current_stock === 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : isCritical ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800'}`}>
+                      <div className={`flex items-center gap-1 mb-1.5 ${item.current_stock === 0 ? 'text-red-500' : isCritical ? 'text-orange-500' : 'text-emerald-500'}`}><Package size={10}/><span className="text-[9px] font-black uppercase tracking-widest">Sisa</span></div>
+                      <p className={`text-lg font-black tabular-nums leading-none ${item.current_stock === 0 ? 'text-red-600 dark:text-red-400 animate-pulse' : isCritical ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-700 dark:text-emerald-300'}`}>{item.current_stock.toLocaleString()}</p>
+                      <p className={`text-[10px] mt-0.5 ${item.current_stock === 0 ? 'text-red-400' : isCritical ? 'text-orange-400' : 'text-emerald-500'}`}>{item.unit}</p>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        {/* ══ GRID / CARD VIEW ══ */}
+        {viewMode === 'grid' && materials.length > 0 && (
+          <div className="p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {materials.map((item) => {
+              const isCritical = item.current_stock <= item.min_threshold;
+              const isEmpty    = item.current_stock === 0;
+              const contracted = item.stock_contracted ?? 0;
+              const stockIn    = item.stock_in  ?? 0;
+              const stockOut   = item.stock_out ?? 0;
+
+              // SVG ring: sisa / kontrak ratio (fallback to sisa/stockIn)
+              const total     = contracted > 0 ? contracted : stockIn > 0 ? stockIn : 1;
+              const sisaPct   = Math.min(100, Math.round((item.current_stock / total) * 100));
+              const circumference = 2 * Math.PI * 28; // r=28
+              const ringOffset    = circumference - (sisaPct / 100) * circumference;
+              const ringColor     = isEmpty ? '#ef4444' : isCritical ? '#f97316' : '#10b981';
+
+              const inPct  = contracted > 0 ? Math.min(100, Math.round((stockIn  / contracted) * 100)) : 0;
+              const outPct = stockIn    > 0 ? Math.min(100, Math.round((stockOut / stockIn)    * 100)) : 0;
+
+              return (
+                <div key={item.id} className={`relative bg-white dark:bg-slate-800 rounded-2xl border shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden group ${
+                  isEmpty    ? 'border-red-200 dark:border-red-800' :
+                  isCritical ? 'border-orange-200 dark:border-orange-700' :
+                               'border-slate-200 dark:border-slate-700'
+                }`}>
+                  {/* Top accent bar */}
+                  <div className={`h-1 w-full ${isEmpty ? 'bg-red-500' : isCritical ? 'bg-orange-400' : 'bg-emerald-500'}`}/>
+
+                  {/* Card header */}
+                  <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className={`text-xs font-black uppercase leading-tight truncate ${isEmpty ? 'text-red-600 dark:text-red-400' : isCritical ? 'text-orange-600 dark:text-orange-400' : 'text-slate-900 dark:text-white'}`}>
+                        {item.name}
+                      </p>
+                      <span className="inline-block mt-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                        {item.unit}
+                      </span>
+                    </div>
+                    {(isEmpty || isCritical) && (
+                      <span className={`shrink-0 inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase ${isEmpty ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400' : 'bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400'}`}>
+                        <AlertTriangle size={9}/>{isEmpty ? 'Habis' : 'Kritis'}
                       </span>
                     )}
+                  </div>
+
+                  {/* SVG Ring + Sisa Stok */}
+                  <div className="flex flex-col items-center py-3">
+                    <div className="relative w-24 h-24">
+                      <svg viewBox="0 0 64 64" className="w-full h-full -rotate-90">
+                        {/* Track */}
+                        <circle cx="32" cy="32" r="28" fill="none" strokeWidth="5"
+                          className="stroke-slate-100 dark:stroke-slate-700"/>
+                        {/* Progress */}
+                        <circle cx="32" cy="32" r="28" fill="none" strokeWidth="5"
+                          stroke={ringColor}
+                          strokeLinecap="round"
+                          strokeDasharray={`${circumference}`}
+                          strokeDashoffset={`${ringOffset}`}
+                          style={{transition:'stroke-dashoffset 0.6s ease'}}/>
+                      </svg>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                        <p className={`text-xl font-black tabular-nums leading-none ${isEmpty ? 'text-red-600 dark:text-red-400 animate-pulse' : isCritical ? 'text-orange-600 dark:text-orange-400' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                          {item.current_stock.toLocaleString()}
+                        </p>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Sisa</p>
+                        <p className={`text-[10px] font-bold mt-0.5 ${isEmpty ? 'text-red-400' : isCritical ? 'text-orange-400' : 'text-emerald-500'}`}>{sisaPct}%</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Min. {item.min_threshold} {item.unit}</p>
+                  </div>
+
+                  {/* Flow stats */}
+                  <div className="px-4 pb-3 grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-2 border border-slate-100 dark:border-slate-700">
+                      <FileText size={11} className="mx-auto mb-1 text-slate-400"/>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Kontrak</p>
+                      <p className="text-sm font-black tabular-nums text-slate-700 dark:text-slate-200">{contracted.toLocaleString()}</p>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-2 border border-blue-100 dark:border-blue-800">
+                      <ArrowDownToLine size={11} className="mx-auto mb-1 text-blue-400"/>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-blue-400">Datang</p>
+                      <p className="text-sm font-black tabular-nums text-blue-700 dark:text-blue-300">{stockIn.toLocaleString()}</p>
+                      <p className="text-[9px] text-blue-400 font-bold">{inPct}%</p>
+                    </div>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-2 border border-amber-100 dark:border-amber-800">
+                      <ArrowUpFromLine size={11} className="mx-auto mb-1 text-amber-400"/>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-amber-400">Keluar</p>
+                      <p className="text-sm font-black tabular-nums text-amber-700 dark:text-amber-300">{stockOut.toLocaleString()}</p>
+                      <p className="text-[9px] text-amber-400 font-bold">{outPct}%</p>
+                    </div>
+                  </div>
+
+                  {/* Progress bar — Datang vs Kontrak */}
+                  {contracted > 0 && (
+                    <div className="px-4 pb-3">
+                      <div className="relative h-2 rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
+                        {/* Datang bar */}
+                        <div className="absolute h-full rounded-full bg-blue-400 transition-all" style={{width:`${inPct}%`}}/>
+                        {/* Keluar overlay */}
+                        <div className="absolute h-full rounded-full bg-amber-400/70 transition-all" style={{width:`${Math.round((stockOut/total)*100)}%`}}/>
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <span className="text-[9px] text-slate-400">0</span>
+                        <span className="text-[9px] text-slate-400">{contracted.toLocaleString()} {item.unit}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="mt-auto border-t border-slate-100 dark:border-slate-700 flex">
                     {canUpdate && (
-                      <button onClick={() => openEditModal(item)} className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all"><Pencil size={13}/></button>
+                      <button onClick={() => openEditModal(item)}
+                        className="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all">
+                        <Pencil size={12}/> Edit
+                      </button>
                     )}
+                    {canUpdate && canDelete && <div className="w-px bg-slate-100 dark:bg-slate-700"/>}
                     {canDelete && (
-                      <button onClick={() => setItemToDelete({id: item.id, name: item.name})} className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"><Trash2 size={13}/></button>
+                      <button onClick={() => setItemToDelete({id: item.id, name: item.name})}
+                        className="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-[10px] font-black uppercase text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all">
+                        <Trash2 size={12}/> Hapus
+                      </button>
                     )}
                   </div>
                 </div>
-
-                {/* Metrics grid */}
-                <div className="grid grid-cols-4 gap-2">
-                  {/* Kontrak */}
-                  <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700">
-                    <div className="flex items-center gap-1 text-slate-400 mb-1.5">
-                      <FileText size={10}/>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Kontrak</span>
-                    </div>
-                    <p className="text-lg font-black tabular-nums text-slate-700 dark:text-slate-200 leading-none">{contracted.toLocaleString()}</p>
-                    <p className="text-[10px] text-slate-400 mt-0.5">{item.unit}</p>
-                  </div>
-
-                  {/* Stok Datang */}
-                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-800">
-                    <div className="flex items-center gap-1 text-blue-500 mb-1.5">
-                      <ArrowDownToLine size={10}/>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Datang</span>
-                    </div>
-                    <p className="text-lg font-black tabular-nums text-blue-700 dark:text-blue-300 leading-none">{stockIn.toLocaleString()}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <div className="flex-1 h-1 rounded-full bg-blue-100 dark:bg-blue-900 overflow-hidden">
-                        <div className="h-full rounded-full bg-blue-500 transition-all" style={{width:`${inPct}%`}}/>
-                      </div>
-                      <span className="text-[9px] text-blue-400 font-bold">{inPct}%</span>
-                    </div>
-                  </div>
-
-                  {/* Stok Keluar */}
-                  <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-100 dark:border-amber-800">
-                    <div className="flex items-center gap-1 text-amber-500 mb-1.5">
-                      <ArrowUpFromLine size={10}/>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Keluar</span>
-                    </div>
-                    <p className="text-lg font-black tabular-nums text-amber-700 dark:text-amber-300 leading-none">{stockOut.toLocaleString()}</p>
-                    <div className="flex items-center gap-1 mt-1">
-                      <div className="flex-1 h-1 rounded-full bg-amber-100 dark:bg-amber-900 overflow-hidden">
-                        <div className="h-full rounded-full bg-amber-500 transition-all" style={{width:`${outPct}%`}}/>
-                      </div>
-                      <span className="text-[9px] text-amber-400 font-bold">{outPct}%</span>
-                    </div>
-                  </div>
-
-                  {/* Sisa */}
-                  <div className={`rounded-xl p-3 border ${
-                    item.current_stock === 0 ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
-                    : isCritical ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
-                    : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800'
-                  }`}>
-                    <div className={`flex items-center gap-1 mb-1.5 ${item.current_stock === 0 ? 'text-red-500' : isCritical ? 'text-orange-500' : 'text-emerald-500'}`}>
-                      <Package size={10}/>
-                      <span className="text-[9px] font-black uppercase tracking-widest">Sisa</span>
-                    </div>
-                    <p className={`text-lg font-black tabular-nums leading-none ${
-                      item.current_stock === 0 ? 'text-red-600 dark:text-red-400 animate-pulse'
-                      : isCritical ? 'text-orange-600 dark:text-orange-400'
-                      : 'text-emerald-700 dark:text-emerald-300'
-                    }`}>{item.current_stock.toLocaleString()}</p>
-                    <p className={`text-[10px] mt-0.5 ${item.current_stock === 0 ? 'text-red-400' : isCritical ? 'text-orange-400' : 'text-emerald-500'}`}>{item.unit}</p>
-                  </div>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {isModalOpen && (
