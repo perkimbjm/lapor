@@ -74,6 +74,13 @@ export interface Material {
   id: string;
   name: string;
   unit: string;
+  /** Quantity specified in the procurement contract */
+  stock_contracted: number;
+  /** Cumulative stock received into warehouse */
+  stock_in: number;
+  /** Cumulative stock dispatched / used */
+  stock_out: number;
+  /** Derived: stock_in - stock_out */
   current_stock: number;
   min_threshold: number;
   last_updated: string;

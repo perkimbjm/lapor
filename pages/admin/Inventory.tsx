@@ -4,22 +4,24 @@ import { useLocation, useNavigate, useOutletContext } from 'react-router-dom';
 
 import { supabase } from '../../src/supabase';
 import { Material, Equipment } from '../../types';
-import { 
-  AlertTriangle, 
-  AlertCircle, 
-  Plus, 
-  Pencil, 
-  Trash2, 
-  X, 
-  Save, 
-  Package, 
-  Truck, 
+import {
+  AlertTriangle,
+  AlertCircle,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Save,
+  Package,
+  Truck,
   Sparkles,
   Loader2,
   RefreshCw,
   ExternalLink,
-  CheckCircle2
-  // Fix: Corrected import source from 'lucide-center' to 'lucide-react'
+  CheckCircle2,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  FileText,
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { useAuth } from '../../components/AuthContext';
@@ -92,15 +94,16 @@ const Inventory: React.FC = () => {
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [showApiKeyPrompt, setShowApiKeyPrompt] = useState(false);
 
-  // Added category to formData to satisfy Equipment type requirements
   const [formData, setFormData] = useState({
     name: '',
     unit: '',
-    current_stock: 0,
+    stock_contracted: 0,
+    stock_in: 0,
+    stock_out: 0,
     min_threshold: 0,
     type: '',
     status: 'Tersedia',
-    category: 'Heavy' as 'Heavy' | 'Tool'
+    category: 'Heavy' as 'Heavy' | 'Tool',
   });
 
   useEffect(() => {
@@ -178,11 +181,13 @@ const Inventory: React.FC = () => {
     setFormData({
       name: '',
       unit: 'Sak',
-      current_stock: 0,
+      stock_contracted: 0,
+      stock_in: 0,
+      stock_out: 0,
       min_threshold: 0,
       type: 'Alat Berat',
       status: 'Tersedia',
-      category: 'Heavy'
+      category: 'Heavy',
     });
     setIsModalOpen(true);
   };
@@ -190,28 +195,32 @@ const Inventory: React.FC = () => {
   const openEditModal = (item: Material | Equipment) => {
     setIsEditing(true);
     setCurrentId(item.id);
-    
+
     if (activeTab === 'material') {
       const m = item as Material;
       setFormData({
         name: m.name,
         unit: m.unit,
-        current_stock: m.current_stock,
+        stock_contracted: m.stock_contracted ?? 0,
+        stock_in: m.stock_in ?? 0,
+        stock_out: m.stock_out ?? 0,
         min_threshold: m.min_threshold,
         type: '',
         status: '',
-        category: 'Heavy'
+        category: 'Heavy',
       });
     } else {
       const e = item as Equipment;
       setFormData({
         name: e.name,
         unit: '',
-        current_stock: 0,
+        stock_contracted: 0,
+        stock_in: 0,
+        stock_out: 0,
         min_threshold: 0,
         type: e.type,
         status: e.status,
-        category: e.category || 'Heavy'
+        category: e.category || 'Heavy',
       });
     }
     setIsModalOpen(true);
@@ -243,12 +252,17 @@ const Inventory: React.FC = () => {
 
     try {
       if (activeTab === 'material') {
+        const stockIn  = Number(formData.stock_in);
+        const stockOut = Number(formData.stock_out);
         const materialData = {
           name: formData.name,
           unit: formData.unit,
-          current_stock: Number(formData.current_stock),
+          stock_contracted: Number(formData.stock_contracted),
+          stock_in: stockIn,
+          stock_out: stockOut,
+          current_stock: Math.max(0, stockIn - stockOut),
           min_threshold: Number(formData.min_threshold),
-          last_updated: new Date().toISOString().split('T')[0]
+          last_updated: new Date().toISOString().split('T')[0],
         };
 
         if (isEditing && currentId) {
@@ -428,64 +442,134 @@ const Inventory: React.FC = () => {
           </div>
           <ul className="divide-y divide-slate-100 dark:divide-slate-700">
             {materials.length > 0 ? materials.map((item) => {
-              const status = getStockStatus(item.current_stock, item.min_threshold);
+              const status    = getStockStatus(item.current_stock, item.min_threshold);
               const isCritical = item.current_stock <= item.min_threshold;
-              
-              return (
-              <li key={item.id} className={`px-6 py-5 transition-all group border-l-4 ${
-                isCritical 
-                  ? 'border-red-500 bg-red-50/40 dark:bg-red-900/10' 
-                  : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-700/30'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                     <p className={`text-sm font-bold truncate ${isCritical ? 'text-red-700 dark:text-red-400' : 'text-blue-600 dark:text-blue-400'}`}>
-                        {item.name}
-                        {isCritical && <span className="ml-2 inline-flex items-center text-[10px] font-black uppercase text-red-600 dark:text-red-500">⚠️ PERLU PENGADAAN</span>}
-                     </p>
-                     <p className="text-sm text-slate-500 dark:text-slate-300 mt-1">
-                        Satuan: <span className="font-semibold">{item.unit}</span> | Batas Minimum: <span className="font-bold text-slate-700 dark:text-slate-300">{item.min_threshold}</span>
-                     </p>
-                  </div>
-                  <div className="flex items-center gap-6">
-                     <div className="text-right">
-                        <p className={`text-3xl font-black tabular-nums ${item.current_stock === 0 ? 'text-red-600 animate-pulse' : isCritical ? 'text-orange-600' : 'text-slate-900 dark:text-white'}`}>
-                          {item.current_stock}
-                        </p>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-300 font-black uppercase tracking-widest">Sisa Stok</p>
-                     </div>
-                     
-                     {status && (
-                        <div className={`hidden lg:flex items-center py-2 rounded-xl font-bold text-[11px] ${status.className}`}>
-                           {status.icon}
-                           {status.label}
-                        </div>
-                     )}
+              const contracted = item.stock_contracted ?? 0;
+              const stockIn    = item.stock_in  ?? 0;
+              const stockOut   = item.stock_out ?? 0;
+              // Progress bar: stok datang vs kontrak
+              const inPct  = contracted > 0 ? Math.min(100, Math.round((stockIn  / contracted) * 100)) : 0;
+              const outPct = stockIn    > 0 ? Math.min(100, Math.round((stockOut / stockIn)    * 100)) : 0;
 
-                     <div className="flex items-center gap-1 pl-4 border-l border-slate-200 dark:border-slate-700">
-                        {canMatUpdate && (
-                          <button
-                            onClick={() => openEditModal(item)}
-                            className="p-2.5 rounded-xl text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all active:scale-90"
-                            title="Edit"
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </button>
-                        )}
-                        {canMatDelete && (
-                          <button
-                            onClick={() => confirmDelete(item)}
-                            className="p-2.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all active:scale-90"
-                            title="Hapus"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                     </div>
+              return (
+                <li key={item.id} className={`px-5 py-4 transition-all group border-l-4 ${
+                  isCritical
+                    ? 'border-red-500 bg-red-50/40 dark:bg-red-900/10'
+                    : 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-700/30'
+                }`}>
+                  {/* ── Row top: name + actions ── */}
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="min-w-0">
+                      <p className={`text-sm font-bold truncate ${isCritical ? 'text-red-700 dark:text-red-400' : 'text-slate-900 dark:text-white'}`}>
+                        {item.name}
+                      </p>
+                      <p className="text-[11px] text-slate-400 dark:text-slate-500 mt-0.5">
+                        Satuan: <span className="font-semibold text-slate-600 dark:text-slate-300">{item.unit}</span>
+                        &ensp;·&ensp;Min. {item.min_threshold} {item.unit}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {status && (
+                        <span className={`hidden sm:inline-flex items-center py-1 rounded-lg font-bold text-[10px] ${status.className}`}>
+                          {status.icon}{status.label}
+                        </span>
+                      )}
+                      {canMatUpdate && (
+                        <button onClick={() => openEditModal(item)}
+                          className="p-2 rounded-lg text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-all"
+                          title="Edit">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {canMatDelete && (
+                        <button onClick={() => confirmDelete(item)}
+                          className="p-2 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all"
+                          title="Hapus">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </li>
-            )}) : (
+
+                  {/* ── Metrics row ── */}
+                  <div className="grid grid-cols-4 gap-2">
+                    {/* Kontrak */}
+                    <div className="bg-slate-50 dark:bg-slate-900/50 rounded-xl p-3 border border-slate-100 dark:border-slate-700 flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-slate-400">
+                        <FileText className="w-3 h-3" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Kontrak</span>
+                      </div>
+                      <p className="text-xl font-black tabular-nums text-slate-700 dark:text-slate-200 leading-none">
+                        {contracted.toLocaleString()}
+                      </p>
+                      <p className="text-[10px] text-slate-400">{item.unit}</p>
+                    </div>
+
+                    {/* Stok Datang */}
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-800 flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-blue-500">
+                        <ArrowDownToLine className="w-3 h-3" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Datang</span>
+                      </div>
+                      <p className="text-xl font-black tabular-nums text-blue-700 dark:text-blue-300 leading-none">
+                        {stockIn.toLocaleString()}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <div className="flex-1 h-1 rounded-full bg-blue-100 dark:bg-blue-900 overflow-hidden">
+                          <div className="h-full rounded-full bg-blue-500 transition-all" style={{ width: `${inPct}%` }} />
+                        </div>
+                        <span className="text-[9px] text-blue-400 font-bold">{inPct}%</span>
+                      </div>
+                    </div>
+
+                    {/* Stok Keluar */}
+                    <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl p-3 border border-amber-100 dark:border-amber-800 flex flex-col gap-1">
+                      <div className="flex items-center gap-1.5 text-amber-500">
+                        <ArrowUpFromLine className="w-3 h-3" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Keluar</span>
+                      </div>
+                      <p className="text-xl font-black tabular-nums text-amber-700 dark:text-amber-300 leading-none">
+                        {stockOut.toLocaleString()}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <div className="flex-1 h-1 rounded-full bg-amber-100 dark:bg-amber-900 overflow-hidden">
+                          <div className="h-full rounded-full bg-amber-500 transition-all" style={{ width: `${outPct}%` }} />
+                        </div>
+                        <span className="text-[9px] text-amber-400 font-bold">{outPct}%</span>
+                      </div>
+                    </div>
+
+                    {/* Sisa Stok */}
+                    <div className={`rounded-xl p-3 border flex flex-col gap-1 ${
+                      item.current_stock === 0
+                        ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800'
+                        : isCritical
+                          ? 'bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800'
+                          : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-800'
+                    }`}>
+                      <div className={`flex items-center gap-1.5 ${
+                        item.current_stock === 0 ? 'text-red-500' : isCritical ? 'text-orange-500' : 'text-emerald-500'
+                      }`}>
+                        <Package className="w-3 h-3" />
+                        <span className="text-[9px] font-black uppercase tracking-widest">Sisa</span>
+                      </div>
+                      <p className={`text-xl font-black tabular-nums leading-none ${
+                        item.current_stock === 0
+                          ? 'text-red-600 dark:text-red-400 animate-pulse'
+                          : isCritical
+                            ? 'text-orange-600 dark:text-orange-400'
+                            : 'text-emerald-700 dark:text-emerald-300'
+                      }`}>
+                        {item.current_stock.toLocaleString()}
+                      </p>
+                      <p className={`text-[10px] ${
+                        item.current_stock === 0 ? 'text-red-400' : isCritical ? 'text-orange-400' : 'text-emerald-500'
+                      }`}>{item.unit}</p>
+                    </div>
+                  </div>
+                </li>
+              );
+            }) : (
               <li className="px-6 py-12 text-center text-slate-500 dark:text-slate-300 italic">Data material kosong.</li>
             )}
           </ul>
@@ -538,120 +622,216 @@ const Inventory: React.FC = () => {
 
       {/* --- UNIVERSAL ADD/EDIT MODAL --- */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative w-full max-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
-            
-            <div className="px-6 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
-                {isEditing ? 'Edit Data' : 'Tambah Data'} {activeTab === 'material' ? 'Material' : 'Alat'}
-              </h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+          <div className="relative w-full sm:max-w-lg bg-white dark:bg-slate-800 rounded-t-2xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[88vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200">
+
+            {/* Header */}
+            <div className="shrink-0 px-5 py-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/80 flex justify-between items-center rounded-t-2xl">
+              <div>
+                <h3 className="text-base font-bold text-slate-900 dark:text-white">
+                  {isEditing ? 'Edit' : 'Tambah'} {activeTab === 'material' ? 'Material' : 'Alat/Kendaraan'}
+                </h3>
+                {activeTab === 'material' && (
+                  <p className="text-[11px] text-slate-400 mt-0.5">Kontrak → Stok Datang → Stok Keluar</p>
+                )}
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
-                  Nama {activeTab === 'material' ? 'Material' : 'Alat/Kendaraan'}
-                </label>
-                <input 
-                  type="text" 
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder={activeTab === 'material' ? 'Contoh: Aspal Curah' : 'Contoh: Excavator Mini'}
-                />
-              </div>
+            {/* Scrollable body */}
+            <form id="inventory-form" onSubmit={handleSave} className="flex-1 overflow-y-auto overscroll-contain">
+              <div className="p-5 space-y-5">
 
-              {activeTab === 'material' ? (
-                <>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Stok Saat Ini</label>
-                    <input 
-                      type="number" 
-                      required
-                      value={formData.current_stock}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        setFormData({
-                          ...formData, 
-                          current_stock: val,
-                          min_threshold: Math.ceil(val * 0.2)
-                        });
-                      }}
-                      className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all font-bold text-lg"
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
+                {/* Nama */}
+                <div>
+                  <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Nama {activeTab === 'material' ? 'Material' : 'Alat/Kendaraan'}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={e => setFormData({...formData, name: e.target.value})}
+                    className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder={activeTab === 'material' ? 'Contoh: Aspal Curah' : 'Contoh: Excavator Mini'}
+                  />
+                </div>
+
+                {activeTab === 'material' ? (
+                  <>
+                    {/* Satuan */}
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Satuan</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         required
                         value={formData.unit}
-                        onChange={(e) => setFormData({...formData, unit: e.target.value})}
-                        className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                        placeholder="Kg, Sak, m3"
+                        onChange={e => setFormData({...formData, unit: e.target.value})}
+                        className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Contoh: Sak, Kg, m³, Liter"
+                      />
+                    </div>
+
+                    {/* ── Section 1: Material Saat Kontrak ── */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-2.5 bg-slate-100 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-700">
+                        <FileText className="w-3.5 h-3.5 text-slate-500" />
+                        <span className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Material Saat Kontrak</span>
+                        <span className="text-[10px] text-slate-400 normal-case tracking-normal font-normal ml-1">— volume sesuai SPK/kontrak</span>
+                      </div>
+                      <div className="p-4">
+                        <input
+                          type="number"
+                          min={0}
+                          required
+                          value={formData.stock_contracted}
+                          onChange={e => setFormData({...formData, stock_contracted: Number(e.target.value)})}
+                          className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-slate-500 focus:border-transparent font-bold text-lg"
+                          placeholder="0"
+                        />
+                        <p className="text-[11px] text-slate-400 mt-1.5">Jumlah material yang tertera dalam kontrak pengadaan</p>
+                      </div>
+                    </div>
+
+                    {/* ── Section 2: Stok Datang ── */}
+                    <div className="rounded-xl border border-blue-200 dark:border-blue-800 overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-2.5 bg-blue-50 dark:bg-blue-900/30 border-b border-blue-200 dark:border-blue-800">
+                        <ArrowDownToLine className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="text-xs font-bold text-blue-700 dark:text-blue-300 uppercase tracking-wider">Stok Datang</span>
+                        <span className="text-[10px] text-blue-400 normal-case tracking-normal font-normal ml-1">— total diterima di gudang</span>
+                      </div>
+                      <div className="p-4">
+                        <input
+                          type="number"
+                          min={0}
+                          required
+                          value={formData.stock_in}
+                          onChange={e => {
+                            const val = Number(e.target.value);
+                            setFormData({
+                              ...formData,
+                              stock_in: val,
+                              min_threshold: Math.max(formData.min_threshold, Math.ceil(val * 0.15)),
+                            });
+                          }}
+                          className="block w-full rounded-xl border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-900 text-blue-800 dark:text-blue-200 px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-bold text-lg"
+                          placeholder="0"
+                        />
+                        <p className="text-[11px] text-blue-400 mt-1.5">Kumulatif material yang sudah diterima masuk gudang</p>
+                      </div>
+                    </div>
+
+                    {/* ── Section 3: Stok Keluar ── */}
+                    <div className="rounded-xl border border-amber-200 dark:border-amber-800 overflow-hidden">
+                      <div className="flex items-center gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800">
+                        <ArrowUpFromLine className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300 uppercase tracking-wider">Stok Keluar</span>
+                        <span className="text-[10px] text-amber-400 normal-case tracking-normal font-normal ml-1">— total digunakan / dikirim</span>
+                      </div>
+                      <div className="p-4">
+                        <input
+                          type="number"
+                          min={0}
+                          required
+                          value={formData.stock_out}
+                          onChange={e => setFormData({...formData, stock_out: Number(e.target.value)})}
+                          className="block w-full rounded-xl border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-900 text-amber-800 dark:text-amber-200 px-4 py-2.5 focus:ring-2 focus:ring-amber-500 focus:border-transparent font-bold text-lg"
+                          placeholder="0"
+                        />
+                        <p className="text-[11px] text-amber-400 mt-1.5">Kumulatif material yang sudah keluar / dipakai di lapangan</p>
+                      </div>
+                    </div>
+
+                    {/* ── Preview sisa stok (computed) ── */}
+                    {(() => {
+                      const sisa = Math.max(0, formData.stock_in - formData.stock_out);
+                      const isCrit = sisa <= formData.min_threshold;
+                      return (
+                        <div className={`rounded-xl p-4 border flex items-center gap-4 ${
+                          isCrit ? 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'
+                        }`}>
+                          <div className="flex-1">
+                            <p className={`text-[10px] font-black uppercase tracking-widest ${isCrit ? 'text-red-400' : 'text-emerald-500'}`}>
+                              Sisa Stok (otomatis)
+                            </p>
+                            <p className={`text-3xl font-black tabular-nums mt-0.5 ${isCrit ? 'text-red-600 dark:text-red-400' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                              {sisa.toLocaleString()}
+                              <span className="text-base font-semibold ml-1.5 opacity-60">{formData.unit}</span>
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] text-slate-400 font-semibold">Batas Minimum</p>
+                            <div className="flex items-center gap-1 mt-1">
+                              <input
+                                type="number"
+                                min={0}
+                                value={formData.min_threshold}
+                                onChange={e => setFormData({...formData, min_threshold: Number(e.target.value)})}
+                                className="w-20 text-right rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-1 text-sm font-bold focus:ring-1 focus:ring-blue-500"
+                              />
+                              <span className="text-xs text-slate-400">{formData.unit}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tipe / Jenis</label>
+                      <input
+                        type="text"
+                        required
+                        value={formData.type}
+                        onChange={e => setFormData({...formData, type: e.target.value})}
+                        className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Transport / Alat Berat / Tools"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Batas Minimum</label>
-                      <input 
-                        type="number" 
-                        required
-                        value={formData.min_threshold}
-                        onChange={(e) => setFormData({...formData, min_threshold: Number(e.target.value)})}
-                        className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      />
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Kategori Alat</label>
+                      <select
+                        value={formData.category}
+                        onChange={e => setFormData({...formData, category: e.target.value as 'Heavy' | 'Tool'})}
+                        className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="Heavy">Alat Berat / Kendaraan</option>
+                        <option value="Tool">Peralatan Pekerja (Small Tools)</option>
+                      </select>
                     </div>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tipe / Jenis</label>
-                    <input 
-                      type="text" 
-                      required
-                      value={formData.type}
-                      onChange={(e) => setFormData({...formData, type: e.target.value})}
-                      className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                      placeholder="Transport / Alat Berat / Tools"
-                    />
-                  </div>
-                  {/* Fixed: Added Category selector for Equipment */}
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Kategori Alat</label>
-                    <select 
-                      value={formData.category}
-                      onChange={(e) => setFormData({...formData, category: e.target.value as 'Heavy' | 'Tool'})}
-                      className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    >
-                      <option value="Heavy">Alat Berat / Kendaraan</option>
-                      <option value="Tool">Peralatan Pekerja (Small Tools)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Status Ketersediaan</label>
-                    <select 
-                      value={formData.status}
-                      onChange={(e) => setFormData({...formData, status: e.target.value})}
-                      className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    >
-                      <option value="Tersedia">Tersedia</option>
-                      <option value="Perbaikan">Dalam Perbaikan (Rusak)</option>
-                    </select>
-                  </div>
-                </>
-              )}
-              <div className="pt-4 flex gap-3">
-                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-400 font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors">Batal</button>
-                 <button type="submit" className="flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-colors flex justify-center items-center"><Save className="w-4 h-4 mr-2" /> Simpan</button>
+                    <div>
+                      <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Status Ketersediaan</label>
+                      <select
+                        value={formData.status}
+                        onChange={e => setFormData({...formData, status: e.target.value})}
+                        className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="Tersedia">Tersedia</option>
+                        <option value="Perbaikan">Dalam Perbaikan (Rusak)</option>
+                      </select>
+                    </div>
+                  </>
+                )}
+
               </div>
             </form>
+
+            {/* Footer */}
+            <div className="shrink-0 px-5 py-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 flex gap-3">
+              <button type="button" onClick={() => setIsModalOpen(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-semibold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                Batal
+              </button>
+              <button type="submit" form="inventory-form"
+                className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 shadow-lg shadow-blue-600/20 transition-colors flex justify-center items-center gap-2">
+                <Save className="w-4 h-4" /> Simpan
+              </button>
+            </div>
+
           </div>
         </div>
       )}
