@@ -82,8 +82,8 @@ const Dashboard: React.FC = () => {
   const currentMonth = new Date().getMonth() + 1;
 
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth.toString());
-  const [trendView, setTrendView] = useState<'7days' | 'month' | 'quarter' | 'year'>('7days');
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [trendView, setTrendView] = useState<'7days' | 'month' | 'quarter' | 'year'>('year');
 
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -272,6 +272,101 @@ const Dashboard: React.FC = () => {
     return `(${monthLabel} ${selectedYear})`;
   }, [selectedMonth, selectedYear]);
 
+  // Calculate trend percentage based on current view
+  const trendPercentage = useMemo(() => {
+    if (trendView === 'year') {
+      // Compare current year with previous year
+      const prevYear = parseInt(selectedYear) - 1;
+
+      const currentYearComplaints = complaints.filter(c => {
+        const cDate = parseFirestoreDate(c.date_submitted || c.created_at);
+        if (!cDate) return false;
+        return cDate.getFullYear() === parseInt(selectedYear);
+      }).length;
+
+      const prevYearComplaints = complaints.filter(c => {
+        const cDate = parseFirestoreDate(c.date_submitted || c.created_at);
+        if (!cDate) return false;
+        return cDate.getFullYear() === prevYear;
+      }).length;
+
+      if (prevYearComplaints === 0) {
+        return currentYearComplaints > 0 ? 100 : 0;
+      }
+
+      const percentage = ((currentYearComplaints - prevYearComplaints) / prevYearComplaints) * 100;
+      return Math.round(percentage);
+    } else if (trendView === 'month') {
+      // Compare current month with previous month
+      const year = parseInt(selectedYear);
+      const month = selectedMonth === 'all' ? new Date().getMonth() + 1 : parseInt(selectedMonth);
+
+      let prevMonth = month - 1;
+      let prevYear = year;
+      if (prevMonth === 0) {
+        prevMonth = 12;
+        prevYear = year - 1;
+      }
+
+      const currentMonthComplaints = complaints.filter(c => {
+        const cDate = parseFirestoreDate(c.date_submitted || c.created_at);
+        if (!cDate) return false;
+        return cDate.getFullYear() === year && (cDate.getMonth() + 1) === month;
+      }).length;
+
+      const prevMonthComplaints = complaints.filter(c => {
+        const cDate = parseFirestoreDate(c.date_submitted || c.created_at);
+        if (!cDate) return false;
+        return cDate.getFullYear() === prevYear && (cDate.getMonth() + 1) === prevMonth;
+      }).length;
+
+      if (prevMonthComplaints === 0) {
+        return currentMonthComplaints > 0 ? 100 : 0;
+      }
+
+      const percentage = ((currentMonthComplaints - prevMonthComplaints) / prevMonthComplaints) * 100;
+      return Math.round(percentage);
+    } else if (trendView === 'quarter') {
+      // Compare current quarter with previous quarter
+      const year = parseInt(selectedYear);
+      const currentMonth = new Date().getMonth();
+      const currentQuarter = Math.floor(currentMonth / 3);
+
+      let prevQuarter = currentQuarter - 1;
+      let prevYear = year;
+      if (prevQuarter < 0) {
+        prevQuarter = 3;
+        prevYear = year - 1;
+      }
+
+      const currentQuarterComplaints = complaints.filter(c => {
+        const cDate = parseFirestoreDate(c.date_submitted || c.created_at);
+        if (!cDate) return false;
+        if (cDate.getFullYear() !== year) return false;
+        const month = cDate.getMonth();
+        const quarter = Math.floor(month / 3);
+        return quarter === currentQuarter;
+      }).length;
+
+      const prevQuarterComplaints = complaints.filter(c => {
+        const cDate = parseFirestoreDate(c.date_submitted || c.created_at);
+        if (!cDate) return false;
+        if (cDate.getFullYear() !== prevYear) return false;
+        const month = cDate.getMonth();
+        const quarter = Math.floor(month / 3);
+        return quarter === prevQuarter;
+      }).length;
+
+      if (prevQuarterComplaints === 0) {
+        return currentQuarterComplaints > 0 ? 100 : 0;
+      }
+
+      const percentage = ((currentQuarterComplaints - prevQuarterComplaints) / prevQuarterComplaints) * 100;
+      return Math.round(percentage);
+    }
+    return 0;
+  }, [complaints, trendView, selectedYear, selectedMonth]);
+
   const stats = useMemo(() => {
     const isStatusMatch = (cStatus: ComplaintStatus | string | undefined, targetStatus: ComplaintStatus) => {
       if (cStatus === targetStatus) return true;
@@ -407,8 +502,12 @@ const Dashboard: React.FC = () => {
                   <option value="quarter">Kuartal</option>
                   <option value="year">Tahunan</option>
                 </select>
-                <div className="hidden sm:flex items-center gap-1.5 text-xs font-black text-green-600 uppercase bg-green-50 dark:bg-green-900/30 px-2 py-1 rounded-lg">
-                   <TrendingUp size={14} /> +12%
+                <div className={`hidden sm:flex items-center gap-1.5 text-xs font-black uppercase px-2 py-1 rounded-lg ${
+                  trendPercentage >= 0
+                    ? 'text-green-600 bg-green-50 dark:bg-green-900/30'
+                    : 'text-red-600 bg-red-50 dark:bg-red-900/30'
+                }`}>
+                   <TrendingUp size={14} /> {trendPercentage >= 0 ? '+' : ''}{trendPercentage}%
                 </div>
              </div>
           </div>
@@ -473,12 +572,18 @@ const Dashboard: React.FC = () => {
                 </ResponsiveContainer>
               </div>
               <div className="grid grid-cols-2 gap-2 mt-auto">
-                 {statusPieData.map((entry, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                       <span className="block w-2 h-2 rounded-full shrink-0" style={{backgroundColor: COLORS_STATUS[index % COLORS_STATUS.length]}}></span>
-                       <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tight truncate">{entry.name}</span>
-                    </div>
-                 ))}
+                 {statusPieData.map((entry, index) => {
+                    const percentage = stats.total === 0 ? 0 : ((entry.value / stats.total) * 100).toFixed(1);
+                    return (
+                      <div key={index} className="flex items-center gap-2 justify-between">
+                         <div className="flex items-center gap-2 min-w-0">
+                            <span className="block w-2 h-2 rounded-full shrink-0" style={{backgroundColor: COLORS_STATUS[index % COLORS_STATUS.length]}}></span>
+                            <span className="text-[9px] sm:text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-tight truncate">{entry.name}</span>
+                         </div>
+                         <span className="text-[9px] sm:text-[10px] font-bold text-blue-600 dark:text-blue-400 whitespace-nowrap">{percentage}%</span>
+                      </div>
+                    );
+                 })}
               </div>
             </>
           )}
