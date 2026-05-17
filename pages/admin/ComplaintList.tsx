@@ -1,6 +1,7 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useOutletContext } from 'react-router-dom';
+import { useRegisterRecoveryRefetch } from '../../src/contexts/ConnectionRecoveryContext';
 import { Complaint, ComplaintStatus, RoadType, RoadTypeLabel } from '../../types';
 import { parseFirestoreDate, formatIndonesianDate } from '../../src/lib/dateUtils';
 import StatusBadge from '../../components/StatusBadge';
@@ -88,29 +89,32 @@ const ComplaintList: React.FC = () => {
   // ── Data & realtime ─────────────────────────────────────────────────────
   const [complaints, setComplaints] = useState<Complaint[]>([]);
 
-  useEffect(() => {
+  // Aturan filter:
+  // - admin/super_admin/petugas (READ tanpa CREATE) → lihat SEMUA aduan
+  // - user (CREATE tanpa UPDATE) → filter by reporter_phone (hanya aduannya sendiri)
+  const fetchComplaints = useCallback(async () => {
     if (!user) return;
-
-    // Aturan filter:
-    // - admin/super_admin/petugas (READ tanpa CREATE) → lihat SEMUA aduan
-    // - user (CREATE tanpa UPDATE) → filter by reporter_phone (hanya aduannya sendiri)
     const filterByPhone = roleName === 'user' || (canCreate && !canUpdate && !isAdmin);
 
-    const fetchComplaints = async () => {
-      let query = supabase.from('complaints').select('*');
+    let query = supabase.from('complaints').select('*');
 
-      if (filterByPhone) {
-        if (!userPhone) {
-          setComplaints([]);
-          return;
-        }
-        query = query.eq('reporter_phone', userPhone);
+    if (filterByPhone) {
+      if (!userPhone) {
+        setComplaints([]);
+        return;
       }
+      query = query.eq('reporter_phone', userPhone);
+    }
 
-      const { data, error } = await query;
-      if (error) console.error('Error fetching complaints:', error);
-      else if (data) setComplaints(data as Complaint[]);
-    };
+    const { data, error } = await query;
+    if (error) console.error('Error fetching complaints:', error);
+    else if (data) setComplaints(data as Complaint[]);
+  }, [user?.id, isAdmin, roleName, userPhone, canCreate, canUpdate]);
+
+  useRegisterRecoveryRefetch(fetchComplaints);
+
+  useEffect(() => {
+    if (!user) return;
 
     fetchComplaints();
 
@@ -125,7 +129,7 @@ const ComplaintList: React.FC = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, isAdmin, roleName, userPhone, canCreate, canUpdate]);
+  }, [user?.id, fetchComplaints]);
 
   // ── Toast ────────────────────────────────────────────────────────────────
   const [toast, setToast] = useState<{ message: string; visible: boolean } | null>(null);

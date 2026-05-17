@@ -1,6 +1,7 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Link, useOutletContext } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
+import { useRegisterRecoveryRefetch } from '../../src/contexts/ConnectionRecoveryContext';
 import {
   ComplaintStatus,
   RoadType,
@@ -92,22 +93,29 @@ const Dashboard: React.FC = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Silent fetch (no setLoading) — reused by initial mount and connection recovery.
+  const fetchAllData = useCallback(async () => {
+    const [c, m, eq, w, n] = await Promise.all([
+      supabase.from('complaints').select('*'),
+      supabase.from('materials').select('*'),
+      supabase.from('equipment').select('*'),
+      supabase.from('workers').select('*'),
+      supabase.from('notifications').select('*'),
+    ]);
+    if (c.data)  setComplaints(c.data as Complaint[]);
+    if (m.data)  setMaterials(m.data as Material[]);
+    if (eq.data) setEquipment(eq.data as Equipment[]);
+    if (w.data)  setWorkers(w.data as Worker[]);
+    if (n.data)  setNotifications(n.data as Notification[]);
+  }, []);
+
+  useRegisterRecoveryRefetch(fetchAllData);
+
   useEffect(() => {
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
     const fetchAll = async () => {
-      const [c, m, eq, w, n] = await Promise.all([
-        supabase.from('complaints').select('*'),
-        supabase.from('materials').select('*'),
-        supabase.from('equipment').select('*'),
-        supabase.from('workers').select('*'),
-        supabase.from('notifications').select('*'),
-      ]);
-      if (c.data)  setComplaints(c.data as Complaint[]);
-      if (m.data)  setMaterials(m.data as Material[]);
-      if (eq.data) setEquipment(eq.data as Equipment[]);
-      if (w.data)  setWorkers(w.data as Worker[]);
-      if (n.data)  setNotifications(n.data as Notification[]);
+      await fetchAllData();
       setLoading(false);
     };
 

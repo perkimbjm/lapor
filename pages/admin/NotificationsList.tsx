@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
+import { useRegisterRecoveryRefetch } from '../../src/contexts/ConnectionRecoveryContext';
 import {
   Notification,
   RoadTypeLabel,
@@ -68,42 +69,48 @@ const NotificationsList: React.FC = () => {
 
   /* ===================== FETCH ===================== */
 
+  const loadNotifications = useCallback(async (silent = false) => {
+    if (!user) return;
+    if (!silent) setLoading(true);
+
+    const isUser = roleName?.toLowerCase() === 'user';
+    let query = supabase.from('notifications').select('*');
+
+    if (isUser && userPhone) {
+      query = query.eq('reporter_phone', userPhone);
+    }
+
+    const { data, error } = await query.order('timestamp', { ascending: false });
+
+    if (error) {
+      console.error(error);
+    } else {
+      setNotifications(data as Notification[]);
+    }
+
+    if (!silent) {
+      setLoading(false);
+      setCurrentPage(1);
+    }
+  }, [user?.id, userPhone, roleName]);
+
+  // Silent refetch on connection recovery (no loading flicker, keep page).
+  useRegisterRecoveryRefetch(() => loadNotifications(true));
+
   useEffect(() => {
     if (!user) return;
 
-    const fetch = async () => {
-      setLoading(true);
-
-      const isUser = roleName?.toLowerCase() === 'user';
-      let query = supabase.from('notifications').select('*');
-
-      if (isUser && userPhone) {
-        query = query.eq('reporter_phone', userPhone);
-      }
-
-      const { data, error } = await query.order('timestamp', { ascending: false });
-
-      if (error) {
-        console.error(error);
-      } else {
-        setNotifications(data as Notification[]);
-      }
-
-      setLoading(false);
-      setCurrentPage(1);
-    };
-
-    fetch();
+    loadNotifications(false);
 
     const channel = supabase
       .channel(`notifications-${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, fetch)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => loadNotifications(true))
       .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [user?.id, userPhone, roleName]);
+  }, [user?.id, loadNotifications]);
 
   /* ===================== FILTER ===================== */
 

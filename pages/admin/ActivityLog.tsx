@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
+import { useRegisterRecoveryRefetch } from '../../src/contexts/ConnectionRecoveryContext';
 import { TEXT_COLOR, ICON_COLOR } from '../../src/lib/colors';
 import {
   ComplaintStatus,
@@ -396,6 +397,11 @@ const ActivityLog: React.FC = () => {
       .order('date_submitted', { ascending: false });
     if (data) setComplaints(data as Complaint[]);
   }, []);
+
+  // Silent refetch on connection recovery (no loading flicker).
+  useRegisterRecoveryRefetch(async () => {
+    await Promise.all([fetchAuditLogs(), fetchNotifications(), fetchComplaints()]);
+  });
 
   useEffect(() => {
     const fetchAll = async () => {

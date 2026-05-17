@@ -7,9 +7,14 @@ import {
   Menu, Bell, User, LogOut, Settings,
   CheckCircle2, AlertTriangle, Info, Sun, Moon,
 } from 'lucide-react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { Link, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
 import { useAuth } from '../../components/AuthContext';
+import {
+  ConnectionRecoveryProvider,
+  useRegisterRecoveryRefetch,
+  useConnectionRecoveryContext,
+} from '../../src/contexts/ConnectionRecoveryContext';
 import type { User as SupabaseUser, RealtimeChannel } from '@supabase/supabase-js';
 
 interface AdminLayoutProps {
@@ -198,10 +203,12 @@ const ProfileDropdown: React.FC<ProfileDropdownProps> = ({ user, show, setShow, 
 /* =========================
    MAIN LAYOUT
 ========================= */
-const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
+const AdminLayoutInner: React.FC<AdminLayoutProps> = ({ title }) => {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
+  const location = useLocation();
+  const recovery = useConnectionRecoveryContext();
   const isDark = theme === 'dark';
 
   const [pageTitle, setPageTitle] = useState(title);
@@ -267,6 +274,14 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
       channelRef.current = null;
     };
   }, [user?.id, fetchNotifications]);
+
+  /* CONNECTION RECOVERY: refetch notif silently on recover */
+  useRegisterRecoveryRefetch(fetchNotifications);
+
+  /* CONNECTION RECOVERY: revive a zombie socket when changing menus */
+  useEffect(() => {
+    recovery?.recoverIfStale();
+  }, [location.pathname, recovery]);
 
   const unreadCount = notifications.filter(n => !n.read).length;
 
@@ -367,5 +382,11 @@ const AdminLayout: React.FC<AdminLayoutProps> = ({ title }) => {
     </div>
   );
 };
+
+const AdminLayout: React.FC<AdminLayoutProps> = (props) => (
+  <ConnectionRecoveryProvider>
+    <AdminLayoutInner {...props} />
+  </ConnectionRecoveryProvider>
+);
 
 export default AdminLayout;

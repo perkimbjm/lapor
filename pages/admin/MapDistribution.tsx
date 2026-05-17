@@ -3,6 +3,7 @@ import maplibregl from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { useOutletContext } from 'react-router-dom';
 import { supabase } from '../../src/supabase';
+import { useRegisterRecoveryRefetch } from '../../src/contexts/ConnectionRecoveryContext';
 import { ComplaintStatus, RoadType } from '../../types';
 import { STATUS_COLORS, STATUS_LABELS } from '../../constants';
 import { formatIndonesianDate } from '../../src/lib/dateUtils';
@@ -462,6 +463,8 @@ const MapDistribution: React.FC = () => {
     }
     setLoading(false);
   }, []);
+
+  useRegisterRecoveryRefetch(fetchMarkers);
 
   useEffect(() => {
     fetchMarkers();

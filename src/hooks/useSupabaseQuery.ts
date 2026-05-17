@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../supabase';
 import { toast } from 'sonner';
+import { useRegisterRecoveryRefetch } from '../contexts/ConnectionRecoveryContext';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -173,6 +174,12 @@ export function useSupabaseQuery<T = any>(
       }
     }
   }, [table, select, cacheEnabled, cacheKey]);
+
+  // Silent refetch on connection recovery — fetchData never toggles `loading`,
+  // so cached/stale rows stay visible until fresh data swaps in (no flicker).
+  useRegisterRecoveryRefetch(() => {
+    if (enabled) return fetchData();
+  });
 
   // ── Initial fetch ────────────────────────────────────────────────────────
   useEffect(() => {
