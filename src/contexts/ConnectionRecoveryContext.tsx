@@ -3,6 +3,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
 } from 'react';
 import { supabase } from '../supabase';
@@ -13,7 +14,7 @@ type RefetchFn = () => void | Promise<void>;
 interface ConnectionRecoveryContextValue {
   /** Register a silent refetch callback. Returns an unsubscribe function. */
   register: (fn: RefetchFn) => () => void;
-  /** Lightweight check: revive only if the realtime socket is not connected. */
+  /** Lightweight check: revive only if the realtime socket is dead/stale. */
   recoverIfStale: () => void;
 }
 
@@ -22,8 +23,9 @@ const ConnectionRecoveryContext =
 
 // Refresh the token proactively only when it is about to expire.
 const EXPIRY_SKEW_SEC = 60;
-// Give the rebuilt socket a moment to rejoin channels before silent refetch.
-const REFETCH_DELAY_MS = 400;
+// Max time to wait for the rebuilt socket to reach `open` before releasing
+// the re-entrancy guard.
+const OPEN_WAIT_MS = 4000;
 
 async function recoverAuth(): Promise<void> {
   const {
@@ -43,13 +45,51 @@ async function recoverAuth(): Promise<void> {
   await supabase.realtime.setAuth(token);
 }
 
-function recoverRealtime(): void {
+function waitForOpen(timeoutMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const tick = () => {
+      if (
+        supabase.realtime.connectionState() === 'open' ||
+        Date.now() - start > timeoutMs
+      ) {
+        resolve();
+        return;
+      }
+      setTimeout(tick, 150);
+    };
+    tick();
+  });
+}
+
+async function recoverRealtime(): Promise<void> {
   const rt = supabase.realtime;
-  // connect() is a no-op while isConnected() is true (even on a zombie
-  // socket). Force the dead transport down first, then reconnect on the
-  // next tick — channels stay in rt.channels and auto-rejoin (no flicker).
-  rt.disconnect();
-  setTimeout(() => rt.connect(), 0);
+
+  // A ZOMBIE socket still reports `open` (the browser keeps readyState
+  // OPEN on a silently-killed socket) — that IS the bug, so we must NOT
+  // trust `open` here and cycle it anyway. Only skip while phoenix is
+  // actively `connecting`: tearing that down would produce
+  // "WebSocket is closed before the connection is established".
+  if (rt.connectionState() === 'connecting') {
+    await waitForOpen(OPEN_WAIT_MS);
+    return;
+  }
+
+  // `disconnect()` is ASYNC: it resolves only after phoenix finishes
+  // tearing down the (zombie) socket. `connect()` early-returns while the
+  // socket is still `closing`, so we MUST await the teardown before
+  // reconnecting. The teardown fires onConnClose → triggerChanError,
+  // forcing every channel to `errored` → they auto-rejoin once the new
+  // socket opens (no React unmount, no flicker).
+  try {
+    await rt.disconnect();
+  } catch (e) {
+    console.error('[ConnectionRecovery] disconnect failed:', e);
+  }
+  rt.connect();
+  // Hold here until the socket is actually open so the caller's guard
+  // stays set and concurrent triggers can't close the connecting socket.
+  await waitForOpen(OPEN_WAIT_MS);
 }
 
 export const ConnectionRecoveryProvider: React.FC<{
@@ -70,37 +110,48 @@ export const ConnectionRecoveryProvider: React.FC<{
     if (recoveringRef.current) return;
     recoveringRef.current = true;
     try {
+      // 1. Fresh session/token first — REST refetch only needs a valid
+      //    token, not the socket.
       await recoverAuth();
-      recoverRealtime();
-      setTimeout(() => {
-        callbacks.current.forEach((fn) => {
-          try {
-            void fn();
-          } catch (e) {
-            console.error('[ConnectionRecovery] refetch failed:', e);
-          }
-        });
-      }, REFETCH_DELAY_MS);
+
+      // 2. Refetch immediately so data reappears at once on tab return
+      //    (the visible "reconnected" feeling), independent of the WS.
+      callbacks.current.forEach((fn) => {
+        try {
+          void fn();
+        } catch (e) {
+          console.error('[ConnectionRecovery] refetch failed:', e);
+        }
+      });
+
+      // 3. Rebuild the realtime socket so live updates resume (only if it
+      //    is actually dead — see recoverRealtime guards).
+      await recoverRealtime();
     } catch (e) {
       console.error('[ConnectionRecovery] recover failed:', e);
     } finally {
-      // Release the guard after the refetch wave is scheduled.
-      setTimeout(() => {
-        recoveringRef.current = false;
-      }, REFETCH_DELAY_MS + 200);
+      recoveringRef.current = false;
     }
   }, []);
 
   const recoverIfStale = useCallback(() => {
-    if (!supabase.realtime.isConnected()) {
-      void onRecover();
-    }
+    if (recoveringRef.current) return;
+    const state = supabase.realtime.connectionState();
+    // Only intervene when the socket is genuinely down. While `open` or
+    // `connecting`, phoenix's own machinery owns the lifecycle.
+    if (state === 'open' || state === 'connecting') return;
+    void onRecover();
   }, [onRecover]);
 
   useConnectionRecovery(onRecover, 800);
 
+  const value = useMemo(
+    () => ({ register, recoverIfStale }),
+    [register, recoverIfStale],
+  );
+
   return (
-    <ConnectionRecoveryContext.Provider value={{ register, recoverIfStale }}>
+    <ConnectionRecoveryContext.Provider value={value}>
       {children}
     </ConnectionRecoveryContext.Provider>
   );
@@ -118,7 +169,7 @@ export function useRegisterRecoveryRefetch(fn: RefetchFn): void {
   }, [ctx]);
 }
 
-/** Access recoverIfStale (used by AdminLayout on route change). */
+/** Access the recovery context (used by AdminLayout on route change). */
 export function useConnectionRecoveryContext(): ConnectionRecoveryContextValue | null {
   return useContext(ConnectionRecoveryContext);
 }
