@@ -3,19 +3,19 @@ import { useOutletContext } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 
 import { supabase } from '../../src/supabase';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
-  PieChart, Pie, Cell
+  PieChart, Pie, Cell, ComposedChart, Line
 } from 'recharts';
-import { 
-  TrendingUp, 
-  Wallet, 
-  FileSpreadsheet, 
-  PieChart as PieChartIcon, 
-  ShoppingCart, 
-  ExternalLink, 
-  CheckCircle2, 
-  Sparkles, 
+import {
+  TrendingUp,
+  Wallet,
+  FileSpreadsheet,
+  PieChart as PieChartIcon,
+  ShoppingCart,
+  ExternalLink,
+  CheckCircle2,
+  Sparkles,
   Loader2,
   BrainCircuit,
   AlertCircle,
@@ -28,7 +28,10 @@ import {
   Plus,
   Edit2,
   Trash2,
-  Save
+  Save,
+  Activity,
+  Filter,
+  BarChart2
 } from 'lucide-react';
 import { exportToExcel } from '../../src/lib/excel';
 import { COST_BY_CATEGORY, CHART_COLORS, formatRupiah } from '../../constants';
@@ -63,6 +66,8 @@ const Reports: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [chartPeriod, setChartPeriod] = useState<'monthly' | 'yearly'>('monthly');
+  const [chartYear, setChartYear] = useState<string>(new Date().getFullYear().toString());
 
   const [commitmentForm, setCommitmentForm] = useState({
     name: '',
@@ -459,6 +464,76 @@ const Reports: React.FC = () => {
     return Object.values(trend).sort((a, b) => a.month.localeCompare(b.month));
   }, [costReports]);
 
+  // ── Chart: available years (derived from data + current year) ──────────────
+  const availableYears = React.useMemo(() => {
+    const years = new Set(costReports.map(r => r.month.substring(0, 4)));
+    years.add(new Date().getFullYear().toString());
+    return Array.from(years).sort().reverse();
+  }, [costReports]);
+
+  // ── Chart: monthly breakdown for selected year (12 slots, zero-filled) ─────
+  const MONTH_LABELS = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+  const monthlyTrendFiltered = React.useMemo(() => {
+    const map: Record<string, { estimasi: number; realisasi: number }> = {};
+    costReports
+      .filter(r => r.month.startsWith(chartYear))
+      .forEach(r => {
+        if (!map[r.month]) map[r.month] = { estimasi: 0, realisasi: 0 };
+        map[r.month].estimasi += r.estimasi || 0;
+        map[r.month].realisasi += r.realisasi || 0;
+      });
+    return Array.from({ length: 12 }, (_, i) => {
+      const key = `${chartYear}-${String(i + 1).padStart(2, '0')}`;
+      const d = map[key] || { estimasi: 0, realisasi: 0 };
+      return { month: MONTH_LABELS[i], monthKey: key, ...d };
+    });
+  }, [costReports, chartYear]);
+
+  // ── Chart: cumulative line overlay ────────────────────────────────────────
+  const cumulativeTrend = React.useMemo(() => {
+    let cumRealisasi = 0;
+    return monthlyTrendFiltered.map(m => {
+      cumRealisasi += m.realisasi;
+      return { ...m, cumRealisasi };
+    });
+  }, [monthlyTrendFiltered]);
+
+  // ── Chart: yearly aggregation ─────────────────────────────────────────────
+  const yearlyTrend = React.useMemo(() => {
+    const map: Record<string, { year: string; estimasi: number; realisasi: number }> = {};
+    costReports.forEach(r => {
+      const y = r.month.substring(0, 4);
+      if (!map[y]) map[y] = { year: y, estimasi: 0, realisasi: 0 };
+      map[y].estimasi += r.estimasi || 0;
+      map[y].realisasi += r.realisasi || 0;
+    });
+    return Object.values(map).sort((a, b) => a.year.localeCompare(b.year));
+  }, [costReports]);
+
+  // ── Chart: KPI cards (filtered by period) ────────────────────────────────
+  const kpiData = React.useMemo(() => {
+    const filtered = chartPeriod === 'monthly'
+      ? costReports.filter(r => r.month.startsWith(chartYear))
+      : costReports;
+    const totalEstimasi = filtered.reduce((s, r) => s + (r.estimasi || 0), 0);
+    const totalRealisasi = filtered.reduce((s, r) => s + (r.realisasi || 0), 0);
+    const pct = totalEstimasi > 0 ? (totalRealisasi / totalEstimasi) * 100 : 0;
+    return { totalEstimasi, totalRealisasi, pct, sisa: totalEstimasi - totalRealisasi };
+  }, [costReports, chartPeriod, chartYear]);
+
+  // ── Chart: sectoral allocation filtered by period ─────────────────────────
+  const sectoralAllocationFiltered = React.useMemo(() => {
+    const filtered = chartPeriod === 'monthly'
+      ? costReports.filter(r => r.month.startsWith(chartYear))
+      : costReports;
+    const alloc: Record<string, number> = {};
+    filtered.forEach(r => {
+      const cat = r.category || 'Lainnya';
+      alloc[cat] = (alloc[cat] || 0) + (r.realisasi || 0);
+    });
+    return Object.entries(alloc).map(([name, value]) => ({ name, value }));
+  }, [costReports, chartPeriod, chartYear]);
+
   return (
     <>
       
@@ -840,53 +915,263 @@ const Reports: React.FC = () => {
       {/* ================= TAB 4: GRAFIK ANALISA ================= */}
       {activeTab === 'grafik' && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-slate-800 shadow-sm rounded-3xl border border-slate-100 dark:border-slate-700 p-6 sm:p-8">
-              <h3 className="text-lg font-black text-slate-900 dark:text-white mb-6 uppercase tracking-tight">Realisasi vs Anggaran Bulanan</h3>
-              <div className="h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                  <BarChart data={monthlyTrend}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.1} />
-                    <XAxis dataKey="month" tick={{fill: '#94a3b8', fontSize: 10, fontWeight: 900}} axisLine={false} />
-                    <YAxis hide allowDecimals={false} />
-                    <Tooltip 
-                      formatter={(value: number | string) => formatRupiah(Number(value))}
-                      contentStyle={{backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '10px'}}
-                    />
-                    <Legend iconType="circle" wrapperStyle={{paddingTop: '20px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase'}} />
-                    <Bar dataKey="estimasi" name="Pagu" fill="#e2e8f0" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="realisasi" name="Realisasi" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+
+          {/* ── Filter Bar ── */}
+          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-4 flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-2 text-slate-400">
+              <Filter size={13} />
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Filter Periode</span>
+            </div>
+            {/* Period toggle */}
+            <div className="flex bg-slate-100 dark:bg-slate-700/60 rounded-xl p-1 gap-1">
+              {(['monthly', 'yearly'] as const).map(p => (
+                <button
+                  key={p}
+                  onClick={() => setChartPeriod(p)}
+                  className={`px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                    chartPeriod === p
+                      ? 'bg-blue-600 text-white shadow-sm shadow-blue-600/30'
+                      : 'text-slate-500 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  {p === 'monthly' ? 'Bulanan' : 'Tahunan'}
+                </button>
+              ))}
+            </div>
+            {/* Year selector — only shown in monthly mode */}
+            {chartPeriod === 'monthly' && (
+              <div className="flex items-center gap-2">
+                <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Tahun:</span>
+                <select
+                  value={chartYear}
+                  onChange={e => setChartYear(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-black text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  {availableYears.map(y => (
+                    <option key={y} value={y}>{y}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div className="ml-auto">
+              <span className="text-[9px] font-bold italic text-slate-400">
+                {chartPeriod === 'monthly' ? `Menampilkan data tahun ${chartYear}` : 'Menampilkan semua tahun anggaran'}
+              </span>
+            </div>
+          </div>
+
+          {/* ── KPI Summary Cards ── */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Pagu */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-5">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="p-2 bg-slate-100 dark:bg-slate-700 rounded-xl">
+                  <Wallet size={13} className="text-slate-600 dark:text-slate-300" />
+                </div>
+                <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-tight">Total Pagu</span>
+              </div>
+              <p className="text-base font-black text-slate-900 dark:text-white leading-tight tabular-nums">{formatRupiah(kpiData.totalEstimasi)}</p>
+              <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-wide">Anggaran Tersedia</p>
+            </div>
+            {/* Total Realisasi */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-5">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
+                  <TrendingUp size={13} className="text-blue-600 dark:text-blue-400" />
+                </div>
+                <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-tight">Realisasi</span>
+              </div>
+              <p className="text-base font-black text-blue-600 dark:text-blue-400 leading-tight tabular-nums">{formatRupiah(kpiData.totalRealisasi)}</p>
+              <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-wide">Total Terserap</p>
+            </div>
+            {/* % Serapan */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-5">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className={`p-2 rounded-xl ${kpiData.pct >= 80 ? 'bg-emerald-50 dark:bg-emerald-900/30' : kpiData.pct >= 50 ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-red-50 dark:bg-red-900/30'}`}>
+                  <Activity size={13} className={kpiData.pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : kpiData.pct >= 50 ? 'text-amber-500 dark:text-amber-400' : 'text-red-500 dark:text-red-400'} />
+                </div>
+                <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-tight">% Serapan</span>
+              </div>
+              <p className={`text-base font-black leading-tight tabular-nums ${kpiData.pct >= 80 ? 'text-emerald-600 dark:text-emerald-400' : kpiData.pct >= 50 ? 'text-amber-500 dark:text-amber-400' : 'text-red-500 dark:text-red-400'}`}>
+                {kpiData.pct.toFixed(1)}%
+              </p>
+              <div className="mt-2 w-full bg-slate-100 dark:bg-slate-700 h-1 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-700 ${kpiData.pct >= 80 ? 'bg-emerald-500' : kpiData.pct >= 50 ? 'bg-amber-400' : 'bg-red-500'}`}
+                  style={{ width: `${Math.min(kpiData.pct, 100)}%` }}
+                />
               </div>
             </div>
+            {/* Sisa Anggaran */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm p-5">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className={`p-2 rounded-xl ${kpiData.sisa >= 0 ? 'bg-emerald-50 dark:bg-emerald-900/30' : 'bg-red-50 dark:bg-red-900/30'}`}>
+                  <BarChart2 size={13} className={kpiData.sisa >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'} />
+                </div>
+                <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest leading-tight">Sisa Anggaran</span>
+              </div>
+              <p className={`text-base font-black leading-tight tabular-nums ${kpiData.sisa >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500 dark:text-red-400'}`}>
+                {formatRupiah(kpiData.sisa)}
+              </p>
+              <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase tracking-wide">Belum Terserap</p>
+            </div>
+          </div>
 
+          {/* ── Main Chart: Realisasi vs Pagu ── */}
+          <div className="bg-white dark:bg-slate-800 shadow-sm rounded-3xl border border-slate-100 dark:border-slate-700 p-6 sm:p-8">
+            <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                  {chartPeriod === 'monthly' ? `Realisasi vs Pagu — ${chartYear}` : 'Realisasi vs Pagu Tahunan'}
+                </h3>
+                <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-widest">
+                  {chartPeriod === 'monthly' ? 'Rincian per bulan + tren kumulatif realisasi' : 'Perbandingan lintas tahun anggaran'}
+                </p>
+              </div>
+              {/* Legend */}
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-slate-200 dark:bg-slate-600"></div>
+                  <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase">Pagu</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className="w-3 h-3 rounded bg-blue-500"></div>
+                  <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase">Realisasi</span>
+                </div>
+                {chartPeriod === 'monthly' && (
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-5 h-0.5 bg-orange-400 rounded-full"></div>
+                    <span className="text-[9px] font-black text-slate-500 dark:text-slate-400 uppercase">Kumulatif</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="h-80 w-full">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                {chartPeriod === 'monthly' ? (
+                  <ComposedChart data={cumulativeTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.08} vertical={false} />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fill: '#94a3b8', fontSize: 9, fontWeight: 900 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis hide />
+                    <Tooltip
+                      formatter={(value: number | string, name: string) => [formatRupiah(Number(value)), name]}
+                      labelFormatter={(label: string) => `Bulan: ${label}`}
+                      contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '10px', fontWeight: 700 }}
+                    />
+                    <Bar dataKey="estimasi" name="Pagu" fill="#e2e8f0" radius={[4, 4, 0, 0]} barSize={16} />
+                    <Bar dataKey="realisasi" name="Realisasi" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={16} />
+                    <Line
+                      type="monotone"
+                      dataKey="cumRealisasi"
+                      name="Kumulatif Realisasi"
+                      stroke="#f97316"
+                      strokeWidth={2.5}
+                      dot={{ r: 3, fill: '#f97316', strokeWidth: 0 }}
+                      activeDot={{ r: 5, fill: '#f97316' }}
+                    />
+                  </ComposedChart>
+                ) : (
+                  <ComposedChart data={yearlyTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.08} vertical={false} />
+                    <XAxis
+                      dataKey="year"
+                      tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 900 }}
+                      axisLine={false}
+                      tickLine={false}
+                    />
+                    <YAxis hide />
+                    <Tooltip
+                      formatter={(value: number | string, name: string) => [formatRupiah(Number(value)), name]}
+                      contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '10px', fontWeight: 700 }}
+                    />
+                    <Bar dataKey="estimasi" name="Pagu" fill="#e2e8f0" radius={[6, 6, 0, 0]} barSize={40} />
+                    <Bar dataKey="realisasi" name="Realisasi" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={40} />
+                  </ComposedChart>
+                )}
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* ── Bottom Row: Pie + Horizontal Bar by Category ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Donut pie */}
             <div className="bg-white dark:bg-slate-800 shadow-sm rounded-3xl border border-slate-100 dark:border-slate-700 p-6 sm:p-8">
-              <h3 className="text-lg font-black text-slate-900 dark:text-white mb-6 uppercase tracking-tight">Alokasi Belanja Sektoral</h3>
-              <div className="h-72 w-full flex items-center justify-center">
+              <div className="mb-5">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Komposisi Belanja per Kategori</h3>
+                <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-widest">
+                  {chartPeriod === 'monthly' ? `Tahun ${chartYear}` : 'Semua Periode'}
+                </p>
+              </div>
+              <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                   <PieChart>
                     <Pie
-                      data={sectoralAllocation}
+                      data={sectoralAllocationFiltered}
                       cx="50%"
                       cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={5}
+                      innerRadius={55}
+                      outerRadius={82}
+                      paddingAngle={4}
                       dataKey="value"
                       stroke="none"
                     >
-                      {sectoralAllocation.map((entry, index) => (
+                      {sectoralAllocationFiltered.map((_, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number | string) => formatRupiah(Number(value))} />
-                    <Legend wrapperStyle={{fontSize: '10px', fontWeight: 900, textTransform: 'uppercase'}} />
+                    <Tooltip
+                      formatter={(value: number | string) => formatRupiah(Number(value))}
+                      contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '10px', fontWeight: 700 }}
+                    />
+                    <Legend wrapperStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }} />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
+
+            {/* Horizontal bar by category */}
+            <div className="bg-white dark:bg-slate-800 shadow-sm rounded-3xl border border-slate-100 dark:border-slate-700 p-6 sm:p-8">
+              <div className="mb-5">
+                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Realisasi per Kategori</h3>
+                <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 mt-1 uppercase tracking-widest">Perbandingan nominal antar kategori belanja</p>
+              </div>
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0}>
+                  <BarChart
+                    data={sectoralAllocationFiltered}
+                    layout="vertical"
+                    margin={{ top: 0, right: 10, left: 0, bottom: 0 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.08} horizontal={false} />
+                    <XAxis type="number" hide />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{ fill: '#94a3b8', fontSize: 9, fontWeight: 900 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={90}
+                    />
+                    <Tooltip
+                      formatter={(value: number | string) => formatRupiah(Number(value))}
+                      contentStyle={{ backgroundColor: '#0f172a', border: 'none', borderRadius: '12px', color: '#fff', fontSize: '10px', fontWeight: 700 }}
+                    />
+                    <Bar dataKey="value" name="Realisasi" radius={[0, 4, 4, 0]} barSize={20}>
+                      {sectoralAllocationFiltered.map((_, index) => (
+                        <Cell key={`hbar-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
+
         </div>
       )}
 
