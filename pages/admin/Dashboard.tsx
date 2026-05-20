@@ -393,11 +393,13 @@ const Dashboard: React.FC = () => {
       return yearMatch && monthMatch;
     });
 
+    const tidakDiterimaCount = filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.REJECTED)).length;
+
     return {
       grandTotal: complaints.length,
       total: filteredComplaints.length,
-      diterima: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.RECEIVED)).length,
-      tidakDiterima: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.REJECTED)).length,
+      diterima: filteredComplaints.length - tidakDiterimaCount,
+      tidakDiterima: tidakDiterimaCount,
       selesai: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.COMPLETED)).length,
       pending: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.PENDING)).length,
       categoryJalan: filteredComplaints.filter(c => c.category === RoadType.JALAN).length,
