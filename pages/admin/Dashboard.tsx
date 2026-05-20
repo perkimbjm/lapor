@@ -85,6 +85,7 @@ const Dashboard: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState(currentYear.toString());
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [trendView, setTrendView] = useState<'7days' | 'month' | 'quarter' | 'year'>('year');
+  const [statusChartType, setStatusChartType] = useState<'diterima-tidakditerima' | 'selesai-pending'>('diterima-tidakditerima');
 
   const [complaints, setComplaints] = useState<Complaint[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -407,12 +408,19 @@ const Dashboard: React.FC = () => {
     };
   }, [complaints, selectedYear, selectedMonth]);
 
-  const statusPieData = useMemo(() => [
-    { name: 'Diterima', value: stats.diterima },
-    { name: 'Selesai', value: stats.selesai },
-    { name: 'Tidak diterima', value: stats.tidakDiterima },
-    { name: 'Pending', value: stats.pending },
-  ], [stats]);
+  const statusPieData = useMemo(() => {
+    if (statusChartType === 'diterima-tidakditerima') {
+      return [
+        { name: 'Diterima', value: stats.diterima },
+        { name: 'Tidak diterima', value: stats.tidakDiterima },
+      ];
+    } else {
+      return [
+        { name: 'Selesai', value: stats.selesai },
+        { name: 'Pending', value: stats.pending },
+      ];
+    }
+  }, [stats, statusChartType]);
 
   const categoryDoughnutData = useMemo(() => [
     { name: 'Jalan', value: stats.categoryJalan },
@@ -544,8 +552,36 @@ const Dashboard: React.FC = () => {
         {/* Status Distribution Pie Chart */}
         <div className="bg-white dark:bg-slate-800 shadow-sm rounded-3xl border border-slate-100 dark:border-slate-700 p-6 sm:p-8 flex flex-col min-h-[400px]">
           <div className="mb-6 sm:mb-8">
-             <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">Sebaran Status</h3>
-             <p className="text-[10px] text-slate-500 dark:text-slate-300 font-bold uppercase tracking-widest mt-1">Periode {dynamicLabel}</p>
+             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                <div>
+                   <h3 className="text-base sm:text-lg font-black text-slate-900 dark:text-white tracking-tight">Sebaran Status</h3>
+                   <p className="text-[10px] text-slate-500 dark:text-slate-300 font-bold uppercase tracking-widest mt-1">Periode {dynamicLabel}</p>
+                </div>
+             </div>
+             <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                   <input
+                     type="radio"
+                     name="statusChart"
+                     value="diterima-tidakditerima"
+                     checked={statusChartType === 'diterima-tidakditerima'}
+                     onChange={(e) => setStatusChartType(e.target.value as 'diterima-tidakditerima' | 'selesai-pending')}
+                     className="w-4 h-4 cursor-pointer"
+                   />
+                   <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300">Diterima & Tidak Diterima</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                   <input
+                     type="radio"
+                     name="statusChart"
+                     value="selesai-pending"
+                     checked={statusChartType === 'selesai-pending'}
+                     onChange={(e) => setStatusChartType(e.target.value as 'diterima-tidakditerima' | 'selesai-pending')}
+                     className="w-4 h-4 cursor-pointer"
+                   />
+                   <span className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-300">Selesai & Pending</span>
+                </label>
+             </div>
           </div>
           {stats.total === 0 ? (
             <div className="flex-1 w-full h-64 flex flex-col items-center justify-center text-center bg-slate-50 dark:bg-slate-900/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700 mb-4">
