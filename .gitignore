@@ -18,6 +18,7 @@ migrated_prompt_history
 .claude
 dist
 dist-ssr
+dev-dist
 *.local
 firebase-applet-config.json
 .env

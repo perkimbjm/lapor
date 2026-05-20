@@ -2,7 +2,6 @@ export const ComplaintStatus = {
   PENDING: 'Belum dikerjakan',
   RECEIVED: 'Diterima',
   REJECTED: 'Tidak diterima',
-  SURVEY: 'Disurvey',
   COMPLETED: 'Selesai dikerjakan',
 } as const;
 

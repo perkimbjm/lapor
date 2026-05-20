@@ -289,14 +289,6 @@ const DetailPanel: React.FC<{
                       <p className="text-xs text-red-700 dark:text-red-300 leading-relaxed">{detail.rejection_reason}</p>
                     </div>
                   )}
-                  {detail.survey_date && (
-                    <div className="bg-purple-50 dark:bg-purple-900/20 rounded-lg p-2.5 border border-purple-100 dark:border-purple-800">
-                      <p className="text-[10px] text-purple-500 font-bold uppercase mb-1">Tanggal Disurvey</p>
-                      <p className="text-xs text-purple-700 dark:text-purple-300">
-                        {new Date(detail.survey_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                      </p>
-                    </div>
-                  )}
                   {detail.completion_date && (
                     <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2.5 border border-emerald-100 dark:border-emerald-800">
                       <p className="text-[10px] text-emerald-500 font-bold uppercase mb-1">Tanggal Selesai</p>

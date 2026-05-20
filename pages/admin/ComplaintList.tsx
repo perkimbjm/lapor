@@ -181,9 +181,8 @@ const ComplaintList: React.FC = () => {
   const STATUS_PRIORITY = {
     [ComplaintStatus.PENDING]: 0,
     [ComplaintStatus.RECEIVED]: 1,
-    [ComplaintStatus.SURVEY]: 2,
-    [ComplaintStatus.COMPLETED]: 3,
-    [ComplaintStatus.REJECTED]: 4,
+    [ComplaintStatus.COMPLETED]: 2,
+    [ComplaintStatus.REJECTED]: 3,
   };
 
   type SortMode = 'newest' | 'oldest';
@@ -322,7 +321,6 @@ const ComplaintList: React.FC = () => {
       const updateData: Partial<Complaint> = {
         status: processForm.status,
         rejection_reason: processForm.status === ComplaintStatus.REJECTED ? processForm.rejection_reason : undefined,
-        survey_date: processForm.status === ComplaintStatus.SURVEY ? processForm.survey_date : (selectedComplaint.survey_date || undefined),
         completion_date: processForm.status === ComplaintStatus.COMPLETED ? processForm.completion_date : (selectedComplaint.completion_date || undefined),
         notes: processForm.notes || null,
         date_updated: new Date().toISOString(),
@@ -488,7 +486,7 @@ const ComplaintList: React.FC = () => {
     const notes = [
       { 'Keterangan': '=== PETUNJUK PENGISIAN ===' },
       { 'Keterangan': 'Kolom Kategori: isi dengan "Jalan" atau "Jembatan"' },
-      { 'Keterangan': 'Kolom Status: Belum dikerjakan | Diterima | Tidak diterima | Disurvey | Selesai dikerjakan' },
+      { 'Keterangan': 'Kolom Status: Belum dikerjakan | Diterima | Tidak diterima | Selesai dikerjakan' },
       { 'Keterangan': 'Kolom Latitude/Longitude: format desimal, contoh -3.3194 / 114.5928 (opsional)' },
       { 'Keterangan': 'Kolom Tanggal Masuk: format YYYY-MM-DD, contoh 2024-01-15' },
       { 'Keterangan': 'Nomor Tiket: biarkan kosong untuk dibuat otomatis' },
@@ -926,12 +924,6 @@ const ComplaintList: React.FC = () => {
                         <span className="font-semibold text-red-700 dark:text-red-300 text-sm">{selectedComplaint.rejection_reason}</span>
                       </div>
                     )}
-                    {selectedComplaint.survey_date && (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
-                        <span className={`text-xs ${TEXT_COLOR.SECONDARY} block`}>Tanggal Disurvey</span>
-                        <span className="font-semibold text-blue-700 dark:text-blue-300 text-sm">{new Date(selectedComplaint.survey_date).toLocaleDateString('id-ID')}</span>
-                      </div>
-                    )}
                     {selectedComplaint.completion_date && (
                       <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded-lg">
                         <span className={`text-xs ${TEXT_COLOR.SECONDARY} block`}>Tanggal Selesai</span>
@@ -996,7 +988,6 @@ const ComplaintList: React.FC = () => {
                   >
                     <option value={ComplaintStatus.RECEIVED}>Diterima</option>
                     <option value={ComplaintStatus.REJECTED}>Tidak diterima</option>
-                    <option value={ComplaintStatus.SURVEY}>Disurvey</option>
                     <option value={ComplaintStatus.COMPLETED}>Selesai dikerjakan</option>
                   </select>
                 </div>
@@ -1013,17 +1004,6 @@ const ComplaintList: React.FC = () => {
                       required
                       className="block w-full rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500"
                     />
-                  </div>
-                )}
-
-                {/* SURVEY — tanggal survei */}
-                {processForm.status === ComplaintStatus.SURVEY && (
-                  <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                    <label className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">Tanggal Disurvey</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none"><Calendar className={`h-4 w-4 ${ICON_COLOR.MUTED}`} /></div>
-                      <input type="date" value={processForm.survey_date} onChange={e => setProcessForm({...processForm, survey_date: e.target.value})} required className="block w-full pl-10 rounded-xl border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white py-2.5 focus:ring-blue-500 focus:border-blue-500" />
-                    </div>
                   </div>
                 )}
 

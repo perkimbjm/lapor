@@ -49,8 +49,7 @@ const LandingPage: React.FC = () => {
         .select('*', { count: 'exact', head: true })
         .in('status', [
           ComplaintStatus.PENDING,
-          ComplaintStatus.RECEIVED,
-          ComplaintStatus.SURVEY
+          ComplaintStatus.RECEIVED
         ]);
 
       const { count: completed } = await supabase

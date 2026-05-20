@@ -398,7 +398,6 @@ const Dashboard: React.FC = () => {
       total: filteredComplaints.length,
       diterima: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.RECEIVED)).length,
       tidakDiterima: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.REJECTED)).length,
-      disurvey: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.SURVEY)).length,
       selesai: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.COMPLETED)).length,
       pending: filteredComplaints.filter(c => isStatusMatch(c.status, ComplaintStatus.PENDING)).length,
       categoryJalan: filteredComplaints.filter(c => c.category === RoadType.JALAN).length,
@@ -408,7 +407,6 @@ const Dashboard: React.FC = () => {
 
   const statusPieData = useMemo(() => [
     { name: 'Diterima', value: stats.diterima },
-    { name: 'Disurvey', value: stats.disurvey },
     { name: 'Selesai', value: stats.selesai },
     { name: 'Tidak diterima', value: stats.tidakDiterima },
     { name: 'Pending', value: stats.pending },
@@ -481,7 +479,6 @@ const Dashboard: React.FC = () => {
         <StatCard title="Belum Dikerjakan" value={stats.pending} icon={<Clock />} color="bg-orange-50" textColor="text-orange-600" darkColor="bg-orange-900/30" darkTextColor="text-orange-400" />
         <StatCard title="Diterima" value={stats.diterima} icon={<CheckSquare />} color="bg-emerald-50" textColor="text-emerald-600" darkColor="bg-emerald-900/30" darkTextColor="text-emerald-400" />
         <StatCard title="Tidak diterima" value={stats.tidakDiterima} icon={<XCircle />} color="bg-slate-100" textColor="text-slate-600" darkColor="bg-slate-700/50" darkTextColor="text-slate-300" />
-        <StatCard title="Disurvey" value={stats.disurvey} icon={<MapIcon />} color="bg-amber-50" textColor="text-amber-600" darkColor="bg-amber-900/30" darkTextColor="text-amber-400" />
         <StatCard title="Selesai" value={stats.selesai} icon={<CheckCircle />} color="bg-indigo-50" textColor="text-indigo-600" darkColor="bg-indigo-900/30" darkTextColor="text-indigo-400" />
       </div>
 

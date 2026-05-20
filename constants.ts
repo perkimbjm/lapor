@@ -84,7 +84,6 @@ export const STATUS_COLORS: Record<string, string> = {
   [ComplaintStatus.PENDING]:   '#f97316',
   [ComplaintStatus.RECEIVED]:  '#3b82f6',
   [ComplaintStatus.REJECTED]:  '#ef4444',
-  [ComplaintStatus.SURVEY]:    '#8b5cf6',
   [ComplaintStatus.COMPLETED]: '#22c55e',
 };
 
@@ -92,7 +91,6 @@ export const STATUS_LABELS: Record<string, string> = {
   [ComplaintStatus.PENDING]:   'Belum Dikerjakan',
   [ComplaintStatus.RECEIVED]:  'Diterima',
   [ComplaintStatus.REJECTED]:  'Tidak Diterima',
-  [ComplaintStatus.SURVEY]:    'Disurvey',
   [ComplaintStatus.COMPLETED]: 'Selesai Dikerjakan',
 };
 
