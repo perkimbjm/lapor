@@ -422,6 +422,10 @@ const Dashboard: React.FC = () => {
     }
   }, [stats, statusChartType]);
 
+  const statusPieTotal = useMemo(() => {
+    return statusPieData.reduce((sum, item) => sum + item.value, 0);
+  }, [statusPieData]);
+
   const categoryDoughnutData = useMemo(() => [
     { name: 'Jalan', value: stats.categoryJalan },
     { name: 'Jembatan', value: stats.categoryJembatan },
@@ -616,7 +620,7 @@ const Dashboard: React.FC = () => {
               </div>
               <div className="grid grid-cols-2 gap-2 mt-auto">
                  {statusPieData.map((entry, index) => {
-                    const percentage = stats.total === 0 ? 0 : ((entry.value / stats.total) * 100).toFixed(1);
+                    const percentage = statusPieTotal === 0 ? 0 : ((entry.value / statusPieTotal) * 100).toFixed(1);
                     return (
                       <div key={index} className="flex items-center gap-2 justify-between">
                          <div className="flex items-center gap-2 min-w-0">
