@@ -198,6 +198,35 @@ const ComplaintList: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [sortMode, setSortMode] = useState<SortMode>('newest');
 
+  // ── Filter Periode Data (Bulan / Tahun) ───────────────────────────────────
+  const currentYear = new Date().getFullYear();
+  const [selectedMonth, setSelectedMonth] = useState('all');
+  const [selectedYear, setSelectedYear]   = useState('all');
+
+  const months = [
+    { value: 'all', label: 'Semua Bulan' },
+    { value: '1', label: 'Januari' },
+    { value: '2', label: 'Februari' },
+    { value: '3', label: 'Maret' },
+    { value: '4', label: 'April' },
+    { value: '5', label: 'Mei' },
+    { value: '6', label: 'Juni' },
+    { value: '7', label: 'Juli' },
+    { value: '8', label: 'Agustus' },
+    { value: '9', label: 'September' },
+    { value: '10', label: 'Oktober' },
+    { value: '11', label: 'November' },
+    { value: '12', label: 'Desember' },
+  ];
+
+  const years = [
+    { value: 'all', label: 'Semua Tahun' },
+    { value: (currentYear + 1).toString(), label: (currentYear + 1).toString() },
+    { value: currentYear.toString(), label: currentYear.toString() },
+    { value: (currentYear - 1).toString(), label: (currentYear - 1).toString() },
+    { value: (currentYear - 2).toString(), label: (currentYear - 2).toString() },
+  ];
+
   const handleSortToggle = () => {
     setSortMode((prev) => (prev === 'newest' ? 'oldest' : 'newest'));
   };
@@ -206,6 +235,8 @@ const ComplaintList: React.FC = () => {
     setSearchTerm('');
     setStatusFilter('ALL');
     setSortMode('newest');
+    setSelectedMonth('all');
+    setSelectedYear('all');
     setSelectedIds(new Set());
   };
 
@@ -225,7 +256,13 @@ const ComplaintList: React.FC = () => {
         (item.ticket_number?.toLowerCase().includes(term) ?? false) ||
         (item.location?.toLowerCase().includes(term) ?? false) ||
         (item.reporter_name?.toLowerCase().includes(term) ?? false);
-      return matchesSearch && isStatusMatch(item.status, statusFilter);
+
+      // Filter periode berdasarkan tanggal masuk (date_submitted), fallback created_at
+      const cDate = parseFirestoreDate(item.date_submitted || item.created_at);
+      const matchesYear  = selectedYear === 'all'  || (cDate ? cDate.getFullYear().toString() === selectedYear : false);
+      const matchesMonth = selectedMonth === 'all' || (cDate ? (cDate.getMonth() + 1).toString() === selectedMonth : false);
+
+      return matchesSearch && isStatusMatch(item.status, statusFilter) && matchesYear && matchesMonth;
     });
 
     // Pre-compute timestamps and sort with status priority
@@ -246,13 +283,13 @@ const ComplaintList: React.FC = () => {
 
         return sortMode === 'newest' ? b._ts - a._ts : a._ts - b._ts;
       });
-  }, [complaints, searchTerm, statusFilter, sortMode, STATUS_PRIORITY]);
+  }, [complaints, searchTerm, statusFilter, sortMode, selectedMonth, selectedYear, STATUS_PRIORITY]);
 
-  const isFiltered = searchTerm !== '' || statusFilter !== 'ALL' || sortMode !== 'newest';
+  const isFiltered = searchTerm !== '' || statusFilter !== 'ALL' || sortMode !== 'newest' || selectedMonth !== 'all' || selectedYear !== 'all';
 
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, selectedMonth, selectedYear]);
 
   useEffect(() => {
     if (!selectAllRef.current) return;
@@ -569,7 +606,15 @@ const ComplaintList: React.FC = () => {
           date_submitted: (() => {
             const raw = row['Tanggal Masuk'] ?? row['date_submitted'];
             if (!raw) return new Date().toISOString().split('T')[0];
-            if (raw instanceof Date) return raw.toISOString().split('T')[0];
+            // SheetJS (cellDates:true) builds the Date in LOCAL time, so read it
+            // back with local getters. Using toISOString() would convert to UTC
+            // and shift the date back one day in zones ahead of UTC (e.g. WIB).
+            if (raw instanceof Date) {
+              const y = raw.getFullYear();
+              const m = String(raw.getMonth() + 1).padStart(2, '0');
+              const d = String(raw.getDate()).padStart(2, '0');
+              return `${y}-${m}-${d}`;
+            }
             const s = raw.toString().trim();
             // Guard against Excel serial numbers that slipped through
             const n = Number(s);
@@ -697,8 +742,45 @@ const ComplaintList: React.FC = () => {
             </div>
           </div>
 
-          {/* Right: status filter + reset */}
-          <div className="flex items-center gap-2">
+          {/* Right: period filter + status filter + reset */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Filter Periode: Bulan */}
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Calendar className={`h-4 w-4 ${ICON_COLOR.MUTED}`} />
+              </div>
+              <select
+                value={selectedMonth}
+                onChange={e => setSelectedMonth(e.target.value)}
+                title="Filter berdasarkan bulan tanggal masuk"
+                className="pl-9 pr-9 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-bold"
+              >
+                {months.map(m => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+              <div className={`absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none ${ICON_COLOR.MUTED}`}>
+                <ChevronDown size={14} />
+              </div>
+            </div>
+
+            {/* Filter Periode: Tahun */}
+            <div className="relative">
+              <select
+                value={selectedYear}
+                onChange={e => setSelectedYear(e.target.value)}
+                title="Filter berdasarkan tahun tanggal masuk"
+                className="pl-3 pr-9 py-2.5 text-sm border border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 focus:ring-blue-500 focus:border-blue-500 appearance-none cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors font-bold"
+              >
+                {years.map(y => (
+                  <option key={y.value} value={y.value}>{y.label}</option>
+                ))}
+              </select>
+              <div className={`absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none ${ICON_COLOR.MUTED}`}>
+                <ChevronDown size={14} />
+              </div>
+            </div>
+
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Filter className={`h-4 w-4 ${ICON_COLOR.MUTED}`} />
