@@ -154,14 +154,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
+    // Penanda hidup-mati effect: deferred check tidak boleh menulis state
+    // setelah komponen unmount.
+    let isMounted = true;
+
+    // Token monotonik: hanya hasil checkAdminStatus dari event PALING BARU yang
+    // boleh menulis state. Mencegah race condition saat beberapa event auth
+    // (mis. INITIAL_SESSION lalu SIGNED_IN) beruntun — check lama yang masih
+    // antri di setTimeout dibatalkan begitu token-nya bukan yang terbaru.
+    let latestCheckToken = 0;
+
     // Safety timeout: paksa berhenti loading setelah 10 detik
-    const loadingTimeout = setTimeout(() => setLoading(false), 10000);
+    const loadingTimeout = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 10000);
 
     // Hanya pakai onAuthStateChange — INITIAL_SESSION event akan otomatis
     // fire saat mount dengan session dari localStorage. TIDAK panggil
     // initAuth() terpisah karena akan double-execute checkAdminStatus.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, currentSession) => {
+      // === ANTI-DEADLOCK: callback WAJIB sinkron & TIDAK meng-await Supabase ===
+      // autoRefreshToken berjalan DI DALAM auth lock (processLock). auth-js
+      // meng-await callback ini sambil memegang lock tersebut. Jika callback
+      // meng-await query Supabase (checkAdminStatus → supabase.from/rpc), query
+      // itu butuh lock yang SAMA yang sedang dipegang proses refresh → deadlock
+      // melingkar: lock tak pernah dilepas, semua query berikutnya menggantung,
+      // halaman terlihat "terputus" sampai di-refresh penuh.
+      // Solusi: callback hanya melakukan kerja sinkron (setState). Semua kerja
+      // Supabase ditunda keluar via setTimeout(0) → callback selesai, auth lock
+      // DILEPAS, baru checkAdminStatus dijalankan dengan lock bebas.
+      (event, currentSession) => {
         // === KUNCI: cegah re-render saat token refresh ===
         // TOKEN_REFRESHED memberikan objek user BARU (reference berbeda) tapi
         // user ID tetap sama. Update setUser dengan reference baru memicu
@@ -170,7 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Solusi: hanya update setUser jika user ID berbeda dari sebelumnya.
         const newUserId = currentSession?.user?.id ?? null;
 
-        // Update session selalu (token data baru)
+        // Update session selalu (token data baru) — sinkron, tanpa I/O.
         setSession(currentSession);
 
         // Update user HANYA jika ID berubah, untuk menjaga reference stability
@@ -180,8 +202,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return currentSession?.user ?? null;
         });
 
-        // SIGNED_OUT: bersihkan semua state
+        // SIGNED_OUT: bersihkan semua state (sinkron). Naikkan token agar
+        // deferred check yang mungkin masih antri ikut dibatalkan.
         if (event === 'SIGNED_OUT' || !currentSession?.user) {
+          latestCheckToken++;
           setIsAdmin(false);
           setPermissions([]);
           setWorkerId(null);
@@ -193,26 +217,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         // TOKEN_REFRESHED & USER_UPDATED: silent — tidak panggil checkAdminStatus
-        // (role/permissions tidak berubah saat token refresh atau profile update)
+        // (role/permissions tidak berubah saat token refresh atau profile update).
+        // Inilah event yang paling sering fire saat pindah tab/window, dan
+        // sekarang TIDAK menyentuh Supabase sama sekali → tidak ada deadlock.
         if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
           clearTimeout(loadingTimeout);
           setLoading(false);
           return;
         }
 
-        // INITIAL_SESSION (mount) atau SIGNED_IN (login baru): full check
-        const eventTimeout = setTimeout(() => setLoading(false), 8000);
-        try {
-          await checkAdminStatus(currentSession.user);
-        } finally {
-          clearTimeout(eventTimeout);
-          clearTimeout(loadingTimeout);
-          setLoading(false);
-        }
+        // INITIAL_SESSION (mount) atau SIGNED_IN (login baru): butuh query DB.
+        // TUNDA keluar dari callback (setTimeout 0) agar auth lock dilepas dulu.
+        const sessionUser = currentSession.user;
+        const myToken = ++latestCheckToken;
+        setTimeout(() => {
+          // Batal jika sudah unmount, atau sudah ada event auth lebih baru
+          // (token sudah bukan milik kita) — cegah penulisan state basi.
+          if (!isMounted || myToken !== latestCheckToken) return;
+
+          const eventTimeout = setTimeout(() => {
+            if (isMounted) setLoading(false);
+          }, 8000);
+
+          // checkAdminStatus menangani error-nya sendiri (try/catch internal),
+          // jadi kita cukup pastikan loading dilepas di finally.
+          checkAdminStatus(sessionUser).finally(() => {
+            clearTimeout(eventTimeout);
+            clearTimeout(loadingTimeout);
+            // Hanya lepas loading jika ini masih check terbaru & masih mounted.
+            if (isMounted && myToken === latestCheckToken) setLoading(false);
+          });
+        }, 0);
       }
     );
 
     return () => {
+      isMounted = false;
       clearTimeout(loadingTimeout);
       subscription.unsubscribe();
     };
