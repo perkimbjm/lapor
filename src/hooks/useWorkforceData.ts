@@ -566,76 +566,122 @@ export function useWorkforceData({
       if (!file) return;
       setIsProcessing(true);
       const reader = new FileReader();
-      reader.onload = event => {
+      reader.onload = async event => {
         try {
           const bstr = event.target?.result;
           const wb = XLSX.read(bstr, { type: 'binary' });
           const ws = wb.Sheets[wb.SheetNames[0]];
           const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
 
-          const workersMap = new Map<string, Worker>();
-          const newRecords: AttendanceRecord[] = [];
+          if (!rows.length) {
+            toast.error('File tidak memiliki data.');
+            return;
+          }
 
+          const month = `${selectedYear}-${selectedMonth.padStart(2, '0')}`;
+
+          // ── 1) Resolve a real worker_id for every unique name ────────────────
+          // Reuse existing workers (match by name, case-insensitive); insert the
+          // rest into the DB so we get persisted, DB-generated ids.
+          const nameToId = new Map<string, string>();
+          workers.forEach(w => nameToId.set(w.name.trim().toLowerCase(), w.id));
+
+          const sheetWorkers = new Map<string, { name: string; category: RoadType }>();
           rows.forEach((row, i) => {
-            const name = (row['Nama Pekerja'] as string | undefined) || `Pekerja-${i}`;
-            const cat = (row['Kategori'] as string | undefined)
+            const name = ((row['Nama Pekerja'] as string | undefined) || `Pekerja-${i + 1}`)
+              .toString()
+              .trim();
+            const category = (row['Kategori'] as string | undefined)
               ?.toLowerCase()
               .includes('jembatan')
               ? RoadType.JEMBATAN
               : RoadType.JALAN;
-            const weekFromRow = Number(row['Pekan']) || (selectedWeek === 'all' ? 1 : selectedWeek);
+            const key = name.toLowerCase();
+            if (!sheetWorkers.has(key)) sheetWorkers.set(key, { name, category });
+          });
 
-            if (!workersMap.has(name)) {
-              workersMap.set(name, {
-                id: `imp-${name.replace(/\s+/g, '-').toLowerCase()}`,
-                name,
-                category: cat,
-                daily_rate: DEFAULT_WORKFORCE_RATES.dailyRate,
-                ot_rate_1: DEFAULT_WORKFORCE_RATES.otRate1,
-                ot_rate_2: DEFAULT_WORKFORCE_RATES.otRate2,
-                ot_rate_3: DEFAULT_WORKFORCE_RATES.otRate3,
-              });
+          let workersCreated = 0;
+          for (const [key, info] of sheetWorkers) {
+            if (nameToId.has(key)) continue;
+            const { data: newWorker, error } = await supabase
+              .from('workers')
+              .insert([{ name: info.name, category: info.category }])
+              .select()
+              .single();
+            if (error || !newWorker) {
+              console.error('Import worker error:', error);
+              continue;
             }
+            nameToId.set(key, (newWorker as Worker).id);
+            workersCreated++;
+          }
 
-            const currentWorker = workersMap.get(name)!;
-            newRecords.push({
-              id: `rec-${Date.now()}-${i}`,
-              worker_id: currentWorker.id,
-              month: `${selectedYear}-${selectedMonth.padStart(2, '0')}`,
-              week: weekFromRow,
-              presence: {
-                monday: Number(row['Senin']) || 0,
-                tuesday: Number(row['Selasa']) || 0,
-                wednesday: Number(row['Rabu']) || 0,
-                thursday: Number(row['Kamis']) || 0,
-                friday: Number(row['Jumat']) || 0,
-                saturday: Number(row['Sabtu']) || 0,
-                sunday: Number(row['Minggu']) || 0,
-              },
-            });
+          // ── 2) Build attendance rows (flat columns), dedupe by worker+week ───
+          const attMap = new Map<
+            string,
+            { worker_id: string; week: number; presence: Record<DayKey, number> }
+          >();
+          rows.forEach((row, i) => {
+            const name = ((row['Nama Pekerja'] as string | undefined) || `Pekerja-${i + 1}`)
+              .toString()
+              .trim();
+            const worker_id = nameToId.get(name.toLowerCase());
+            if (!worker_id) return;
+            const week = Number(row['Pekan']) || (selectedWeek === 'all' ? 1 : selectedWeek);
+            const presence: Record<DayKey, number> = {
+              monday: Number(row['Senin']) || 0,
+              tuesday: Number(row['Selasa']) || 0,
+              wednesday: Number(row['Rabu']) || 0,
+              thursday: Number(row['Kamis']) || 0,
+              friday: Number(row['Jumat']) || 0,
+              saturday: Number(row['Sabtu']) || 0,
+              sunday: Number(row['Minggu']) || 0,
+            };
+            attMap.set(`${worker_id}-${week}`, { worker_id, week, presence });
           });
 
-          setWorkers(prev => {
-            const existing = new Set(prev.map(w => w.name));
-            return [...prev, ...Array.from(workersMap.values()).filter(w => !existing.has(w.name))];
-          });
+          // ── 3) Persist: update existing presensi, insert new ones ────────────
+          let attUpserted = 0;
+          for (const { worker_id, week, presence } of attMap.values()) {
+            const existing = attendance.find(
+              a => a.worker_id === worker_id && a.month === month && a.week === week,
+            );
+            if (existing) {
+              const { error } = await supabase
+                .from('attendance')
+                .update(presence)
+                .eq('id', existing.id);
+              if (error) {
+                console.error('Import attendance update error:', error);
+                continue;
+              }
+            } else {
+              const { error } = await supabase
+                .from('attendance')
+                .insert([{ worker_id, month, week, ...presence }]);
+              if (error) {
+                console.error('Import attendance insert error:', error);
+                continue;
+              }
+            }
+            attUpserted++;
+          }
 
-          setAttendance(prev => {
-            const arr = [...prev];
-            newRecords.forEach(nr => {
-              const idx = arr.findIndex(
-                a => a.worker_id === nr.worker_id && a.month === nr.month && a.week === nr.week,
-              );
-              if (idx > -1) arr[idx] = nr;
-              else arr.push(nr);
-            });
-            return arr;
-          });
+          await logAuditActivity(
+            AuditAction.CREATE,
+            'Tenaga Kerja',
+            `Import Excel: ${workersCreated} pekerja baru, ${attUpserted} presensi (${month})`,
+          );
 
-          toast.success('Berhasil mengimpor data dari file.');
+          // Refresh from DB so rows with real ids appear (and survive polling).
+          await Promise.all([fetchWorkers(), fetchAttendance()]);
+
+          toast.success(
+            `Berhasil mengimpor: ${workersCreated} pekerja baru, ${attUpserted} data presensi.`,
+          );
         } catch (err) {
           console.error(err);
-          toast.error('Gagal membaca file Excel.');
+          toast.error('Gagal membaca / menyimpan file Excel.');
         } finally {
           setIsProcessing(false);
           onComplete();
@@ -643,7 +689,16 @@ export function useWorkforceData({
       };
       reader.readAsBinaryString(file);
     },
-    [canManageExcel, selectedYear, selectedMonth, selectedWeek],
+    [
+      canManageExcel,
+      selectedYear,
+      selectedMonth,
+      selectedWeek,
+      workers,
+      attendance,
+      fetchWorkers,
+      fetchAttendance,
+    ],
   );
 
   return {
