@@ -507,7 +507,7 @@ const ComplaintList: React.FC = () => {
   const handleDownloadTemplate = () => {
     const template = [
       {
-        'Nomor Tiket':   'ADU-20240101-00001 (kosongkan untuk auto-generate)',
+        'Nomor Tiket':   'kosongkan untuk auto-generate',
         'Kategori':      'Jalan',
         'Nama Pelapor':  'Budi Santoso',
         'No. Telepon':   '08123456789',
@@ -516,7 +516,7 @@ const ComplaintList: React.FC = () => {
         'Longitude':     '114.5928',
         'Deskripsi':     'Jalan berlubang cukup dalam di bahu jalan',
         'Status':        'Belum dikerjakan',
-        'Tanggal Masuk': '2024-01-15'
+        'Tanggal Masuk': '2026-01-15'
       }
     ];
 
@@ -557,8 +557,11 @@ const ComplaintList: React.FC = () => {
 
     try {
       const buffer = await file.arrayBuffer();
-      // cellDates: true converts Excel date serial numbers → JS Date objects
-      const wb     = XLSX.read(buffer, { type: 'array', cellDates: true });
+      // Read RAW values (no cellDates): date cells stay as Excel serial numbers,
+      // which we convert with pure UTC math. SheetJS' cellDates would build Date
+      // objects skewed by the historical local-mean-time offset (Asia/Jakarta was
+      // +07:07 before 1923), pushing midnight back into the previous day.
+      const wb     = XLSX.read(buffer, { type: 'array' });
       const ws     = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws);
 
@@ -570,6 +573,33 @@ const ComplaintList: React.FC = () => {
       setImportProgress({ done: 0, total: rows.length });
       let successCount = 0;
       let failCount    = 0;
+
+      // Convert an Excel serial date → 'YYYY-MM-DD' using pure UTC math. The serial
+      // integer part is a whole day count, so (serial - 25569) days after the Unix
+      // epoch lands exactly on UTC midnight of that calendar date — no timezone
+      // shift. 25569 = days between the Excel epoch (1899-12-30) and 1970-01-01.
+      const excelSerialToISODate = (serial: number): string => {
+        const utcMs = Math.round((Math.floor(serial) - 25569) * 86400 * 1000);
+        const d = new Date(utcMs);
+        const y  = d.getUTCFullYear();
+        const mo = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const da = String(d.getUTCDate()).padStart(2, '0');
+        return `${y}-${mo}-${da}`;
+      };
+
+      const parseExcelDateCell = (raw: unknown): string => {
+        const today = new Date().toISOString().split('T')[0];
+        if (raw == null || raw === '') return today;
+        // Real date cells arrive as Excel serial numbers (cellDates is off).
+        if (typeof raw === 'number') return excelSerialToISODate(raw);
+        const s = String(raw).trim();
+        const n = Number(s);
+        if (!isNaN(n) && n > 1000 && n < 100000) return excelSerialToISODate(n);
+        // Text dates: normalise dd[/ -.]mm[/ -.]yyyy → yyyy-mm-dd
+        const m = s.match(/^(\d{1,2})[\/\-.\s]+(\d{1,2})[\/\-.\s]+(\d{4})$/);
+        if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+        return s;
+      };
 
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
@@ -603,27 +633,7 @@ const ComplaintList: React.FC = () => {
           description:    (row['Deskripsi'] || row['description'] || '').toString().trim(),
           status:         finalStatus as ComplaintStatus,
           is_bulk:        true,
-          date_submitted: (() => {
-            const raw = row['Tanggal Masuk'] ?? row['date_submitted'];
-            if (!raw) return new Date().toISOString().split('T')[0];
-            // SheetJS (cellDates:true) builds the Date in LOCAL time, so read it
-            // back with local getters. Using toISOString() would convert to UTC
-            // and shift the date back one day in zones ahead of UTC (e.g. WIB).
-            if (raw instanceof Date) {
-              const y = raw.getFullYear();
-              const m = String(raw.getMonth() + 1).padStart(2, '0');
-              const d = String(raw.getDate()).padStart(2, '0');
-              return `${y}-${m}-${d}`;
-            }
-            const s = raw.toString().trim();
-            // Guard against Excel serial numbers that slipped through
-            const n = Number(s);
-            if (!isNaN(n) && n > 1000 && n < 100000) {
-              // Convert Excel serial to JS Date (Excel epoch is 1899-12-30)
-              return new Date(Math.round((n - 25569) * 86400 * 1000)).toISOString().split('T')[0];
-            }
-            return s;
-          })(),
+          date_submitted: parseExcelDateCell(row['Tanggal Masuk'] ?? row['date_submitted']),
           date_updated:   new Date().toISOString(),
           created_at:     new Date().toISOString()
         };
